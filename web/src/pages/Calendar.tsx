@@ -208,7 +208,7 @@ function Preview({ date, onClose }: { date: string; onClose: () => void }) {
       {loading && !data && <Loading />}
       {data && <>
         {data.entry ? <div className="pv-entry">
-          <div className="row" style={{ gap: 8 }}>{data.entry.mood > 0 && <span className="pv-mood" style={{ background: `color-mix(in srgb, ${MOOD_COLOR[data.entry.mood]} 25%, transparent)` }}>{MOOD_ICON[data.entry.mood]} {MOODS[data.entry.mood]}</span>}{data.entry.pinned && <span className="badge">★ kept</span>}</div>
+          <div className="row" style={{ gap: 8 }}>{data.entry.mood > 0 && <span className="pv-mood" style={{ background: `color-mix(in srgb, ${MOOD_COLOR[data.entry.mood]} 25%, transparent)` }}>{MOOD_ICON[data.entry.mood]} {MOODS[data.entry.mood]}</span>}{data.entry.pinned && <span className="badge">★ kept</span>}{data.entry.origin === 'habits' && <span className="badge" title="Taken from the Pocket Habits journal">✅ from Habits</span>}</div>
           {data.entry.highlight && <h3>{data.entry.highlight}</h3>}
           {data.entry.text && <p className="pv-text">{data.entry.text}</p>}
         </div> : <p className="muted">Nothing written for this day yet.</p>}

@@ -141,6 +141,7 @@ func (s *Server) janitor(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-first.C:
+			s.syncAllHabitsEntries(ctx)
 			tick()
 			go s.runBackfill(ctx, "", "", false)
 		case <-t.C:

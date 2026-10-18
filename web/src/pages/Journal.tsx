@@ -48,7 +48,7 @@ function EntryRow({ e, sums }: { e: Entry; sums?: Record<string, string> }) {
     <Link to={`/day/${e.date}`} className="jrow" style={{ color: 'inherit' }}>
       <div className="jdate"><div className="d">{e.date.slice(8)}</div><div className="m">{monthShort(e.date)} {e.date.slice(0, 4) !== String(new Date().getFullYear()) ? e.date.slice(0, 4) : ''}</div><div className="muted small">{weekday(e.date)}</div></div>
       <div className="jbody">
-        <div className="row" style={{ gap: 8 }}>{e.mood > 0 && <span title={MOODS[e.mood]}>{MOOD_ICON[e.mood]}</span>}<b className="grow">{e.highlight || (e.text ? firstLine(e.text) : <span className="muted">(no words)</span>)}</b>{e.pinned && <span title="Kept">★</span>}</div>
+        <div className="row" style={{ gap: 8 }}>{e.mood > 0 && <span title={MOODS[e.mood]}>{MOOD_ICON[e.mood]}</span>}<b className="grow">{e.highlight || (e.text ? firstLine(e.text) : <span className="muted">(no words)</span>)}</b>{e.origin === 'habits' && <span className="chip sm" title="Taken from the Pocket Habits journal">✅ Habits</span>}{e.pinned && <span title="Kept">★</span>}</div>
         {e.highlight && e.text && <div className="muted clamp2">{e.text}</div>}
         <div className="row wrap small muted" style={{ gap: 6, marginTop: 6 }}>
           {tagList(e.tags).map(t => <span key={t} className="chip sm">#{t}</span>)}

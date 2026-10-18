@@ -69,7 +69,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Maloja** | listens, top artists, full track list | URL |
 | **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | URL + API key |
 | **Firefly III** | withdrawals with categories, totals per currency | URL + personal access token |
-| **Pocket Habits** | habits done, tracker values, the journal line | URL + token |
+| **Pocket Habits** | habits done, tracker values, the journal line — and on a day with nothing written here, its journal *is* the entry | URL + token |
 | **Pocket Bookshelf** | books being read, started, finished | URL + token |
 | **Pocket Travel** | the trip the day fell in, and which day of it | URL + token |
 | **Pocket Kitchen** | what was cooked | URL + token |

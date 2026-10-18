@@ -17,7 +17,7 @@ export interface Ask { id: number; question: string; answer: string; dates: stri
 export interface Pattern { label: string; with: number; without: number; n_with: number; n_without: number }
 export interface UsageRow { feature: string; model: string; calls: number; prompt_tokens: number; completion_tokens: number }
 
-export interface Entry { id: number; user_id: number; date: string; highlight: string; text: string; mood: number; tags: string; pinned: boolean; created_at: string; updated_at: string; moments?: number; words?: number }
+export interface Entry { id: number; user_id: number; date: string; highlight: string; text: string; mood: number; tags: string; pinned: boolean; origin?: 'user' | 'habits'; created_at: string; updated_at: string; moments?: number; words?: number }
 export interface Moment { id: number; user_id: number; date: string; time: string; text: string; kind: string; created_at: string }
 export interface Pin { id: number; user_id: number; date: string; source: string; ref: string; title: string; subtitle: string; image: string; created_at: string }
 export interface Fact<T = unknown> { date: string; source: string; payload: T; headline: number; summary: string; error?: string; fetched_at: string }

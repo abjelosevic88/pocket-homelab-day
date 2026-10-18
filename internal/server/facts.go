@@ -130,6 +130,9 @@ func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only 
 		}(name, f)
 	}
 	wg.Wait()
+	if _, ok := fs["habits"]; ok {
+		s.syncHabitsEntry(ctx, date)
+	}
 	// Weather at the place the day actually happened, when Dawarich knows it.
 	if wf, ok := fs["weather"].(*sources.Weather); ok {
 		if lat, lon, place := s.dayLocation(ctx, date, st); lat != 0 || lon != 0 {

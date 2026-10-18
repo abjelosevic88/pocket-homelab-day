@@ -7,12 +7,12 @@ import (
 	"strings"
 )
 
-const entryCols = `id, user_id, date, highlight, text, mood, tags, pinned, created_at, updated_at`
+const entryCols = `id, user_id, date, highlight, text, mood, tags, pinned, origin, created_at, updated_at`
 
 func scanEntry(row interface{ Scan(...any) error }) (*Entry, error) {
 	var e Entry
 	var pinned int
-	if err := row.Scan(&e.ID, &e.UserID, &e.Date, &e.Highlight, &e.Text, &e.Mood, &e.Tags, &pinned, &e.CreatedAt, &e.UpdatedAt); err != nil {
+	if err := row.Scan(&e.ID, &e.UserID, &e.Date, &e.Highlight, &e.Text, &e.Mood, &e.Tags, &pinned, &e.Origin, &e.CreatedAt, &e.UpdatedAt); err != nil {
 		return nil, notFound(err)
 	}
 	e.Pinned = pinned == 1
@@ -37,9 +37,12 @@ func (s *Store) UpsertEntry(ctx context.Context, e *Entry) error {
 		return err
 	}
 	e.Tags = NormalizeTags(e.Tags)
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO entries (user_id, date, highlight, text, mood, tags, pinned, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, date) DO UPDATE SET highlight = excluded.highlight, text = excluded.text, mood = excluded.mood, tags = excluded.tags, pinned = excluded.pinned, updated_at = excluded.updated_at`,
-		e.UserID, e.Date, strings.TrimSpace(e.Highlight), strings.TrimRight(e.Text, " \n\t"), e.Mood, e.Tags, boolInt(e.Pinned), Now())
+	if e.Origin == "" {
+		e.Origin = "user"
+	}
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO entries (user_id, date, highlight, text, mood, tags, pinned, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, date) DO UPDATE SET highlight = excluded.highlight, text = excluded.text, mood = excluded.mood, tags = excluded.tags, pinned = excluded.pinned, origin = excluded.origin, updated_at = excluded.updated_at`,
+		e.UserID, e.Date, strings.TrimSpace(e.Highlight), strings.TrimRight(e.Text, " \n\t"), e.Mood, e.Tags, boolInt(e.Pinned), e.Origin, Now())
 	if err != nil {
 		return err
 	}
@@ -131,7 +134,7 @@ func (s *Store) ListEntries(ctx context.Context, f EntryFilter) ([]Entry, int, e
 	for rows.Next() {
 		var e Entry
 		var pinned int
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Date, &e.Highlight, &e.Text, &e.Mood, &e.Tags, &pinned, &e.CreatedAt, &e.UpdatedAt, &e.Moments); err != nil {
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Date, &e.Highlight, &e.Text, &e.Mood, &e.Tags, &pinned, &e.Origin, &e.CreatedAt, &e.UpdatedAt, &e.Moments); err != nil {
 			return nil, 0, err
 		}
 		e.Pinned = pinned == 1

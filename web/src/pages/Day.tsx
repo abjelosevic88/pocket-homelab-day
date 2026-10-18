@@ -171,6 +171,7 @@ function EntryEditor({ date, entry, prompt, isToday, onSaved, onDelete }: { date
     : <span className="muted" style={{ fontWeight: 500 }}>{prompt}</span>
   return (
     <Card className="mb entry-card" title={title} actions={<span className={`save-state ${state}`}>{state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'dirty' ? 'Unsaved' : ''}</span>}>
+      {entry?.origin === 'habits' && state === 'idle' && <div className="from-habits">✅ From your Pocket Habits journal — nothing was written here, so Day uses that. Edit it and it becomes yours.</div>}
       <input className="highlight-input" value={f.highlight} onChange={e => change({ highlight: e.target.value })} placeholder="The one line for this day" maxLength={200} />
       <textarea className="entry-text" value={f.text} onChange={e => change({ text: e.target.value })} placeholder="And the rest, if you like…" rows={Math.max(4, Math.min(24, f.text.split('\n').length + 1))} />
       {aiOn && <div className="ai-bar">

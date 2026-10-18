@@ -116,6 +116,8 @@ func (s *Server) handlePutEntry(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		cur = &store.Entry{UserID: u.ID, Date: date}
 	}
+	wasHabits := cur.Origin == "habits"
+	cur.Origin = "user" // any edit here makes the words yours
 	if keys["highlight"] {
 		cur.Highlight = strings.TrimSpace(in.Highlight)
 	}
@@ -140,6 +142,9 @@ func (s *Server) handlePutEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cur.ID == 0 {
+		if wasHabits { // cleared on purpose: do not bring the Habits text back
+			_ = s.store.CachePut(r.Context(), habitsSkipKey(u.ID, date), "1")
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"entry": nil, "date": date})
 		return
 	}
@@ -153,9 +158,15 @@ func (s *Server) handleDeleteEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := userFrom(r.Context())
+	prev, _ := s.store.GetEntry(r.Context(), u.ID, date)
 	if err := s.store.UpsertEntry(r.Context(), &store.Entry{UserID: u.ID, Date: date}); err != nil {
 		s.fail(w, err, "delete entry")
 		return
+	}
+	if prev != nil && prev.Origin == "habits" {
+		_ = s.store.CachePut(r.Context(), habitsSkipKey(u.ID, date), "1") // removed on purpose
+	} else {
+		s.syncHabitsEntry(r.Context(), date) // nothing written any more: the Habits text applies again
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -186,6 +197,9 @@ func (s *Server) handleQuickEntry(w http.ResponseWriter, r *http.Request) {
 	cur, err := s.store.GetEntry(r.Context(), u.ID, in.Date)
 	if err != nil {
 		cur = &store.Entry{UserID: u.ID, Date: in.Date}
+	}
+	if cur.Origin == "habits" { // appending to a Habits-made entry: start from its words, but they are yours now
+		cur.Origin = "user"
 	}
 	if h := strings.TrimSpace(in.Highlight); h != "" {
 		cur.Highlight = h

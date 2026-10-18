@@ -34,6 +34,7 @@ type Entry struct {
 	Mood      int    `json:"mood"`
 	Tags      string `json:"tags"`
 	Pinned    bool   `json:"pinned"`
+	Origin    string `json:"origin"` // user | habits
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 
