@@ -14,7 +14,7 @@
 
 ---
 
-A self-hosted server already records your life in pieces: Dawarich has the route, Immich the photos, Maloja the songs, Jellystat the episodes, Firefly III the receipts, the Pocket apps the habits, books, trips and dinners. Nobody puts them on one page. Pocket Day does, and gives you one line a day to say what it meant.
+A self-hosted server already records your life in pieces: Dawarich has the route, Immich the photos, Maloja the songs, PinePods and Audiobookshelf what you listened to, Jellystat the episodes, Forgejo the commits, Nextcloud the tasks, Paperless the letters, Firefly III the receipts, the Pocket apps the habits, books, trips and dinners. Nobody puts them on one page. Pocket Day does, and gives you one line a day to say what it meant.
 
 - **Today, filled in.** Every 30 minutes today and yesterday are pulled from every connected app. Open the page in the evening and the day is already there: kilometres and stops, a photo grid, the listening and watching, the check-in, the book you finished, what you cooked and spent, the weather where you were.
 - **One line, then more if you like.** A highlight, a free text, a mood from 😖 to 😄 and tags. Autosaves while you type.
@@ -31,11 +31,11 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/calendar.png" alt="Calendar coloured by each day's photo, with month tiles, the year strip and a preview of the selected day"></td>
-    <td width="50%"><img src="docs/screenshots/calendar-heatmap.png" alt="The same month as a distance heatmap with kilometres per day"></td>
+    <td width="50%"><img src="docs/screenshots/calendar-heatmap.png" alt="The same month as a podcast heatmap with listening time per day"></td>
   </tr>
   <tr>
     <td align="center"><sub>Calendar: every day behind its best photo, a preview without leaving the month.</sub></td>
-    <td align="center"><sub>…or coloured by mood, distance, music, watching or spending.</sub></td>
+    <td align="center"><sub>…or coloured by podcasts, audiobooks, commits, tasks, mood, distance, music, watching or spending.</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/year.png" alt="Year in review: tiles, the AI story of the year, a heatmap of every day and month bars"></td>

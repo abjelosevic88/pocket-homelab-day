@@ -102,6 +102,24 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		c := conds[rng.Intn(len(conds))]
 		w := sources.Day{Code: 1, Condition: c, TMax: f64(12 + rng.Float64()*14), TMin: f64(4 + rng.Float64()*8), PrecipMM: f64(float64(rng.Intn(6))), Place: "Lisbon"}
 		put("weather", w, *w.TMax, fmt.Sprintf("%s, %.0f–%.0f °C", sources.ConditionLabel(c), *w.TMin, *w.TMax))
+		for src, a := range demoActivities(rng, d, i) {
+			if a.Count == 0 {
+				continue
+			}
+			head := float64(a.Count)
+			switch sources.Activities[src].Unit {
+			case "min":
+				head = a.Minutes
+			case "qty":
+				head = a.Qty
+			}
+			m := sources.Activities[src]
+			sum := sources.ActivitySummary(a, m.One, m.Many)
+			if m.Unit == "qty" {
+				sum = fmt.Sprintf("%d commits in %s", int(a.Qty), sources.Plural(a.Count, "repository", "repositories"))
+			}
+			put(src, a, head, sum)
+		}
 		if rng.Intn(3) == 0 {
 			ck := sources.Cooked{Cooks: []sources.Cook{{Title: []string{"Shakshuka", "Pasta al limone", "Chicken curry", "Pancakes"}[rng.Intn(4)], Servings: 2, Rating: 4}}}
 			put("kitchen", ck, 1, "cooked "+ck.Cooks[0].Title)
@@ -153,4 +171,72 @@ var demoSongs = map[string][]string{
 	"Radiohead":        {"Weird Fishes", "Reckoner", "Daydreaming", "No Surprises"},
 	"Bonobo":           {"Kerala", "Cirrus", "Kiara", "First Fires"},
 	"Tycho":            {"Awake", "Dive", "A Walk", "Epoch"},
+}
+
+// demoActivities invents a plausible day for the activity sources.
+func demoActivities(rng *rand.Rand, date string, daysAgo int) map[string]sources.Activity {
+	out := map[string]sources.Activity{}
+	clock := func(h int) string { return fmt.Sprintf("%02d:%02d", h, rng.Intn(60)) }
+	// podcasts on most days
+	if rng.Intn(4) > 0 {
+		shows := []struct{ show, ep string }{{"Hard Fork", "The AI agents are coming for your calendar"}, {"99% Invisible", "The Smell of Concrete After Rain"}, {"Radiolab", "The Clock That Kept Lisbon"}, {"Decoder", "Why every app wants to be a super app"}, {"Song Exploder", "Khruangbin – Maria También"}}
+		a := sources.Activity{}
+		perm := rng.Perm(len(shows))
+		for k := 0; k < 1+rng.Intn(3); k++ {
+			x := shows[perm[k]] // a different episode each time
+			mins := float64(12 + rng.Intn(50))
+			a.Items = append(a.Items, sources.ActivityItem{Time: clock(7 + k*5), Title: x.ep, Sub: x.show, Minutes: mins, Done: rng.Intn(2) == 0, Ref: fmt.Sprintf("%s-%d", date, k)})
+		}
+		a.Finish()
+		out["pinepods"] = a
+	}
+	// an audiobook in the evening, now and then
+	if rng.Intn(3) == 0 {
+		a := sources.Activity{Items: []sources.ActivityItem{{Time: clock(21), Title: "Project Hail Mary", Sub: "Andy Weir", Minutes: float64(20 + rng.Intn(60)), Ref: "phm"}}}
+		a.Finish()
+		out["audiobookshelf"] = a
+	}
+	// commits on weekdays
+	if t, _ := store.ParseDate(date); t.Weekday() != 0 && t.Weekday() != 6 && rng.Intn(4) > 0 {
+		repos := []struct{ repo, msg string }{{"pocket-day", "Calendar: colour the days by podcasts"}, {"homelab", "Back up the new app"}, {"dotfiles", "Tidy the shell prompt"}, {"garden-planner", "Frost dates for Lisbon"}}
+		a := sources.Activity{}
+		perm := rng.Perm(len(repos))
+		for k := 0; k < 1+rng.Intn(3); k++ {
+			r := repos[perm[k]]
+			n := 1 + rng.Intn(9)
+			a.Items = append(a.Items, sources.ActivityItem{Time: clock(9 + k*3), End: clock(12 + k*3), Title: r.repo, Sub: sources.Plural(n, "commit", "commits") + " · " + r.msg, Group: r.repo, Qty: float64(n), Ref: r.repo + fmt.Sprint(k)})
+		}
+		a.Finish()
+		out["forgejo"] = a
+	}
+	// tasks done
+	if rng.Intn(3) > 0 {
+		tasks := []struct{ t, list string }{{"Buy milk and eggs", "Shopping"}, {"Call the dentist", "Personal"}, {"Renew the car insurance", "Personal"}, {"Water the balcony plants", "Home"}, {"Pick up the parcel", "Personal"}, {"Book the train to Porto", "Travel"}}
+		a := sources.Activity{}
+		tperm := rng.Perm(len(tasks))
+		for k := 0; k < 1+rng.Intn(3); k++ {
+			x := tasks[tperm[k]]
+			a.Items = append(a.Items, sources.ActivityItem{Time: clock(10 + k*3), Title: x.t, Sub: x.list, Done: true})
+		}
+		a.Finish()
+		out["nextcloud"] = a
+	}
+	// requests, a few times a week
+	if rng.Intn(3) == 0 {
+		titles := []string{"Severance", "Dune: Part Two", "The Bear", "Arrival", "Slow Horses", "Past Lives"}
+		x := titles[rng.Intn(len(titles))]
+		a := sources.Activity{Items: []sources.ActivityItem{{Time: clock(19), Title: x, Sub: "requested film", Group: "film"}}}
+		if rng.Intn(2) == 0 {
+			a.Items = append(a.Items, sources.ActivityItem{Time: clock(22), Title: x, Sub: "now available", Group: "film", Done: true})
+		}
+		a.Finish()
+		out["jellyseerr"] = a
+	}
+	// a document once a week
+	if daysAgo%7 == 3 {
+		a := sources.Activity{Items: []sources.ActivityItem{{Time: clock(18), Title: "Electricity bill", Sub: "EDP · Invoice", Group: "Invoice"}}}
+		a.Finish()
+		out["paperless"] = a
+	}
+	return out
 }
