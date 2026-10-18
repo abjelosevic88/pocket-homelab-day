@@ -36,12 +36,15 @@ type activityYear struct {
 	Minutes float64         `json:"minutes"`
 	Done    int             `json:"done"`
 	Amount  float64         `json:"amount"`
+	Cur     string          `json:"currency"`
+	Qty     float64         `json:"qty"`
 	Days    int             `json:"days"`
 	Top     []sources.Count `json:"top"`
 	Titles  []sources.Count `json:"titles"` // most repeated item titles
 	Months  [12]float64     `json:"months"` // headline per month
 	groups  map[string]int
 	titles  map[string]int
+	amounts map[string]float64
 }
 
 type catSpend struct {
@@ -231,13 +234,18 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 			if json.Unmarshal(f.Payload, &a) == nil && a.Count > 0 {
 				ay := rec.Activity[f.Source]
 				if ay == nil {
-					ay = &activityYear{groups: map[string]int{}, titles: map[string]int{}}
+					ay = &activityYear{groups: map[string]int{}, titles: map[string]int{}, amounts: map[string]float64{}}
 					rec.Activity[f.Source] = ay
 				}
 				ay.Count += a.Count
 				ay.Minutes += a.Minutes
 				ay.Done += a.Done
-				ay.Amount += a.Amount
+				ay.Qty += a.Qty
+				for _, it := range a.Items {
+					if it.Amount != 0 {
+						ay.amounts[it.Currency] += it.Amount
+					}
+				}
 				ay.Days++
 				ay.Months[mi] += f.Headline
 				for _, it := range a.Items {
@@ -407,6 +415,11 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 	rec.Tracks = sources.TopCounts(tracks, 10)
 	rec.Shows = sources.TopCounts(shows, 8)
 	for _, ay := range rec.Activity {
+		for cur, v := range ay.amounts {
+			if ay.Cur == "" || v > ay.Amount {
+				ay.Cur, ay.Amount = cur, v
+			}
+		}
 		ay.Top = sources.TopCounts(ay.groups, 8)
 		ay.Titles = sources.TopCounts(ay.titles, 5)
 		ay.Minutes = round1(ay.Minutes)

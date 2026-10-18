@@ -53,13 +53,13 @@ func (a *Activity) Finish() {
 		return ti < tj
 	})
 	groups := map[string]int{}
-	a.Count, a.Minutes, a.Done, a.Amount, a.Qty = len(a.Items), 0, 0, 0, 0
+	amounts := map[string]float64{} // money is summed per currency; the largest one is the headline
+	a.Count, a.Minutes, a.Done, a.Amount, a.Qty, a.Cur = len(a.Items), 0, 0, 0, 0, ""
 	for _, it := range a.Items {
 		a.Minutes += it.Minutes
-		a.Amount += it.Amount
 		a.Qty += it.Qty
-		if a.Cur == "" && it.Currency != "" {
-			a.Cur = it.Currency
+		if it.Amount != 0 {
+			amounts[it.Currency] += it.Amount
 		}
 		if it.Done {
 			a.Done++
@@ -70,6 +70,11 @@ func (a *Activity) Finish() {
 		}
 		if g != "" {
 			groups[g]++
+		}
+	}
+	for cur, v := range amounts {
+		if a.Cur == "" || v > a.Amount {
+			a.Cur, a.Amount = cur, v
 		}
 	}
 	a.Minutes = Round1(a.Minutes)

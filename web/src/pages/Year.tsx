@@ -80,7 +80,7 @@ export default function Year() {
           {spendMain > 0 && <div className="tile" title={[money(spendMain, cur, false), ...others.map(([c, v]) => money(v, c, false))].join(' + ')}><span className="ti">💸</span><div><b>{money(spendMain, cur)}</b><small>spent{others.length ? ` (+ ${others.map(([c, v]) => money(v, c)).join(', ')})` : ''}</small></div></div>}
           {Object.entries(d.activity || {}).filter(([src]) => isActivity(src)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
             const m = ACTIVITY[src]
-            const big = m.unit === 'min' ? `${Math.round(ay.minutes / 60)} h` : m.unit === 'qty' ? compact(ay.months.reduce((x, y) => x + y, 0)) : m.unit === 'amount' ? money(ay.amount, cur) : compact(ay.count)
+            const big = m.unit === 'min' ? `${Math.round(ay.minutes / 60)} h` : m.unit === 'qty' ? compact(ay.qty) : m.unit === 'amount' ? money(ay.amount, ay.currency || cur) : compact(ay.count)
             const small = m.unit === 'min' ? `${SOURCE_LABEL[src].toLowerCase()} · ${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}` : m.unit === 'qty' ? `${m.qtyMany} · ${ay.days} days` : m.unit === 'amount' ? `${SOURCE_LABEL[src].toLowerCase()}` : `${ay.count === 1 ? m.one : m.many}${src === 'nextcloud' ? ' done' : ''}`
             return <div key={src} className="tile"><span className="ti">{SOURCE_ICON[src]}</span><div><b>{big}</b><small>{small}</small></div></div>
           })}
@@ -125,9 +125,9 @@ export default function Year() {
           {d.dishes.length > 0 && <Card title="🍳 Cooked most"><Ranked items={d.dishes} unitLabel="×" /></Card>}
           {Object.entries(d.activity || {}).filter(([src, ay]) => isActivity(src) && (ay.top?.length || ay.titles?.length)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
             const m = ACTIVITY[src]
-            const repeated = (ay.titles || []).filter(t => t.count > 1)
+            const repeated = ['pinepods', 'audiobookshelf', 'nextcloud'].includes(src) ? (ay.titles || []).filter(t => t.count > 1) : []
             return <Card key={src} title={`${SOURCE_ICON[src]} ${SOURCE_LABEL[src]}`}>
-              <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
+              <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', m.unit === 'qty' ? `${compact(ay.qty)} ${m.qtyMany}` : m.unit === 'amount' ? money(ay.amount, ay.currency || cur, false) : '', m.unit === 'qty' ? '' : `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
               {ay.top?.length > 0 && <Ranked items={ay.top.slice(0, 6)} />}
               {repeated.length > 0 && <><div className="sub-head">Most often</div><Ranked items={repeated.slice(0, 4)} unitLabel="×" /></>}
             </Card>

@@ -83,3 +83,11 @@ func TestHoursMinutes(t *testing.T) {
 		t.Fatal(HoursMinutes(45), HoursMinutes(125))
 	}
 }
+
+func TestActivityMoneyPerCurrency(t *testing.T) {
+	a := Activity{Items: []ActivityItem{{Title: "a", Amount: 9200, Currency: "EUR"}, {Title: "b", Amount: 400, Currency: "USD"}, {Title: "c", Amount: 8400, Currency: "EUR"}}}
+	a.Finish()
+	if a.Cur != "EUR" || a.Amount != 17600 {
+		t.Fatalf("got %s %.2f, want EUR 17600", a.Cur, a.Amount)
+	}
+}

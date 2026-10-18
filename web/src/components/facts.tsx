@@ -269,7 +269,7 @@ function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity
       return <div key={(it.ref || it.title) + i} className="li act-li">
         <span className="muted mono small act-t">{it.time || ''}</span>
         {it.image ? <img className="act-img" src={it.image} alt="" loading="lazy" /> : null}
-        <span className="grow act-body"><b>{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{it.title || '(untitled)'}</a> : (it.title || '(untitled)')}</b>{it.done && <span className="act-done" title={m.doneLabel || 'done'}>✓</span>}{it.sub && <span className="act-sub">{it.sub}</span>}</span>
+        <span className="grow act-body"><b>{it.done && <span className="act-done" title={m.doneLabel || 'done'}>✓ </span>}{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{it.title || '(untitled)'}</a> : (it.title || '(untitled)')}</b>{it.sub && <span className="act-sub">{it.sub}</span>}</span>
         {(it.minutes || 0) >= 1 ? <span className="muted small nowrap">{fmtMinutes(Math.round(it.minutes || 0))}</span> : it.amount ? <span className="money">{fmtAmount(it.amount, it.currency || cur)}</span> : (it.qty || 0) > 0 ? <span className="muted small nowrap">{it.qty} {it.qty === 1 ? m.qtyOne : m.qtyMany}</span> : null}
         <PinBtn ref_={`${source}:${it.ref || it.title}`} title={it.title} subtitle={it.sub} image={it.image} />
       </div>
