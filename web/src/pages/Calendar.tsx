@@ -140,7 +140,7 @@ function useWide() {
   return w
 }
 
-function Ring({ value }: { value: number }) {
+export function Ring({ value }: { value: number }) {
   const r = 16, c = 2 * Math.PI * r
   return <svg className="ring" viewBox="0 0 40 40" width="40" height="40" aria-hidden><circle cx="20" cy="20" r={r} className="ring-bg" /><circle cx="20" cy="20" r={r} className="ring-fg" strokeDasharray={`${c * value} ${c}`} transform="rotate(-90 20 20)" /></svg>
 }

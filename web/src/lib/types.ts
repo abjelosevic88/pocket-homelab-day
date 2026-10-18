@@ -58,7 +58,7 @@ export interface WeatherDay { code: number; condition: string; t_max: number | n
 export interface MonthRecap { month: string; entries: number; moments: number; mood: number; photos: number; km: number; listens: number; watch_min: number; spend: Record<string, number>; books: number; cooked: number; habits_pct: number; days: number; sunny_pct: number }
 export interface YearRecap {
   year: number; months: MonthRecap[]; entries: number; moments: number; words: number; mood: number; moods: number[]; photos: number; videos: number; km: number; modes: Record<string, number>
-  listens: number; artists: Count[]; tracks: Count[]; watch_min: number; shows: Count[]; movies: number; spend: Record<string, number>; categories: Count[]; books: Book[]; cooked: number; dishes: Count[]
+  listens: number; artists: Count[]; tracks: Count[]; watch_min: number; shows: Count[]; movies: number; spend: Record<string, number>; categories: Count[]; category_spend: { name: string; amount: number; count: number }[]; spend_currency: string; books: Book[]; cooked: number; dishes: Count[]
   places: Count[]; visits: Count[]; trips: Trip[]; conditions: Count[]; tags: { tag: string; count: number }[]; pinned: Entry[]; best: Entry[]; longest_streak: number; days_with_facts: number; busiest_day: string; farthest_day: string; weekday_mood: number[]
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/abjelosevic88/pocket-homelab-day/internal/sources"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
@@ -30,6 +31,12 @@ type monthRecap struct {
 	SunnyPct float64            `json:"sunny_pct"`
 }
 
+type catSpend struct {
+	Name   string  `json:"name"`
+	Amount float64 `json:"amount"`
+	Count  int     `json:"count"`
+}
+
 type yearRecap struct {
 	Year        int                `json:"year"`
 	Months      []monthRecap       `json:"months"`
@@ -50,6 +57,8 @@ type yearRecap struct {
 	Movies      int                `json:"movies"`
 	Spend       map[string]float64 `json:"spend"`
 	Categories  []sources.Count    `json:"categories"`
+	CatSpend    []catSpend         `json:"category_spend"` // in SpendCur, largest first
+	SpendCur    string             `json:"spend_currency"`
 	Books       []sources.Book     `json:"books"`
 	Cooked      int                `json:"cooked"`
 	Dishes      []sources.Count    `json:"dishes"`
@@ -190,6 +199,7 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 	}
 	artists, tracks, shows, cats, dishes, places, visits, conds := map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}
 	daysWithFacts := map[string]bool{}
+	catAmt := map[string]map[string]*catSpend{} // currency → category
 	habitSum := make([]float64, 12)
 	habitN := make([]int, 12)
 	sunny := make([]int, 12)
@@ -225,7 +235,7 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 					rec.Modes[k] += v
 				}
 				for _, e := range wh.Entries {
-					if e.Kind == "visit" && e.Name != "" {
+					if e.Kind == "visit" && e.Name != "" && !strings.HasPrefix(strings.ToLower(e.Name), "unknown") {
 						visits[e.Name]++
 					}
 				}
@@ -265,6 +275,22 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 				}
 				for _, c := range mo.Categories {
 					cats[c.Name] += c.Count
+				}
+				for _, it := range mo.Items {
+					name := it.Category
+					if name == "" {
+						name = "uncategorised"
+					}
+					if catAmt[it.Currency] == nil {
+						catAmt[it.Currency] = map[string]*catSpend{}
+					}
+					cs := catAmt[it.Currency][name]
+					if cs == nil {
+						cs = &catSpend{Name: name}
+						catAmt[it.Currency][name] = cs
+					}
+					cs.Amount += it.Amount
+					cs.Count++
 				}
 			}
 		case "bookshelf":
@@ -338,6 +364,20 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 	rec.Tracks = sources.TopCounts(tracks, 10)
 	rec.Shows = sources.TopCounts(shows, 8)
 	rec.Categories = sources.TopCounts(cats, 8)
+	for cur, v := range rec.Spend {
+		if rec.SpendCur == "" || v > rec.Spend[rec.SpendCur] {
+			rec.SpendCur = cur
+		}
+	}
+	rec.CatSpend = []catSpend{}
+	for _, cs := range catAmt[rec.SpendCur] {
+		cs.Amount = sources.Round2(cs.Amount)
+		rec.CatSpend = append(rec.CatSpend, *cs)
+	}
+	sort.Slice(rec.CatSpend, func(i, j int) bool { return rec.CatSpend[i].Amount > rec.CatSpend[j].Amount })
+	if len(rec.CatSpend) > 10 {
+		rec.CatSpend = rec.CatSpend[:10]
+	}
 	rec.Dishes = sources.TopCounts(dishes, 8)
 	rec.Places = sources.TopCounts(places, 10)
 	rec.Visits = sources.TopCounts(visits, 10)
