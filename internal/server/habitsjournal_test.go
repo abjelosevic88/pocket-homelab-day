@@ -75,7 +75,15 @@ func TestHabitsJournalFillsEmptyDays(t *testing.T) {
 		t.Fatalf("came back: %v", err)
 	}
 
-	// 6. an empty check-in creates nothing
+	// 6. a mood without words still gets the Habits words, and keeps the mood
+	_ = st.UpsertEntry(ctx, &store.Entry{UserID: u.ID, Date: "2026-10-18", Mood: 4})
+	putHabits("2026-10-18", sources.Checkin{Journal: "Kafa sa Valdom"})
+	s.syncHabitsEntry(ctx, "2026-10-18")
+	if e, _ := st.GetEntry(ctx, u.ID, "2026-10-18"); e.Highlight != "Kafa sa Valdom" || e.Mood != 4 || e.Origin != "habits" {
+		t.Fatalf("mood-only day: %+v", e)
+	}
+
+	// 7. an empty check-in creates nothing
 	putHabits("2026-10-17", sources.Checkin{Done: 2, Total: 5})
 	s.syncHabitsEntry(ctx, "2026-10-17")
 	if _, err := st.GetEntry(ctx, u.ID, "2026-10-17"); err != store.ErrNotFound {

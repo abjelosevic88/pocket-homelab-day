@@ -43,7 +43,7 @@ Inside Docker, reach sibling containers by service name or `http://host.docker.i
 - Days before yesterday are **frozen**: once a source has answered for a day it is not asked again. “↻ Pull again” on a day, or a forced backfill, re-fetches.
 - A failed fetch keeps the earlier payload and marks the card *stale*.
 - The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS`, one day every 1.5 s, skipping days that already have every source.
-- **Habits journal as the entry:** on a day with nothing written in Pocket Day, the Pocket Habits journal becomes the entry of the first admin — the “good thing” line as the highlight, the important note and the “bad thing” line as the text. It follows Habits until you edit it here (then it is yours) and stays gone if you remove it. It counts as written: streaks, the calendar, memories, the AI and the evening push see it.
+- **Habits journal as the entry:** on a day with no words written in Pocket Day (a mood or tags alone do not count), the Pocket Habits journal becomes the entry of the first admin — the “good thing” line as the highlight, the important note and the “bad thing” line as the text. It follows Habits until you edit it here (then it is yours) and stays gone if you remove it. It counts as written: streaks, the calendar, memories, the AI and the evening push see it.
 - Weather: the home location, unless the day's Dawarich bounds are more than ~40 km away — then the centre of that day's movement.
 
 ## AI
