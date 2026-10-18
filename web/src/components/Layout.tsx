@@ -28,7 +28,7 @@ export default function Layout() {
   return (
     <div className="app">
       <aside className={`sidebar ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
-        <div className="brand"><span className="logo"><Logo /></span><span className="brand-name">{title}</span></div>
+        <div className="brand"><span className="logo"><img src="/favicon.svg" alt="" /></span><span className="brand-name">{title}</span></div>
         <nav>
           {nav.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => isActive ? 'active' : ''}><span className="ico">{n.ico}</span>{n.label}</NavLink>)}
           <a onClick={e => { e.preventDefault(); setSearch(true) }} href="#search"><span className="ico">⌕</span>Search <kbd className="kbd">⌘K</kbd></a>

@@ -523,3 +523,26 @@ html, body { overflow-x: hidden; }
 .search-results { max-height: 50vh; overflow: auto; }
 .search-row { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; color: var(--text); padding: 10px 14px; font: inherit; cursor: pointer; text-align: left; }
 .search-row.active, .search-row:hover { background: var(--surface-2); }
+
+/* ---- the app icon is the brand mark ---- */
+.logo { background: transparent !important; overflow: visible; }
+.logo > img { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.2)); }
+.sidebar .brand .logo { width: 32px; height: 32px; }
+/* ---- AI ---- */
+.btn.rec { background: var(--danger); color: #fff; border-color: var(--danger); animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .75; } }
+.ai-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.ai-panel { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+[data-theme="dark"] .ai-panel { background: rgba(129,140,248,.12); }
+.ai-panel .t { white-space: pre-wrap; font-size: 14px; line-height: 1.55; }
+.ai-q { display: flex; align-items: center; gap: 6px; color: var(--accent-hover); font-weight: 600; }
+.story-card .story-text p { font-size: 15px; line-height: 1.65; margin: 0 0 10px; }
+.date-link { white-space: nowrap; background: var(--accent-soft); padding: 0 5px; border-radius: 4px; font-size: .92em; }
+.ask-form { display: flex; gap: 8px; }
+.ask-form input { flex: 1; font-size: 16px; padding: 12px 14px; }
+.ask-item { border-bottom: 1px solid var(--border); padding: 14px 0; } .ask-item:last-child { border-bottom: 0; }
+.ask-item .q { font-weight: 650; margin-bottom: 6px; }
+.ask-item .a p { margin: 0 0 6px; line-height: 1.6; }
+.pattern { display: grid; grid-template-columns: minmax(0,1fr) 120px; gap: 10px; align-items: center; font-size: 13px; padding: 4px 0; }
+.pattern .cmp { display: flex; gap: 6px; justify-content: flex-end; font-variant-numeric: tabular-nums; }
+.pattern .up { color: var(--green-ink); } .pattern .down { color: var(--red-ink); }
