@@ -170,3 +170,25 @@ export function WeatherChip({ fact }: { fact?: Fact }) {
   const w = fact.payload as WeatherDay
   return <span className="status-pill" title={w.place}>{WEATHER_ICON[w.condition] || '🌡'} {w.t_min !== null && w.t_max !== null ? `${Math.round(w.t_min)}–${Math.round(w.t_max)} °C` : cap(w.condition)}</span>
 }
+
+/** Whether a source recorded anything worth a card on this day. */
+export function factHasContent(source: string, fact?: Fact): boolean {
+  if (!fact) return false
+  const v = fact.payload as Record<string, unknown> | null
+  if (!v) return !!fact.error
+  const n = (k: string) => Number((v as Record<string, unknown>)[k] || 0)
+  const len = (k: string) => ((v as Record<string, unknown[]>)[k] || []).length
+  switch (source) {
+    case 'dawarich': return n('distance_km') > 0 || len('entries') > 0
+    case 'immich': return n('count') > 0
+    case 'maloja': return n('listens') > 0
+    case 'jellystat': return n('count') > 0
+    case 'firefly': return n('count') > 0
+    case 'habits': return n('total') > 0 || !!(v as { journal?: string }).journal || len('trackers') > 0
+    case 'bookshelf': return len('reading') + len('started') + len('finished') > 0
+    case 'travel': return len('trips') > 0
+    case 'kitchen': return len('cooks') > 0
+    case 'garage': return len('items') > 0
+  }
+  return true
+}

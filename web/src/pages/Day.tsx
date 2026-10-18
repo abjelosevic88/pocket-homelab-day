@@ -3,12 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { addDays, fmtDate, todayISO, weekday } from '../lib/format'
-import { KIND_ICON, MOODS, MOOD_ICON, SOURCE_ICON, tagList, type DayPage, type Entry, type Moment, type Pin, type SourceName } from '../lib/types'
+import { MOODS, MOOD_ICON, SOURCE_ICON, SOURCE_LABEL, fmtAmount, fmtKm, fmtMinutes, tagList, type Checkin, type DayPage, type Entry, type Money, type Music, type Photos, type Pin, type SourceName, type Watched, type Where } from '../lib/types'
 import { Card, Confirm, Loading, Segmented, useAsync, useToast } from '../components/ui'
-import { FactCard, WeatherChip, type PinFn } from '../components/facts'
+import { FactCard, WeatherChip, factHasContent, type PinFn } from '../components/facts'
+import { Timeline } from '../components/Timeline'
 import { DictateButton, useAI } from '../components/ai'
 
-const ORDER: SourceName[] = ['travel', 'dawarich', 'immich', 'maloja', 'jellystat', 'habits', 'bookshelf', 'kitchen', 'firefly', 'garage']
+const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'jellystat', 'habits', 'firefly', 'bookshelf', 'kitchen', 'garage']
 
 export default function Day() {
   const params = useParams()
@@ -64,7 +65,8 @@ export default function Day() {
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const unit = settings?.distance_unit || 'km'
   const have = new Set([...data.sources, ...Object.keys(data.facts)])
-  const cards = ORDER.filter(s => have.has(s) && s !== 'weather')
+  const cards = ORDER.filter(s => have.has(s) && factHasContent(s, data.facts[s]))
+  const quiet = ORDER.filter(s => data.sources.includes(s) && !cards.includes(s))
   const trip = data.facts.travel?.payload as { trips?: { name: string; day_no: number; days: number }[] } | undefined
   return (
     <>
@@ -89,11 +91,13 @@ export default function Day() {
         </div>
       </div>
 
+      {!data.future && <Glance facts={data.facts} unit={unit} />}
+
       {data.future ? <Card><p className="muted">That day has not happened yet.</p></Card> : (
         <div className="day-grid">
           <div className="day-main">
             <EntryEditor date={date} entry={data.entry} isToday={isToday} prompt={isToday ? data.prompt : 'What happened on this day?'} onSaved={e => setData(d => d ? { ...d, entry: e } : d)} onDelete={() => setConfirmDel(true)} />
-            <Moments date={date} moments={data.moments} isToday={isToday} onChange={ms => setData(d => d ? { ...d, moments: ms } : d)} />
+            <Timeline date={date} facts={data.facts} moments={data.moments} isToday={isToday} unit={unit} onMoments={ms => setData(d => d ? { ...d, moments: ms } : d)} />
             {data.pins.length > 0 && <Card title="Kept from this day" className="mb">
               <div className="pins">{data.pins.map(p => <div key={p.id} className="pin">{p.image ? <img src={p.image} alt="" /> : <span className="pin-ico">{SOURCE_ICON[p.source] || '★'}</span>}<div className="grow"><b>{p.title}</b>{p.subtitle && <div className="muted small">{p.subtitle}</div>}</div><button className="btn ghost sm" onClick={() => onUnpin(p.id)} title="Unpin">✕</button></div>)}</div>
             </Card>}
@@ -106,8 +110,9 @@ export default function Day() {
             </div>
           </div>
           <div className="day-side">
-            {cards.length === 0 && <Card title="Nothing connected yet"><p className="muted">Connect Dawarich, Immich, Maloja, Jellystat, Firefly III and the other Pocket apps under <Link to="/settings?tab=sources">Settings → Sources</Link>, and every day fills itself in.</p></Card>}
-            {cards.map(s => <FactCard key={s} source={s} fact={data.facts[s]} link={data.links[s]} unit={unit} pins={data.pins} onPin={onPin} onUnpin={onUnpin} date={date} />)}
+            {data.sources.length === 0 && cards.length === 0 && <Card title="Nothing connected yet"><p className="muted">Connect Dawarich, Immich, Maloja, Jellystat, Firefly III and the other Pocket apps under <Link to="/settings?tab=sources">Settings → Sources</Link>, and every day fills itself in.</p></Card>}
+            {cards.map(s => <div key={s} id={`src-${s}`}><FactCard source={s} fact={data.facts[s]} link={data.links[s]} unit={unit} pins={data.pins} onPin={onPin} onUnpin={onUnpin} date={date} /></div>)}
+            {quiet.length > 0 && <p className="quiet-sources">Nothing from {quiet.map(q => SOURCE_LABEL[q].toLowerCase()).join(', ')}{data.facts[quiet[0]]?.error ? '' : ' on this day'}.</p>}
           </div>
         </div>
       )}
@@ -197,45 +202,17 @@ function EntryEditor({ date, entry, prompt, isToday, onSaved, onDelete }: { date
   )
 }
 
-/** Timestamped lines through the day. */
-function Moments({ date, moments, isToday, onChange }: { date: string; moments: Moment[]; isToday: boolean; onChange: (m: Moment[]) => void }) {
-  const { toast } = useToast()
-  const aiOn = useAI()
-  const [text, setText] = useState('')
-  const [kind, setKind] = useState('note')
-  const [time, setTime] = useState('')
-  const add = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!text.trim()) return
-    try {
-      const body: Partial<Moment> = { date, text, kind }
-      if (time) body.time = time
-      else if (!isToday) body.time = ''
-      const m = await api.post<Moment>(`${V1}/moments`, body)
-      onChange([...moments, m].sort((a, b) => (a.time || '99').localeCompare(b.time || '99') || a.id - b.id))
-      setText(''); setTime('')
-    } catch (e) { toast((e as Error).message, 'err') }
-  }
-  const del = async (id: number) => { try { await api.del(`${V1}/moments/${id}`); onChange(moments.filter(m => m.id !== id)) } catch (e) { toast((e as Error).message, 'err') } }
-  const edit = async (m: Moment, text: string) => {
-    if (!text.trim() || text === m.text) return
-    try { const r = await api.put<Moment>(`${V1}/moments/${m.id}`, { text }); onChange(moments.map(x => x.id === m.id ? r : x)) } catch (e) { toast((e as Error).message, 'err') }
-  }
-  return (
-    <Card title="Moments" className="mb" actions={<span className="muted small">{moments.length ? `${moments.length}` : ''}</span>}>
-      {moments.length > 0 && <div className="moments">{moments.map(m => <div key={m.id} className="moment">
-        <span className="muted mono small">{m.time || '—'}</span>
-        <span className="kind" title={m.kind}>{KIND_ICON[m.kind] || '•'}</span>
-        <span className="grow" contentEditable suppressContentEditableWarning onBlur={e => edit(m, e.currentTarget.textContent || '')} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() } }}>{m.text}</span>
-        <button className="btn ghost sm" onClick={() => del(m.id)} title="Delete">✕</button>
-      </div>)}</div>}
-      <form onSubmit={add} className="moment-add">
-        <Segmented size="sm" value={kind} onChange={setKind} options={Object.entries(KIND_ICON).map(([k, ico]) => ({ value: k, label: ico, title: k }))} />
-        <input value={text} onChange={e => setText(e.target.value)} placeholder={isToday ? 'What just happened?' : 'Something from that day…'} />
-        <input type="time" value={time} onChange={e => setTime(e.target.value)} title="Time (optional)" className="time-input" />
-        {aiOn && <DictateButton small onText={t => setText(x => (x ? x + ' ' : '') + t)} />}
-        <button className="btn primary sm" disabled={!text.trim()}>Add</button>
-      </form>
-    </Card>
-  )
+/** The day in one row of numbers; each pill jumps to its card. */
+function Glance({ facts, unit }: { facts: DayPage['facts']; unit: 'km' | 'mi' }) {
+  const p = <T,>(src: string) => (facts[src]?.payload ?? null) as T | null
+  const pills: { src: string; icon: string; value: string; label: string }[] = []
+  const w = p<Where>('dawarich'); if (w?.distance_km) pills.push({ src: 'dawarich', icon: '🗺', value: fmtKm(w.distance_km, unit), label: w.moving_minutes ? `${fmtMinutes(w.moving_minutes)} moving` : 'moved' })
+  const ph = p<Photos>('immich'); if (ph?.count) pills.push({ src: 'immich', icon: '📷', value: String(ph.count), label: ph.count === 1 ? 'photo' : 'photos' })
+  const m = p<Music>('maloja'); if (m?.listens) pills.push({ src: 'maloja', icon: '🎧', value: String(m.listens), label: m.listens === 1 ? 'song' : 'songs' })
+  const wt = p<Watched>('jellystat'); if (wt?.minutes) pills.push({ src: 'jellystat', icon: '📺', value: fmtMinutes(wt.minutes), label: 'watched' })
+  const mo = p<Money>('firefly'); if (mo?.count) pills.push({ src: 'firefly', icon: '💸', value: fmtAmount(mo.totals[mo.main_currency] || 0, mo.main_currency), label: `${mo.count} payment${mo.count === 1 ? '' : 's'}` })
+  const h = p<Checkin>('habits'); if (h?.total) pills.push({ src: 'habits', icon: '✅', value: `${h.done}/${h.total}`, label: 'habits' })
+  if (pills.length === 0) return null
+  const jump = (src: string) => document.getElementById(`src-${src}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  return <div className="glance">{pills.map(x => <button key={x.src} className="glance-pill" onClick={() => jump(x.src)} title={SOURCE_LABEL[x.src]}><span className="gi">{x.icon}</span><span><b>{x.value}</b><span className="gl">{x.label}</span></span></button>)}</div>
 }
