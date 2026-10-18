@@ -55,6 +55,14 @@ Inside Docker, reach sibling containers by service name or `http://host.docker.i
 
 Dictation model, the writing language, tonight's question, the Sunday week story and whether your own words are sent are set in the UI.
 
+## Instant money updates
+
+| Variable | Default | Notes |
+|---|---|---|
+| `MONEY_WEBHOOK_SECRET` | | enables `POST /api/v1/hooks/money` |
+
+In Pocket Money → Settings → Webhooks, add a webhook to `https://<day>/api/v1/hooks/money` for the three transaction events (either format) and put its signing secret here. The request is checked against `X-Pocket-Signature`. A transaction added, changed or deleted then re-pulls the money facts for its day within a few seconds; a burst of changes, like a bulk edit, becomes one pull per day. Without the secret the endpoint answers 404, and the 30-minute refresh carries on as before.
+
 ## Notifications
 
 `NOTIFY_URL` + `NOTIFY_FORMAT` (`apprise` | `ntfy` | `json`). Evening push at the evening hour (default 21:00) unless every user already wrote — with tonight's AI question when AI is on; on Sundays with AI on, the week's story at the same hour; morning push (default 09:00) with yesterday's line and “on this day”.

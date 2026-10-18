@@ -49,6 +49,9 @@ type Config struct {
 	OpenAIModel   string
 	OpenAIBaseURL string
 
+	// MoneyWebhookSecret enables POST /api/v1/hooks/money (Pocket Money's signing secret).
+	MoneyWebhookSecret string
+
 	// Outbound lookups identify as this.
 	UserAgent string
 
@@ -144,9 +147,10 @@ func Load() (*Config, error) {
 		NotifyFormat: strings.ToLower(env("NOTIFY_FORMAT", "")),
 		Sources:      map[string]SourceEnv{},
 
-		OpenAIKey:     env("OPENAI_API_KEY", ""),
-		OpenAIModel:   env("OPENAI_MODEL", ""),
-		OpenAIBaseURL: strings.TrimRight(env("OPENAI_BASE_URL", ""), "/"),
+		OpenAIKey:          env("OPENAI_API_KEY", ""),
+		OpenAIModel:        env("OPENAI_MODEL", ""),
+		OpenAIBaseURL:      strings.TrimRight(env("OPENAI_BASE_URL", ""), "/"),
+		MoneyWebhookSecret: env("MONEY_WEBHOOK_SECRET", ""),
 
 		UserAgent: env("USER_AGENT", "PocketDay/1.0 (+https://github.com/abjelosevic88/pocket-homelab-day)"),
 

@@ -39,6 +39,8 @@ type Server struct {
 
 	pullMu   sync.Mutex // one pull at a time per date set
 	pulling  map[string]bool
+	hookMu   sync.Mutex // dates Pocket Money said changed, pulled after a short pause
+	hookDays map[string]bool
 	backfill backfillState
 	notified map[string]string // "evening"/"morning" → last day sent
 }
@@ -173,6 +175,7 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/login", s.handleLogin)
 		r.Post("/auth/setup", s.handleSetup)
 		r.Get("/auth/status", s.handleAuthStatus)
+		r.Post("/hooks/money", s.handleMoneyHook) // signed, not a session
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)

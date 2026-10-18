@@ -68,7 +68,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Immich** | photos and videos of the day as a thumbnail grid (proxied), places | URL + API key |
 | **Maloja** | listens, top artists, full track list | URL |
 | **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | URL + API key |
-| **Firefly III** | withdrawals with categories, totals per currency | URL + personal access token |
+| **Firefly III** / **Pocket Money** | withdrawals with categories, totals per currency; with Pocket Money's webhook a booking shows up within seconds (`MONEY_WEBHOOK_SECRET`) | URL + personal access token (Pocket Money: its `/firefly` URL and an API token) |
 | **Pocket Habits** | habits done, tracker values, the journal line — and on a day with nothing written here, its journal *is* the entry | URL + token |
 | **Pocket Bookshelf** | books being read, started, finished | URL + token |
 | **Pocket Travel** | the trip the day fell in, and which day of it | URL + token |
