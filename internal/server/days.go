@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/abjelosevic88/pocket-homelab-day/internal/sources"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
@@ -285,6 +287,34 @@ type calendarDay struct {
 	Moments   int                `json:"moments"`
 	Headlines map[string]float64 `json:"headlines"`
 	Weather   string             `json:"weather,omitempty"`
+	TMax      *float64           `json:"t_max,omitempty"`
+	Cover     string             `json:"cover,omitempty"`   // Immich asset id for the cell background
+	Summary   string             `json:"summary,omitempty"` // the day in one line, from the facts
+}
+
+// pickCover chooses the photo that represents a day: a favourite, else a
+// camera photo from the middle of the day (screenshots are PNGs), else any image.
+func pickCover(items []sources.Photo) string {
+	var images, camera []sources.Photo
+	for _, p := range items {
+		if p.Type != "IMAGE" {
+			continue
+		}
+		if p.Favorite {
+			return p.ID
+		}
+		images = append(images, p)
+		if !strings.HasSuffix(strings.ToLower(p.FileName), ".png") {
+			camera = append(camera, p)
+		}
+	}
+	if len(camera) > 0 {
+		return camera[len(camera)/2].ID
+	}
+	if len(images) > 0 {
+		return images[len(images)/2].ID
+	}
+	return ""
 }
 
 func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
@@ -311,19 +341,35 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 	moments := s.store.MomentCounts(ctx, u.ID, from, to)
 	heads, _ := s.store.FactHeadlines(ctx, from, to)
 	weather := map[string]string{}
-	if wf, err := s.store.FactsRange(ctx, from, to, "weather"); err == nil {
-		for _, f := range wf {
-			var d struct {
-				Condition string `json:"condition"`
+	tmax := map[string]*float64{}
+	covers := map[string]string{}
+	sums := map[string]map[string]store.Fact{}
+	if fs, err := s.store.FactsRange(ctx, from, to); err == nil {
+		for _, f := range fs {
+			if len(f.Payload) <= 4 {
+				continue
 			}
-			if f.Error == "" && jsonUnmarshal(f.Payload, &d) == nil {
-				weather[f.Date] = d.Condition
+			if sums[f.Date] == nil {
+				sums[f.Date] = map[string]store.Fact{}
+			}
+			sums[f.Date][f.Source] = f
+			switch f.Source {
+			case "weather":
+				var d sources.Day
+				if jsonUnmarshal(f.Payload, &d) == nil {
+					weather[f.Date], tmax[f.Date] = d.Condition, d.TMax
+				}
+			case "immich":
+				var p sources.Photos
+				if jsonUnmarshal(f.Payload, &p) == nil {
+					covers[f.Date] = pickCover(p.Items)
+				}
 			}
 		}
 	}
 	days := []calendarDay{}
 	for d := from; d <= to; d = store.AddDays(d, 1) {
-		cd := calendarDay{Date: d, Moments: moments[d], Headlines: heads[d], Weather: weather[d]}
+		cd := calendarDay{Date: d, Moments: moments[d], Headlines: heads[d], Weather: weather[d], TMax: tmax[d], Cover: covers[d], Summary: summaryLine(sums[d], 3)}
 		if cd.Headlines == nil {
 			cd.Headlines = map[string]float64{}
 		}

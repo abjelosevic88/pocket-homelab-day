@@ -26,7 +26,7 @@ export interface DayPage {
   date: string; weekday: number; today: boolean; future: boolean; entry: Entry | null; moments: Moment[]; pins: Pin[]
   facts: Record<string, Fact>; sources: SourceName[]; memories: Entry[]; prev_entry: string; next_entry: string; streak: number; prompt: string; links: Record<string, string>
 }
-export interface CalendarDay { date: string; entry: boolean; mood: number; highlight: string; pinned: boolean; moments: number; headlines: Record<string, number>; weather?: string }
+export interface CalendarDay { date: string; entry: boolean; mood: number; highlight: string; pinned: boolean; moments: number; headlines: Record<string, number>; weather?: string; t_max?: number | null; cover?: string; summary?: string }
 export interface HomeData { today: string; stats: { total: number; this_month: number; this_year: number; mood_month: number; words: number; first_date: string; pinned: number; moments: number }; streak: number; longest_streak: number; recent: Entry[]; memories: Entry[] }
 export interface BackfillStatus { running: boolean; from: string; to: string; done: number; total: number; current: string; last_run: string; error?: string }
 
