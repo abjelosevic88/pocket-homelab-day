@@ -1,0 +1,34 @@
+# Pocket Day — a journal that writes itself (Go + SQLite). One container, one volume.
+services:
+  pocket-day:
+    image: ghcr.io/abjelosevic88/pocket-homelab-day:latest
+    container_name: pocket-day
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}   # days are measured in this timezone
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      # First admin (only used while the database has no users):
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Sources can also be set in the UI under Settings → Sources.
+      HOME_LAT: ${HOME_LAT:-}
+      HOME_LON: ${HOME_LON:-}
+      HOME_PLACE: ${HOME_PLACE:-}
+      DAWARICH_URL: ${DAWARICH_URL:-}
+      DAWARICH_API_KEY: ${DAWARICH_API_KEY:-}
+      IMMICH_URL: ${IMMICH_URL:-}
+      IMMICH_API_KEY: ${IMMICH_API_KEY:-}
+      MALOJA_URL: ${MALOJA_URL:-}
+      JELLYSTAT_URL: ${JELLYSTAT_URL:-}
+      JELLYSTAT_API_KEY: ${JELLYSTAT_API_KEY:-}
+      FIREFLY_URL: ${FIREFLY_URL:-}
+      FIREFLY_TOKEN: ${FIREFLY_TOKEN:-}
+      HABITS_URL: ${HABITS_URL:-}
+      HABITS_TOKEN: ${HABITS_TOKEN:-}
+      NOTIFY_URL: ${NOTIFY_URL:-}
+    volumes:
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

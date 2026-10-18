@@ -1,0 +1,107 @@
+<p align="center">
+  <img src="web/public/favicon.svg" width="72" alt="">
+</p>
+<h1 align="center">Pocket Day</h1>
+<p align="center">
+  A journal that writes itself. One page per day: <b>your own words</b> on top, and underneath, what the other apps on your server already know about it — where you were, the photos you took, what played, what you watched, read, cooked and spent.<br>
+  <b>One binary · one SQLite file · one volume.</b>
+</p>
+<p align="center">
+  <a href="https://github.com/abjelosevic88/pocket-homelab-day/actions"><img src="https://github.com/abjelosevic88/pocket-homelab-day/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/abjelosevic88/pocket-homelab-day/pkgs/container/pocket-homelab-day"><img src="https://img.shields.io/badge/ghcr.io-amd64%20%7C%20arm64%20%7C%20armv7-blue" alt="image"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
+</p>
+
+---
+
+A self-hosted server already records your life in pieces: Dawarich has the route, Immich the photos, Maloja the songs, Jellystat the episodes, Firefly III the receipts, the Pocket apps the habits, books, trips and dinners. Nobody puts them on one page. Pocket Day does, and gives you one line a day to say what it meant.
+
+- **Today, filled in.** Every 30 minutes today and yesterday are pulled from every connected app. Open the page in the evening and the day is already there: kilometres and stops, a photo grid, the listening and watching, the check-in, the book you finished, what you cooked and spent, the weather where you were.
+- **One line, then more if you like.** A highlight, a free text, a mood from 😖 to 😄 and tags. Autosaves while you type.
+- **Moments.** Short timestamped lines through the day — a win, a thank-you, an idea — from the page, a Siri Shortcut or Raycast.
+- **Keep what mattered.** Star a photo, a song, a place, a transaction or a book and it sits at the top of the day.
+- **Frozen in time.** Past days are fetched once and kept. The journal still reads when a source is gone or its data rotated away.
+- **Memories.** The same date in earlier years shows on the day page and in the morning push.
+- **Calendar, journal, year.** A month grid coloured by mood with photos/km/listens per day; a searchable journal; a year in review with month bars, moods by weekday, most played, most watched, books, places, trips and the days you starred.
+- **Two pushes a day.** An evening “How was today?” with the day's numbers (skipped once you wrote), a morning “On this day”. Apprise, ntfy or a webhook.
+
+<p align="center"><img src="docs/screenshots/day.png" width="900" alt="A day: the entry editor and moments on the left, where, photos, music and watched on the right"></p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/calendar.png" alt="Month grid with highlight, mood edge, weather and per-day counts"></td>
+    <td width="50%"><img src="docs/screenshots/year.png" alt="Year in review: totals, month bars, moods, most played"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Calendar: mood on the edge, the day's numbers underneath.</sub></td>
+    <td align="center"><sub>Year: everything the year was, from your words and the apps.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/journal.png" alt="Journal list with search, mood filter, tags and one-line summaries from every source"></td>
+    <td width="50%"><img src="docs/screenshots/sources.png" alt="Settings: one card per source with URL, key and connection test"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Journal: search your words, filter by mood or tag.</sub></td>
+    <td align="center"><sub>Sources: connect what you run, test, backfill.</sub></td>
+  </tr>
+</table>
+
+## Sources
+
+| Source | What lands on the day | Needs |
+|---|---|---|
+| **Dawarich** | distance, moving time, distance per mode, recognised stops | URL + API key |
+| **Immich** | photos and videos of the day as a thumbnail grid (proxied), places | URL + API key |
+| **Maloja** | listens, top artists, full track list | URL |
+| **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | URL + API key |
+| **Firefly III** | withdrawals with categories, totals per currency | URL + personal access token |
+| **Pocket Habits** | habits done, tracker values, the journal line | URL + token |
+| **Pocket Bookshelf** | books being read, started, finished | URL + token |
+| **Pocket Travel** | the trip the day fell in, and which day of it | URL + token |
+| **Pocket Kitchen** | what was cooked | URL + token |
+| **Pocket Garage** | fill-ups and service records | URL + token |
+| **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
+
+All optional. A day only shows the sources you connected.
+
+## Run it
+
+```bash
+mkdir pocket-day && cd pocket-day
+curl -fsSLO https://raw.githubusercontent.com/abjelosevic88/pocket-homelab-day/main/docker-compose.yml
+docker compose up -d
+# open http://localhost:8080, create your account, then Settings → Sources
+```
+
+Or with plain Docker:
+
+```bash
+docker run -d --name pocket-day -p 8080:8080 -e TZ=Europe/Berlin -v $PWD/data:/data ghcr.io/abjelosevic88/pocket-homelab-day:latest
+```
+
+Or the binary from the [releases](https://github.com/abjelosevic88/pocket-homelab-day/releases): `DATA_DIR=./data ./pocket-day`. A systemd unit is in `deploy/systemd/`.
+
+Set `TZ`: a day is midnight to midnight in that zone. Want to look around first? `DEMO_DATA=true AUTH_MODE=none` seeds six weeks of journal and synthetic facts.
+
+## Documentation
+
+- [Configuration](docs/configuration.md) — every environment variable, auth modes, CLI, how facts are pulled and frozen
+- [API](docs/api.md) — REST API, the Homepage dashboard, phone-shortcut endpoints
+- [Reverse proxy](docs/reverse-proxy.md)
+- [Backup & restore](docs/backup.md)
+- [Roadmap](docs/roadmap.md)
+
+## Develop
+
+```bash
+make dev      # Go API on :8080 with demo data + Vite on :5173
+make test     # go vet, go test, tsc
+make          # build web/dist and the binary
+make docker   # local image
+```
+
+Go 1.26 + chi + modernc SQLite (pure Go, no CGO); React 19 + Vite + TypeScript, no UI framework. Source fetchers live in `internal/sources/`, one file each.
+
+## Sibling projects
+
+Pocket Day is one of the Pocket Homelab apps — small single-binary servers that talk to each other, and the one that reads all the others: [Pocket Habits](https://github.com/abjelosevic88/pocket-homelab-habit-tracker), [Pocket Inventory](https://github.com/abjelosevic88/pocket-homelab-inventory), [Pocket Bookshelf](https://github.com/abjelosevic88/pocket-homelab-bookshelf), [Pocket Split](https://github.com/abjelosevic88/pocket-homelab-cost-split), [Pocket Clips](https://github.com/abjelosevic88/pocket-homelab-clips), [Pocket Travel](https://github.com/abjelosevic88/pocket-homelab-travel), [Pocket Garage](https://github.com/abjelosevic88/pocket-homelab-garage), [Pocket Kitchen](https://github.com/abjelosevic88/pocket-homelab-kitchen).

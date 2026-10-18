@@ -1,0 +1,5 @@
+# Pocket Day behind Caddy. Keep /api/* reachable for the phone shortcuts
+# and the Homepage widget — they send their own bearer token.
+day.example.com {
+	reverse_proxy pocket-day:8080
+}

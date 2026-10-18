@@ -1,0 +1,49 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - name: Build web UI
+        run: cd web && npm ci --no-audit --no-fund && npm run build
+      - name: Vet & test
+        run: |
+          test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+          go vet ./...
+          go test ./...
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o pocket-day ./cmd/pocket-day
+      - name: Smoke test
+        run: |
+          DATA_DIR=/tmp/pd DEMO_DATA=true AUTH_MODE=none ./pocket-day &
+          sleep 2
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/api/v1/dashboard | grep -q streak
+          curl -fsS http://localhost:8080/api/v1/today | grep -q '"facts"'
+          curl -fsS -X PUT http://localhost:8080/api/v1/days/today -H 'Content-Type: application/json' -d '{"highlight":"CI was here","mood":4}' | grep -q 'CI was here'
+          curl -fsS -X POST http://localhost:8080/api/v1/moments -H 'Content-Type: application/json' -d '{"text":"a moment"}' | grep -q '"kind":"note"'
+          curl -fsS "http://localhost:8080/api/v1/calendar?month=$(date +%Y-%m)" | grep -q '"days"'
+          curl -fsS http://localhost:8080/api/v1/years/$(date +%Y) | grep -q '"months"'
+          curl -fsS http://localhost:8080/api/v1/export.md | grep -q '# Journal'
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: pocket-day:pr

@@ -1,0 +1,23 @@
+[Unit]
+Description=Pocket Day — a journal that writes itself
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pocket-day
+Group=pocket-day
+ExecStart=/usr/local/bin/pocket-day
+Environment=DATA_DIR=/var/lib/pocket-day
+Environment=PORT=8080
+Environment=BASE_URL=https://day.example.com
+Environment=SECURE_COOKIES=true
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pocket-day
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

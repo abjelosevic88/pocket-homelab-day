@@ -1,0 +1,10 @@
+{
+  "name": "Pocket Day",
+  "short_name": "Day",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#4f46e5",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }, { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }],
+  "shortcuts": [{ "name": "Today", "url": "/" }, { "name": "Yesterday", "url": "/day/yesterday" }, { "name": "Calendar", "url": "/calendar" }]
+}
