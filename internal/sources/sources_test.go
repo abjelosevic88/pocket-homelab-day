@@ -10,7 +10,7 @@ import (
 )
 
 func TestMalojaKeepsOnlyTheLocalDay(t *testing.T) {
-	loc, _ := time.LoadLocation("Europe/Sarajevo")
+	loc, _ := time.LoadLocation("Europe/Berlin")
 	day := time.Date(2026, 10, 17, 0, 0, 0, 0, loc)
 	ts := func(h int) int64 { return day.Add(time.Duration(h) * time.Hour).Unix() }
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

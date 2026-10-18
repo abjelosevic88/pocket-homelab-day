@@ -14,7 +14,16 @@ export function useAI() {
 
 /** Renders text with [YYYY-MM-DD] (and bare dates) as links to the day; blank lines become paragraphs. */
 export function CitedText({ text }: { text: string }) {
-  return <>{text.split(/\n{2,}/).map((para, i) => <p key={i}>{linkDates(para)}</p>)}</>
+  return <>{text.split(/\n{2,}/).map((para, i) => {
+    const lines = para.split('\n').map(l => l.trimEnd()).filter(Boolean)
+    const isItem = (l: string) => /^\s*([-*•]|\d+[.)])\s+/.test(l)
+    if (lines.length > 1 && lines.some(isItem)) {
+      const intro = lines.filter(l => !isItem(l))
+      const items = lines.filter(isItem)
+      return <div key={i}>{intro.length > 0 && <p>{linkDates(intro.join(' '))}</p>}<ul className="cited-list">{items.map((l, j) => <li key={j}>{linkDates(l.replace(/^\s*([-*•]|\d+[.)])\s+/, ''))}</li>)}</ul></div>
+    }
+    return <p key={i}>{lines.map((l, j) => <span key={j}>{j > 0 && <br />}{linkDates(l)}</span>)}</p>
+  })}</>
 }
 function linkDates(t: string): React.ReactNode[] {
   const out: React.ReactNode[] = []

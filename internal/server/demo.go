@@ -70,7 +70,7 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		}
 		put("dawarich", where, km, fmt.Sprintf("%.1f km · %s", km, sources.Plural(where.Places, "place", "places")))
 		np := rng.Intn(14)
-		ph := sources.Photos{Count: np, Items: []sources.Photo{}, Places: []string{"Banja Luka"}}
+		ph := sources.Photos{Count: np, Items: []sources.Photo{}, Places: []string{"Lisbon"}}
 		for j := 0; j < np; j++ {
 			ph.Items = append(ph.Items, sources.Photo{ID: fmt.Sprintf("demo-%s-%d", d, j), Type: "IMAGE", Time: fmt.Sprintf("%02d:%02d", 8+rng.Intn(12), rng.Intn(60))})
 		}
@@ -83,7 +83,7 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		for j := 0; j < nl; j++ {
 			a := artists[rng.Intn(len(artists))]
 			ac[a]++
-			m.Items = append(m.Items, sources.Listen{Time: fmt.Sprintf("%02d:%02d", 7+j/3, rng.Intn(60)), Artist: a, Title: fmt.Sprintf("Track %d", 1+rng.Intn(12)), Album: "Album"})
+			m.Items = append(m.Items, sources.Listen{Time: fmt.Sprintf("%02d:%02d", 7+j/3, rng.Intn(60)), Artist: a, Title: demoSongs[a][rng.Intn(len(demoSongs[a]))], Album: ""})
 		}
 		m.Artists = sources.TopCounts(ac, 5)
 		if nl > 0 {
@@ -97,10 +97,10 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		amt := sources.Round2(float64(rng.Intn(9000)) / 100)
 		mo := sources.Money{Count: 1 + rng.Intn(3), Totals: map[string]float64{"EUR": amt}, Main: "EUR", Items: []sources.Spend{{Description: "Groceries", Amount: amt, Currency: "EUR", Category: "food", Time: "17:20"}}, Categories: []sources.Count{{Name: "food", Count: 1}}}
 		put("firefly", mo, amt, fmt.Sprintf("%.2f EUR in %s", amt, sources.Plural(mo.Count, "transaction", "transactions")))
-		hb := sources.Checkin{Done: 2 + rng.Intn(3), Total: 4, Journal: "", Habits: []sources.HabitRow{{Name: "Run", Status: 1, Scheduled: true}, {Name: "Read", Status: 1, Scheduled: true}, {Name: "No sugar", Status: -1, Scheduled: true}, {Name: "Stretch", Status: 0, Scheduled: true}}, Trackers: []sources.TrackerRow{{Name: "Sleep", Unit: "h", Value: f64(6 + rng.Float64()*2.5)}}}
-		put("habits", hb, float64(hb.Done)/4*100, fmt.Sprintf("%d of 4 habits", hb.Done))
+		hb := demoCheckin(rng, 45-i)
+		put("habits", hb, float64(hb.Done)/float64(hb.Total)*100, fmt.Sprintf("%d of %d habits", hb.Done, hb.Total))
 		c := conds[rng.Intn(len(conds))]
-		w := sources.Day{Code: 1, Condition: c, TMax: f64(12 + rng.Float64()*14), TMin: f64(4 + rng.Float64()*8), PrecipMM: f64(float64(rng.Intn(6))), Place: "Banja Luka"}
+		w := sources.Day{Code: 1, Condition: c, TMax: f64(12 + rng.Float64()*14), TMin: f64(4 + rng.Float64()*8), PrecipMM: f64(float64(rng.Intn(6))), Place: "Lisbon"}
 		put("weather", w, *w.TMax, fmt.Sprintf("%s, %.0f–%.0f °C", sources.ConditionLabel(c), *w.TMin, *w.TMax))
 		if rng.Intn(3) == 0 {
 			ck := sources.Cooked{Cooks: []sources.Cook{{Title: []string{"Shakshuka", "Pasta al limone", "Chicken curry", "Pancakes"}[rng.Intn(4)], Servings: 2, Rating: 4}}}
@@ -114,4 +114,43 @@ func (s *Server) seedDemo(ctx context.Context) error {
 func f64(v float64) *float64 {
 	r := sources.Round1(v)
 	return &r
+}
+
+// demoCheckin is a plausible Pocket Habits day: five habits with streaks,
+// two 1–5 scales, a yes/no where "no" is good, and a number.
+func demoCheckin(rng *rand.Rand, n int) sources.Checkin {
+	names := []string{"Run", "Read 20 pages", "No sugar", "Stretch", "In bed by 23:00"}
+	c := sources.Checkin{Total: len(names), Habits: []sources.HabitRow{}, Trackers: []sources.TrackerRow{}}
+	for i, name := range names {
+		st := []int{1, 1, 1, -1, 0}[rng.Intn(5)]
+		if i == 1 { // reading almost always happens
+			st = 1
+		}
+		if st == 1 {
+			c.Done++
+		}
+		c.Habits = append(c.Habits, sources.HabitRow{ID: int64(i + 1), Name: name, Status: st, Scheduled: true, Streak: (n * (i + 2)) % 9})
+	}
+	one, five, zero := 1.0, 5.0, 0.0
+	yes, no := true, false
+	scale := func(id int64, name string) sources.TrackerRow {
+		v, p := float64(2+rng.Intn(4)), float64(2+rng.Intn(4))
+		return sources.TrackerRow{ID: id, Name: name, Kind: "scale", Value: &v, Previous: &p, Min: &one, Max: &five, HigherIsBetter: &yes}
+	}
+	c.Trackers = append(c.Trackers, scale(1, "Sleep quality"), scale(2, "Energy"))
+	hv := float64(rng.Intn(5) / 4) // mostly no headache
+	c.Trackers = append(c.Trackers, sources.TrackerRow{ID: 3, Name: "Headache?", Kind: "yesno", Value: &hv, Min: &zero, Max: &one, HigherIsBetter: &no})
+	water := float64(4 + rng.Intn(5))
+	pw := water - 1
+	c.Trackers = append(c.Trackers, sources.TrackerRow{ID: 4, Name: "Water", Kind: "number", Unit: "glasses", Value: &water, Previous: &pw, HigherIsBetter: &yes})
+	return c
+}
+
+var demoSongs = map[string][]string{
+	"Boards of Canada": {"Roygbiv", "Dayvan Cowboy", "Olson", "Turquoise Hexagon Sun"},
+	"Khruangbin":       {"Maria También", "White Gloves", "People Everywhere", "August 10"},
+	"Nils Frahm":       {"Says", "Ambre", "Familiar", "All Melody"},
+	"Radiohead":        {"Weird Fishes", "Reckoner", "Daydreaming", "No Surprises"},
+	"Bonobo":           {"Kerala", "Cirrus", "Kiara", "First Fires"},
+	"Tycho":            {"Awake", "Dive", "A Walk", "Epoch"},
 }

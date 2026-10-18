@@ -26,26 +26,39 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 - **AI, if you want it.** Add an OpenAI key and the day page drafts your entry from what the apps recorded, asks one specific question about the day, suggests a highlight, tags and mood, and takes dictation. Weeks, months and years get written up as stories, and you can ask the journal things like “when was I last at the lake?” and get an answer that links the days.
 - **Two pushes a day.** An evening “How was today?” with the day's numbers (skipped once you wrote), a morning “On this day”. Apprise, ntfy or a webhook.
 
-<p align="center"><img src="docs/screenshots/day.png" width="900" alt="A day: the entry editor and moments on the left, where, photos, music and watched on the right"></p>
+<p align="center"><img src="docs/screenshots/day.png" width="900" alt="A day: the day's numbers as pills, the entry with AI draft, suggest and dictation, a timeline of the day, and cards for photos, where, music, habits, money and cooking"></p>
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/calendar.png" alt="Month grid with highlight, mood edge, weather and per-day counts"></td>
-    <td width="50%"><img src="docs/screenshots/year.png" alt="Year in review: totals, month bars, moods, most played"></td>
+    <td width="50%"><img src="docs/screenshots/calendar.png" alt="Calendar coloured by each day's photo, with month tiles, the year strip and a preview of the selected day"></td>
+    <td width="50%"><img src="docs/screenshots/calendar-heatmap.png" alt="The same month as a distance heatmap with kilometres per day"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Calendar: mood on the edge, the day's numbers underneath.</sub></td>
-    <td align="center"><sub>Year: everything the year was, from your words and the apps.</sub></td>
+    <td align="center"><sub>Calendar: every day behind its best photo, a preview without leaving the month.</sub></td>
+    <td align="center"><sub>…or coloured by mood, distance, music, watching or spending.</sub></td>
   </tr>
   <tr>
+    <td width="50%"><img src="docs/screenshots/year.png" alt="Year in review: tiles, the AI story of the year, a heatmap of every day and month bars"></td>
     <td width="50%"><img src="docs/screenshots/journal.png" alt="Journal list with search, mood filter, tags and one-line summaries from every source"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Year: the story, every day as a heatmap, month bars, most played, money by category.</sub></td>
+    <td align="center"><sub>Journal: search your words, filter by mood or tag.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/stories.png" alt="Stories: the week written up by the AI"></td>
     <td width="50%"><img src="docs/screenshots/sources.png" alt="Settings: one card per source with URL, key and connection test"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Journal: search your words, filter by mood or tag.</sub></td>
+    <td align="center"><sub>Stories: weeks, months and years written up from your days.</sub></td>
     <td align="center"><sub>Sources: connect what you run, test, backfill.</sub></td>
   </tr>
 </table>
+
+<p align="center">
+  <img src="docs/screenshots/phone-day.png" width="260" alt="The day on a phone">&nbsp;&nbsp;
+  <img src="docs/screenshots/phone-calendar.png" width="260" alt="The calendar on a phone">
+</p>
 
 ## Sources
 
@@ -72,7 +85,7 @@ Settings → AI takes an OpenAI key (or any OpenAI-compatible endpoint). Default
 | Feature | Where | What it does |
 |---|---|---|
 | **Draft my day** | day page | A first-person draft from the facts, moments and pins — or only the sentences your own text is missing. Never invents feelings. |
-| **Tonight's question** | day page, evening push | One question about something concrete in the day (“what took you to Prijedor?”) instead of the generic prompt. |
+| **Tonight's question** | day page, evening push | One question about something concrete in the day (“what took you to the coast?”) instead of the generic prompt. |
 | **Suggest** | day page | A highlight, tags from your own tag vocabulary and a mood, from what you wrote. |
 | **Dictation** | entry, moments, Ask | 🎙 record in the browser, transcribed and added. |
 | **Stories** | Calendar, Year, Stories | The week, month or year as a short story in the second person; the week is pushed on Sunday evening. |
@@ -81,7 +94,16 @@ Settings → AI takes an OpenAI key (or any OpenAI-compatible endpoint). Default
 
 The model only ever sees plain-text summaries of the days it needs — never photos — and “Send what I wrote” can keep your own words out of it. Token use per feature is listed under Settings → AI. It writes in the language of your entries unless you set one.
 
-<p align="center"><img src="docs/screenshots/ask.png" width="900" alt="Ask your journal: questions answered with links to the days"></p>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/ask.png" alt="Ask your journal: questions answered with links to the days"></td>
+    <td width="50%"><img src="docs/screenshots/settings-ai.png" alt="Settings → AI: key, model, language, options and token usage per feature"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Ask: answers with the days they came from.</sub></td>
+    <td align="center"><sub>Settings → AI: what is sent, and what it cost in tokens.</sub></td>
+  </tr>
+</table>
 
 ## Run it
 
@@ -100,7 +122,7 @@ docker run -d --name pocket-day -p 8080:8080 -e TZ=Europe/Berlin -v $PWD/data:/d
 
 Or the binary from the [releases](https://github.com/abjelosevic88/pocket-homelab-day/releases): `DATA_DIR=./data ./pocket-day`. A systemd unit is in `deploy/systemd/`.
 
-Set `TZ`: a day is midnight to midnight in that zone. Want to look around first? `DEMO_DATA=true AUTH_MODE=none` seeds six weeks of journal and synthetic facts.
+Set `TZ`: a day is midnight to midnight in that zone. Want to look around first? `DEMO_DATA=true AUTH_MODE=none` seeds six weeks of journal and synthetic facts (the screenshots above are that demo).
 
 ## Documentation
 
