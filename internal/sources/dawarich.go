@@ -127,6 +127,7 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 				Mode      string   `json:"dominant_mode"`
 				Lat       *float64 `json:"latitude"`
 				Lng       *float64 `json:"longitude"`
+				Moving    int      `json:"moving_duration"` // seconds, journeys only
 			} `json:"entries"`
 		} `json:"days"`
 	}
@@ -135,6 +136,7 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 		return nil, err
 	}
 	w := Where{Modes: map[string]float64{}, Entries: []Visit{}}
+	journeyMoving := 0 // seconds; Dawarich's day summary counts gaps inside tracks as moving
 	for _, d := range out.Days {
 		if d.Date != date && len(out.Days) > 1 {
 			continue
@@ -158,6 +160,7 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 			v := Visit{Kind: e.Type, Name: e.Name, Status: e.Status, Start: LocalClock(st, loc), End: LocalClock(en, loc), Minutes: e.Duration / 60, Lat: e.Lat, Lng: e.Lng, Mode: e.Mode, Distance: Round1(e.Distance)}
 			if e.Type == "journey" {
 				w.Journeys++
+				journeyMoving += e.Moving
 				if w.FirstMove == "" {
 					w.FirstMove = v.Start
 				}
@@ -168,6 +171,9 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 			w.Entries = append(w.Entries, v)
 		}
 	}
+	if journeyMoving > 0 {
+		w.MovingMinutes = journeyMoving / 60
+	}
 	w.DistanceKm = Round1(w.DistanceKm)
 	for k, v := range w.Modes {
 		w.Modes[k] = Round1(v)
@@ -176,7 +182,7 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 	if w.DistanceKm > 0 {
 		parts := []string{fmt.Sprintf("%.1f km", w.DistanceKm)}
 		if w.MovingMinutes > 0 {
-			parts = append(parts, fmt.Sprintf("%dh%02d moving", w.MovingMinutes/60, w.MovingMinutes%60))
+			parts = append(parts, HoursMinutes(w.MovingMinutes)+" moving")
 		}
 		if w.Places > 0 {
 			parts = append(parts, Plural(w.Places, "place", "places"))

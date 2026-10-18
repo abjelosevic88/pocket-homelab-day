@@ -48,7 +48,7 @@ func TestJellystatStopsAtDayStartAndMerges(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"current_page": 1, "pages": 1, "results": []map[string]any{
 			{"NowPlayingItemId": "a", "NowPlayingItemName": "Ep 2", "SeriesName": series, "PlaybackDuration": 1500, "ActivityDateInserted": "2026-10-17T21:30:00Z"},
 			{"NowPlayingItemId": "a", "NowPlayingItemName": "Ep 2", "SeriesName": series, "PlaybackDuration": 1200, "ActivityDateInserted": "2026-10-17T21:00:00Z"},
-			{"NowPlayingItemId": "m", "NowPlayingItemName": "Heat", "PlaybackDuration": 5, "ActivityDateInserted": "2026-10-17T12:00:00Z"},
+			{"NowPlayingItemId": "m", "NowPlayingItemName": "Heat", "PlaybackDuration": 90, "ActivityDateInserted": "2026-10-17T12:00:00Z"},
 			{"NowPlayingItemId": "z", "NowPlayingItemName": "Old", "PlaybackDuration": 3000, "ActivityDateInserted": "2026-10-16T20:00:00Z"},
 		}})
 	}))
@@ -75,5 +75,11 @@ func TestTopCounts(t *testing.T) {
 	got := TopCounts(map[string]int{"b": 2, "a": 2, "c": 5, "d": 1}, 3)
 	if len(got) != 3 || got[0].Name != "c" || got[1].Name != "a" || got[2].Name != "b" {
 		t.Fatalf("top = %+v", got)
+	}
+}
+
+func TestHoursMinutes(t *testing.T) {
+	if HoursMinutes(45) != "45 min" || HoursMinutes(125) != "2h05" {
+		t.Fatal(HoursMinutes(45), HoursMinutes(125))
 	}
 }

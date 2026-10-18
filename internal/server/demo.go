@@ -92,7 +92,7 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		if rng.Intn(3) > 0 {
 			sh := shows[rng.Intn(len(shows))]
 			wt := sources.Watched{Count: 1, Episodes: 1, Minutes: 45 + rng.Intn(20), Items: []sources.Play{{Title: fmt.Sprintf("Episode %d", 1+rng.Intn(9)), Series: sh, Kind: "episode", Minutes: 50, Time: "21:10", Plays: 1}}}
-			put("jellystat", wt, float64(wt.Minutes), fmt.Sprintf("1 episode · %dh%02d", wt.Minutes/60, wt.Minutes%60))
+			put("jellystat", wt, float64(wt.Minutes), "1 episode · "+sources.HoursMinutes(wt.Minutes))
 		}
 		amt := sources.Round2(float64(rng.Intn(9000)) / 100)
 		mo := sources.Money{Count: 1 + rng.Intn(3), Totals: map[string]float64{"EUR": amt}, Main: "EUR", Items: []sources.Spend{{Description: "Groceries", Amount: amt, Currency: "EUR", Category: "food", Time: "17:20"}}, Categories: []sources.Count{{Name: "food", Count: 1}}}

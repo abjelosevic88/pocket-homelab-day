@@ -105,3 +105,11 @@ func ParseAny(s string) (time.Time, bool) {
 	}
 	return time.Time{}, false
 }
+
+// HoursMinutes renders minutes as "45 min" or "2h05".
+func HoursMinutes(m int) string {
+	if m < 60 {
+		return fmt.Sprintf("%d min", m)
+	}
+	return fmt.Sprintf("%dh%02d", m/60, m%60)
+}

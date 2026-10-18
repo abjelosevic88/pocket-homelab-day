@@ -138,7 +138,7 @@ func (c *Jellystat) Fetch(ctx context.Context, date string, loc *time.Location) 
 			if c.User != "" && (r.UserName == nil || !strings.EqualFold(*r.UserName, c.User)) {
 				continue
 			}
-			if r.Duration < 30 { // a couple of seconds of autoplay is not watching
+			if r.Duration < 120 { // autoplay or a quick look is not watching
 				continue
 			}
 			key := r.ItemID
@@ -190,7 +190,7 @@ func (c *Jellystat) Fetch(ctx context.Context, date string, loc *time.Location) 
 		}
 		sum = strings.Join(parts, ", ")
 		if w.Minutes > 0 {
-			sum += fmt.Sprintf(" · %dh%02d", w.Minutes/60, w.Minutes%60)
+			sum += " · " + HoursMinutes(w.Minutes)
 		}
 	}
 	return &Result{Payload: w, Headline: float64(w.Minutes), Summary: sum}, nil
