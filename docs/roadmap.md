@@ -9,4 +9,6 @@ Roughly in the order they itch:
 - **Pocket Split and Pocket Inventory** — shared expenses and things bought that day.
 - **Week view** — seven days side by side with a weekly line.
 - **Printable year book** — the year recap and every written day as a PDF.
-- **Mood ↔ facts insights** — do days with more walking, sun or cooking feel better?
+- **Ask with memory** — follow-up questions in the same thread.
+- **Photo captions** — let a vision model describe the starred photos of a day.
+- **Local models** — test the prompts against Ollama through the OpenAI-compatible base URL.

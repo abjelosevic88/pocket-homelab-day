@@ -6,6 +6,7 @@ import { addDays, fmtDate, todayISO, weekday } from '../lib/format'
 import { KIND_ICON, MOODS, MOOD_ICON, SOURCE_ICON, tagList, type DayPage, type Entry, type Moment, type Pin, type SourceName } from '../lib/types'
 import { Card, Confirm, Loading, Segmented, useAsync, useToast } from '../components/ui'
 import { FactCard, WeatherChip, type PinFn } from '../components/facts'
+import { DictateButton, useAI } from '../components/ai'
 
 const ORDER: SourceName[] = ['travel', 'dawarich', 'immich', 'maloja', 'jellystat', 'habits', 'bookshelf', 'kitchen', 'firefly', 'garage']
 
@@ -91,7 +92,7 @@ export default function Day() {
       {data.future ? <Card><p className="muted">That day has not happened yet.</p></Card> : (
         <div className="day-grid">
           <div className="day-main">
-            <EntryEditor date={date} entry={data.entry} prompt={isToday ? data.prompt : 'What happened on this day?'} onSaved={e => setData(d => d ? { ...d, entry: e } : d)} onDelete={() => setConfirmDel(true)} />
+            <EntryEditor date={date} entry={data.entry} isToday={isToday} prompt={isToday ? data.prompt : 'What happened on this day?'} onSaved={e => setData(d => d ? { ...d, entry: e } : d)} onDelete={() => setConfirmDel(true)} />
             <Moments date={date} moments={data.moments} isToday={isToday} onChange={ms => setData(d => d ? { ...d, moments: ms } : d)} />
             {data.pins.length > 0 && <Card title="Kept from this day" className="mb">
               <div className="pins">{data.pins.map(p => <div key={p.id} className="pin">{p.image ? <img src={p.image} alt="" /> : <span className="pin-ico">{SOURCE_ICON[p.source] || '★'}</span>}<div className="grow"><b>{p.title}</b>{p.subtitle && <div className="muted small">{p.subtitle}</div>}</div><button className="btn ghost sm" onClick={() => onUnpin(p.id)} title="Unpin">✕</button></div>)}</div>
@@ -118,14 +119,25 @@ export default function Day() {
 function firstLine(t: string) { return (t || '').split('\n')[0] || '(no words)' }
 
 /** The user's words: highlight, text, mood, tags. Autosaves a second after typing stops. */
-function EntryEditor({ date, entry, prompt, onSaved, onDelete }: { date: string; entry: Entry | null; prompt: string; onSaved: (e: Entry | null) => void; onDelete: () => void }) {
+function EntryEditor({ date, entry, prompt, isToday, onSaved, onDelete }: { date: string; entry: Entry | null; prompt: string; isToday: boolean; onSaved: (e: Entry | null) => void; onDelete: () => void }) {
   const { toast } = useToast()
+  const { settings } = useApp()
+  const aiOn = useAI()
   const [f, setF] = useState({ highlight: entry?.highlight || '', text: entry?.text || '', mood: entry?.mood || 0, tags: entry?.tags || '', pinned: entry?.pinned || false })
   const [state, setState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle')
+  const [question, setQuestion] = useState('')
+  const [draft, setDraft] = useState<{ highlight: string; text: string } | null>(null)
+  const [sugg, setSugg] = useState<{ highlight: string; tags: string[]; mood: number; why: string } | null>(null)
+  const [busy, setBusy] = useState('')
   const timer = useRef<number | null>(null)
   const latest = useRef(f)
   latest.current = f
-  useEffect(() => { setF({ highlight: entry?.highlight || '', text: entry?.text || '', mood: entry?.mood || 0, tags: entry?.tags || '', pinned: entry?.pinned || false }); setState('idle') }, [date]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setF({ highlight: entry?.highlight || '', text: entry?.text || '', mood: entry?.mood || 0, tags: entry?.tags || '', pinned: entry?.pinned || false }); setState('idle'); setDraft(null); setSugg(null); setQuestion('') }, [date]) // eslint-disable-line react-hooks/exhaustive-deps
+  const loadQuestion = useCallback((refresh = false) => {
+    if (!aiOn || !settings?.ai_question) return
+    api.get<{ question: string }>(`${V1}/ai/days/${date}/question${refresh ? '?refresh=1' : ''}`).then(r => setQuestion(r.question)).catch(() => {})
+  }, [aiOn, settings?.ai_question, date])
+  useEffect(() => { if (isToday || !entry) loadQuestion() }, [date]) // eslint-disable-line react-hooks/exhaustive-deps
   const save = useCallback(async () => {
     setState('saving')
     try {
@@ -140,11 +152,38 @@ function EntryEditor({ date, entry, prompt, onSaved, onDelete }: { date: string;
     timer.current = window.setTimeout(save, 900)
   }
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current) }, [])
+  const run = async (what: 'draft' | 'suggest') => {
+    setBusy(what)
+    try {
+      if (what === 'draft') { setSugg(null); setDraft(await api.post(`${V1}/ai/days/${date}/draft`)) }
+      else { setDraft(null); setSugg(await api.post(`${V1}/ai/days/${date}/suggest`, { highlight: f.highlight, text: f.text })) }
+    } catch (e) { toast((e as Error).message, 'err') } finally { setBusy('') }
+  }
+  const append = (t: string) => change({ text: f.text.trim() ? f.text.replace(/\s+$/, '') + '\n\n' + t : t })
   const words = f.text.trim() ? f.text.trim().split(/\s+/).length : 0
+  const title = question
+    ? <span className="ai-q" title="Tonight's question, from what the apps recorded">✨ {question}<button className="btn ghost sm" onClick={() => loadQuestion(true)} title="Another question">↻</button></span>
+    : <span className="muted" style={{ fontWeight: 500 }}>{prompt}</span>
   return (
-    <Card className="mb entry-card" title={<span className="muted" style={{ fontWeight: 500 }}>{prompt}</span>} actions={<span className={`save-state ${state}`}>{state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'dirty' ? 'Unsaved' : ''}</span>}>
+    <Card className="mb entry-card" title={title} actions={<span className={`save-state ${state}`}>{state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'dirty' ? 'Unsaved' : ''}</span>}>
       <input className="highlight-input" value={f.highlight} onChange={e => change({ highlight: e.target.value })} placeholder="The one line for this day" maxLength={200} />
       <textarea className="entry-text" value={f.text} onChange={e => change({ text: e.target.value })} placeholder="And the rest, if you like…" rows={Math.max(4, Math.min(24, f.text.split('\n').length + 1))} />
+      {aiOn && <div className="ai-bar">
+        <button className="btn ghost sm" onClick={() => run('draft')} disabled={!!busy} title="Write a first draft from the facts, moments and pins">{busy === 'draft' ? 'Drafting…' : f.text.trim() ? '✨ Fill in the rest' : '✨ Draft my day'}</button>
+        <button className="btn ghost sm" onClick={() => run('suggest')} disabled={!!busy || !(f.text.trim() || f.highlight.trim())} title="Suggest a highlight, tags and a mood from what you wrote">{busy === 'suggest' ? 'Thinking…' : '✨ Suggest highlight & tags'}</button>
+        <DictateButton onText={append} />
+      </div>}
+      {draft && <div className="ai-panel">
+        {draft.highlight && <div className="row mb-sm"><b className="grow">“{draft.highlight}”</b><button className="btn sm" onClick={() => change({ highlight: draft.highlight })}>Use as highlight</button></div>}
+        {draft.text ? <div className="t">{draft.text}</div> : <p className="muted small">Your text already covers what the apps recorded.</p>}
+        <div className="row mt-sm">{draft.text && <button className="btn primary sm" onClick={() => { change({ text: f.text.trim() ? f.text.replace(/\s+$/, '') + '\n\n' + draft.text : draft.text, ...(!f.highlight.trim() && draft.highlight ? { highlight: draft.highlight } : {}) }); setDraft(null) }}>{f.text.trim() ? 'Add below my text' : 'Use this draft'}</button>}<button className="btn ghost sm" onClick={() => run('draft')}>Another</button><button className="btn ghost sm" onClick={() => setDraft(null)}>Dismiss</button><span className="spacer" /><span className="muted small">Edit it — it's a start, not your voice.</span></div>
+      </div>}
+      {sugg && <div className="ai-panel">
+        {sugg.highlight && <div className="row mb-sm"><span className="grow">“{sugg.highlight}”</span><button className="btn sm" onClick={() => change({ highlight: sugg.highlight })}>Use</button></div>}
+        {sugg.tags.length > 0 && <div className="row mb-sm wrap"><span className="chips grow">{sugg.tags.map(t => <span key={t} className="chip sm">#{t}</span>)}</span><button className="btn sm" onClick={() => change({ tags: [f.tags, ...sugg.tags].filter(Boolean).join(',') })}>Add tags</button></div>}
+        {sugg.mood > 0 && <div className="row"><span className="grow">{MOOD_ICON[sugg.mood]} {MOODS[sugg.mood]} <span className="muted small">· {sugg.why}</span></span><button className="btn sm" onClick={() => change({ mood: sugg.mood })}>Set mood</button></div>}
+        <div className="row mt-sm"><button className="btn ghost sm" onClick={() => { change({ highlight: sugg.highlight || f.highlight, tags: [f.tags, ...sugg.tags].filter(Boolean).join(','), mood: sugg.mood || f.mood }); setSugg(null) }}>Apply all</button><button className="btn ghost sm" onClick={() => setSugg(null)}>Dismiss</button></div>
+      </div>}
       <div className="entry-foot">
         <Segmented size="sm" value={f.mood} onChange={v => change({ mood: v === f.mood ? 0 : v })} options={[1, 2, 3, 4, 5].map(m => ({ value: m, label: MOOD_ICON[m], title: MOODS[m] }))} />
         <input className="tags-input" value={f.tags} onChange={e => change({ tags: e.target.value })} placeholder="tags, comma, separated" />
@@ -161,6 +200,7 @@ function EntryEditor({ date, entry, prompt, onSaved, onDelete }: { date: string;
 /** Timestamped lines through the day. */
 function Moments({ date, moments, isToday, onChange }: { date: string; moments: Moment[]; isToday: boolean; onChange: (m: Moment[]) => void }) {
   const { toast } = useToast()
+  const aiOn = useAI()
   const [text, setText] = useState('')
   const [kind, setKind] = useState('note')
   const [time, setTime] = useState('')
@@ -193,6 +233,7 @@ function Moments({ date, moments, isToday, onChange }: { date: string; moments: 
         <Segmented size="sm" value={kind} onChange={setKind} options={Object.entries(KIND_ICON).map(([k, ico]) => ({ value: k, label: ico, title: k }))} />
         <input value={text} onChange={e => setText(e.target.value)} placeholder={isToday ? 'What just happened?' : 'Something from that day…'} />
         <input type="time" value={time} onChange={e => setTime(e.target.value)} title="Time (optional)" className="time-input" />
+        {aiOn && <DictateButton small onText={t => setText(x => (x ? x + ' ' : '') + t)} />}
         <button className="btn primary sm" disabled={!text.trim()}>Add</button>
       </form>
     </Card>

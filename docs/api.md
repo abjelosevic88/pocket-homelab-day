@@ -52,6 +52,25 @@ Entries, moments and pins belong to the caller. Facts (what the connected apps k
 | GET | `/geo/search?q=` | Open-Meteo geocoding for the home location |
 | POST | `/notify/test` · `/notify/run` `{which: evening\|morning}` | |
 
+## AI
+Needs an OpenAI key (Settings → AI); otherwise these return 400.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/ai/days/{date}/draft` | `{highlight, text}` — first-person draft; when the day already has text, only what it is missing |
+| GET | `/ai/days/{date}/question?refresh=1` | `{question}` — cached 3 h for today, for good on older days |
+| POST | `/ai/days/{date}/suggest` | `{highlight, text}` in → `{highlight, tags, mood, why}` |
+| POST | `/ai/transcribe` | multipart `file` (webm, m4a, mp3, wav; ≤ 25 MB), optional `language` → `{text}` |
+| GET/POST/DELETE | `/ai/stories/{week\|month\|year}/{period}` | period `2026-W42`, `2026-10`, `2026`; GET returns the cached story or `null`, POST (re)writes it |
+| GET | `/ai/stories` | every story written, newest first |
+| POST | `/ai/asks` | `{question}` → `{answer, dates, scope}`; GET `/ai/asks` history, DELETE `/ai/asks/{id}` (`0` = all) |
+| GET | `/ai/usage` | tokens per feature, last 30 days and all time |
+| GET | `/patterns?from=&to=` | mood with/without walks, sun, cooking… (no AI needed) |
+
+### iOS Shortcut: ask your journal
+
+*Dictate Text* → *Get Contents of URL* `POST /api/v1/ai/asks` with `{"question": [Dictated Text]}` → *Get Dictionary Value* `answer` → *Speak Text*.
+
 ## Data & health
 `GET /backup` (SQLite copy) · `GET /export.json` (`?nofacts=1`) · `GET /export.md` · `POST /import` (merge) · `GET /dashboard` · `GET /home` · `GET /meta` · `/healthz` · `/readyz` · `/metrics` (outside `/api/v1`).
 

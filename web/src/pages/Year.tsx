@@ -4,6 +4,8 @@ import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
 import { MOODS, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes, type YearRecap } from '../lib/types'
 import { Card, Empty, Loading, PageHeader, useAsync } from '../components/ui'
+import { StoryCard, useAI } from '../components/ai'
+import type { Pattern } from '../lib/types'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const WD = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -17,6 +19,8 @@ export default function Year() {
   const { data, loading, error } = useAsync(() => api.get<YearRecap>(`${V1}/years/${year}`), [year])
   const { data: years } = useAsync(() => api.get<{ year: number; entries: number }[]>(`${V1}/years`), [])
   const unit = settings?.distance_unit || 'km'
+  const aiOn = useAI()
+  const { data: patterns } = useAsync(() => api.get<Pattern[]>(`${V1}/patterns?from=${year}-01-01&to=${year}-12-31`), [year])
   if (loading && !data) return <Loading />
   if (error) return <div className="callout danger">{error}</div>
   if (!data) return null
@@ -43,6 +47,7 @@ export default function Year() {
           {d.cooked > 0 && <div className="stat"><div className="n">{d.cooked}</div><div className="l">dishes cooked{d.dishes[0] ? ` · mostly ${d.dishes[0].name}` : ''}</div></div>}
         </div>
 
+        {aiOn && <StoryCard key={year} kind="year" period={String(year)} label={String(year)} />}
         <Card title="Month by month" className="mb">
           <div className="months">
             {d.months.map((m, i) => {
@@ -68,6 +73,10 @@ export default function Year() {
 
         <div className="two-col">
           <div className="grid" style={{ gap: 16 }}>
+            {patterns && patterns.length > 0 && <Card title="What goes with a good day">
+              <p className="muted small">Average mood on days with something versus the other days you rated. Small samples, so read them as hints.</p>
+              {patterns.map(p => <div key={p.label} className="pattern"><span>Days {p.label}</span><span className="cmp"><b className={p.with > p.without ? 'up' : 'down'}>{p.with.toFixed(1)}</b><span className="muted">vs {p.without.toFixed(1)}</span><span className="muted small">n={p.n_with}</span></span></div>)}
+            </Card>}
             {moodsTotal > 0 && <Card title="Moods">
               <div className="mood-bars">{[5, 4, 3, 2, 1].map(m => <div key={m} className="mb-row"><span>{MOOD_ICON[m]} {cap(MOODS[m])}</span><div className="bar-h"><div style={{ width: `${d.moods[m] / moodsTotal * 100}%`, background: MOOD_COLOR[m] }} /></div><span className="muted small">{d.moods[m]}</span></div>)}</div>
               <div className="chips mt-sm">{WD.slice(1).map((w, i) => d.weekday_mood[i + 1] > 0 && <span key={w} className="chip">{w} <b>{d.weekday_mood[i + 1].toFixed(1)}</b></span>)}</div>

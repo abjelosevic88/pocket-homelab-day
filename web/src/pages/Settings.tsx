@@ -2,25 +2,26 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, Settings as SettingsT, Source, SourceName, User } from '../lib/types'
+import type { APIToken, BackfillStatus, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_ICON, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Card, Confirm, Field, Loading, Modal, PageHeader, Segmented, Tabs, useAsync, useToast } from '../components/ui'
 import { Select } from '../components/Select'
 import { Avatar } from '../components/people'
 
-type Tab = 'general' | 'sources' | 'notify' | 'users' | 'profile' | 'api' | 'data' | 'about'
+type Tab = 'general' | 'sources' | 'notify' | 'ai' | 'users' | 'profile' | 'api' | 'data' | 'about'
 
 export default function Settings() {
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get('tab') as Tab) || 'general')
   return (
     <>
       <PageHeader title="Settings" />
-      <Tabs tabs={[{ id: 'general', label: 'General' }, { id: 'sources', label: 'Sources' }, { id: 'notify', label: 'Notifications' }, { id: 'users', label: 'Users' }, { id: 'profile', label: 'Profile' }, { id: 'api', label: 'API & apps' }, { id: 'data', label: 'Backup & data' }, { id: 'about', label: 'About' }]} value={tab} onChange={setTab} />
+      <Tabs tabs={[{ id: 'general', label: 'General' }, { id: 'sources', label: 'Sources' }, { id: 'notify', label: 'Notifications' }, { id: 'ai', label: 'AI' }, { id: 'users', label: 'Users' }, { id: 'profile', label: 'Profile' }, { id: 'api', label: 'API & apps' }, { id: 'data', label: 'Backup & data' }, { id: 'about', label: 'About' }]} value={tab} onChange={setTab} />
       <div className="mt">
         {tab === 'general' && <General />}
         {tab === 'sources' && <Sources />}
         {tab === 'notify' && <Notify />}
+        {tab === 'ai' && <AISettings />}
         {tab === 'users' && <Users />}
         {tab === 'profile' && <Profile />}
         {tab === 'api' && <Tokens />}
@@ -163,7 +164,7 @@ function Notify() {
     setTest('testing…')
     try { const r = await api.post<{ ok: boolean; message?: string; error?: string }>(`${V1}/integrations/test`, { which: 'notify', url: f.notify_url, format: f.notify_format }); setTest(r.ok ? `✓ ${r.message}` : `✕ ${r.error}`) } catch (e) { setTest(`✕ ${(e as Error).message}`) }
   }
-  const send = async (which: 'evening' | 'morning') => { try { const r = await api.post<{ ok: boolean; sent: number; error?: string }>(`${V1}/notify/run`, { which }); toast(r.ok ? (r.sent ? 'Sent' : 'Nothing to send') : r.error || 'failed', r.ok ? 'ok' : 'err') } catch (e) { toast((e as Error).message, 'err') } }
+  const send = async (which: 'evening' | 'morning' | 'weekly') => { try { const r = await api.post<{ ok: boolean; sent: number; error?: string }>(`${V1}/notify/run`, { which }); toast(r.ok ? (r.sent ? 'Sent' : 'Nothing to send') : r.error || 'failed', r.ok ? 'ok' : 'err') } catch (e) { toast((e as Error).message, 'err') } }
   const hours = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))
   return (
     <div className="two-col">
@@ -180,9 +181,75 @@ function Notify() {
           <Field label="Evening hour"><Select value={String(f.evening_hour)} onChange={v => setF({ ...f, evening_hour: Number(v) })} options={hours} disabled={!isAdmin} /></Field>
           <label className="row"><input type="checkbox" checked={f.notify_morning} onChange={e => setF({ ...f, notify_morning: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Morning: yesterday in one line and “on this day” from earlier years</label>
           <Field label="Morning hour"><Select value={String(f.morning_hour)} onChange={v => setF({ ...f, morning_hour: Number(v) })} options={hours} disabled={!isAdmin} /></Field>
-          <div className="row wrap">{isAdmin && <button className="btn primary" onClick={() => save()} disabled={busy}>Save</button>}<button className="btn sm" onClick={() => send('evening')} disabled={!f.notify_configured}>Send evening now</button><button className="btn sm" onClick={() => send('morning')} disabled={!f.notify_configured}>Send morning now</button></div>
+          <div className="row wrap">{isAdmin && <button className="btn primary" onClick={() => save()} disabled={busy}>Save</button>}<button className="btn sm" onClick={() => send('evening')} disabled={!f.notify_configured}>Send evening now</button><button className="btn sm" onClick={() => send('morning')} disabled={!f.notify_configured}>Send morning now</button>{f.ai_configured && <button className="btn sm" onClick={() => send('weekly')} disabled={!f.notify_configured}>Send week story now</button>}</div>
         </div>
       </Card>
+    </div>
+  )
+}
+
+const AI_MODELS = ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.4-nano', 'gpt-5.5', 'gpt-4.1-mini', 'gpt-4o-mini']
+const FEATURE_LABEL: Record<string, string> = { draft: 'Draft my day', question: "Tonight's question", suggest: 'Suggest highlight & tags', dictation: 'Dictation', 'story-week': 'Week stories', 'story-month': 'Month stories', 'story-year': 'Year stories', ask: 'Ask (answers)', 'ask-plan': 'Ask (planning)' }
+
+function AISettings() {
+  const { f, setF, save, busy, isAdmin } = useSettingsForm()
+  const [test, setTest] = useState('')
+  const { data: usage } = useAsync(() => api.get<{ last_30_days: UsageRow[]; all_time: UsageRow[] }>(`${V1}/ai/usage`), [])
+  if (!f) return <Loading />
+  const run = async () => {
+    setTest('testing…')
+    try { const r = await api.post<{ ok: boolean; message?: string; error?: string }>(`${V1}/integrations/test`, { which: 'ai', url: f.ai_base_url, key: f.ai_key, extra: f.ai_model }); setTest(r.ok ? `✓ ${r.message}` : `✕ ${r.error}`) } catch (e) { setTest(`✕ ${(e as Error).message}`) }
+  }
+  const tot = (rows: UsageRow[] = []) => rows.reduce((a, r) => ({ calls: a.calls + r.calls, p: a.p + r.prompt_tokens, c: a.c + r.completion_tokens }), { calls: 0, p: 0, c: 0 })
+  const m30 = tot(usage?.last_30_days), all = tot(usage?.all_time)
+  return (
+    <div className="grid" style={{ gap: 16 }}>
+      <div className="two-col">
+        <Card title="✨ OpenAI" actions={<span className={`badge ${f.ai_configured ? 'cat' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}>
+          <div className="grid" style={{ gap: 12 }}>
+            <Field label="API key" help="platform.openai.com → API keys. Any OpenAI-compatible endpoint works with the base URL below."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" disabled={!isAdmin} /></Field>
+            <div className="two-col tight">
+              <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} disabled={!isAdmin} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
+              <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} disabled={!isAdmin} /></Field>
+            </div>
+            <div className="two-col tight">
+              <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" disabled={!isAdmin} /></Field>
+              <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" disabled={!isAdmin} /></Field>
+            </div>
+            <div className="row"><button className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><span className={`small ${test.startsWith('✓') ? 'ok' : test.startsWith('✕') ? 'bad' : 'muted'}`}>{test}</span></div>
+          </div>
+        </Card>
+        <Card title="What it does">
+          <table className="table compact"><tbody>
+            <tr><th>Draft my day</th><td className="muted">A first-person draft from the facts, moments and pins — or only what your text is missing. You edit it.</td></tr>
+            <tr><th>Tonight's question</th><td className="muted">One specific question about the day replaces the generic prompt, here and in the evening push.</td></tr>
+            <tr><th>Suggest</th><td className="muted">A highlight, tags (from your own vocabulary) and a mood from what you wrote.</td></tr>
+            <tr><th>Dictation</th><td className="muted">🎙 Speak the entry or a moment; it is transcribed and added.</td></tr>
+            <tr><th>Stories</th><td className="muted">Week, month and year written up as a story — on the Calendar, the Year page and under Stories. A Sunday push with the week.</td></tr>
+            <tr><th>Ask</th><td className="muted">“When was I last at the lake?” — answered from your days, with links to them.</td></tr>
+          </tbody></table>
+        </Card>
+      </div>
+      <div className="two-col">
+        <Card title="Options">
+          <div className="grid" style={{ gap: 12 }}>
+            <label className="row"><input type="checkbox" checked={f.ai_question} onChange={e => setF({ ...f, ai_question: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Tonight's question on the day page and in the evening push</label>
+            <label className="row"><input type="checkbox" checked={f.ai_weekly_story} onChange={e => setF({ ...f, ai_weekly_story: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Write the week's story every Sunday at the evening hour and push it</label>
+            <label className="row"><input type="checkbox" checked={f.ai_send_text} onChange={e => setF({ ...f, ai_send_text: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Send what I wrote (highlights, text, moments), not only the app data</label>
+            <p className="muted small" style={{ margin: 0 }}>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos, audio is sent only while dictating. OpenAI does not train on API data by default.</p>
+            {isAdmin && <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div>}
+          </div>
+        </Card>
+        <Card title="Usage">
+          {usage && (usage.all_time.length > 0 ? <>
+            <table className="table compact">
+              <thead><tr><th>Feature</th><th className="right">Calls</th><th className="right">Tokens in</th><th className="right">Tokens out</th></tr></thead>
+              <tbody>{usage.last_30_days.map(r => <tr key={r.feature + r.model}><td>{FEATURE_LABEL[r.feature] || r.feature} <span className="muted small">{r.model}</span></td><td className="right">{r.calls}</td><td className="right">{r.prompt_tokens.toLocaleString()}</td><td className="right">{r.completion_tokens.toLocaleString()}</td></tr>)}</tbody>
+            </table>
+            <p className="muted small mt-sm">Last 30 days: {m30.calls} calls, {(m30.p + m30.c).toLocaleString()} tokens. All time: {all.calls} calls, {(all.p + all.c).toLocaleString()} tokens.</p>
+          </> : <p className="muted">Nothing used yet.</p>)}
+        </Card>
+      </div>
     </div>
   )
 }

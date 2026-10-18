@@ -45,9 +45,18 @@ Inside Docker, reach sibling containers by service name or `http://host.docker.i
 - The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS`, one day every 1.5 s, skipping days that already have every source.
 - Weather: the home location, unless the day's Dawarich bounds are more than ~40 km away — then the centre of that day's movement.
 
+## AI
+| Variable | Default | |
+|---|---|---|
+| `OPENAI_API_KEY` | | seeds Settings → AI; empty = AI off |
+| `OPENAI_MODEL` | `gpt-5.4-mini` | any chat-completions model; reasoning models get `reasoning_effort: low` |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | any OpenAI-compatible endpoint |
+
+Dictation model, the writing language, tonight's question, the Sunday week story and whether your own words are sent are set in the UI.
+
 ## Notifications
 
-`NOTIFY_URL` + `NOTIFY_FORMAT` (`apprise` | `ntfy` | `json`). Evening push at the evening hour (default 21:00) unless every user already wrote; morning push (default 09:00) with yesterday's line and “on this day”.
+`NOTIFY_URL` + `NOTIFY_FORMAT` (`apprise` | `ntfy` | `json`). Evening push at the evening hour (default 21:00) unless every user already wrote — with tonight's AI question when AI is on; on Sundays with AI on, the week's story at the same hour; morning push (default 09:00) with yesterday's line and “on this day”.
 
 ## CLI
 

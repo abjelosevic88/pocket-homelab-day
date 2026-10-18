@@ -17,7 +17,7 @@ var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly
 
 func defaultSettings() Settings {
 	st := Settings{Title: DefaultTitle, DateFormat: "auto", TimeFormat: "auto", WeekStart: "mon", HomeCurrency: "EUR", DistanceUnit: "km", Prompt: DefaultPrompt, BackfillDays: 90,
-		NotifyFormat: "apprise", NotifyEvening: true, EveningHour: 21, NotifyMorning: true, MorningHour: 9, Sources: map[string]Source{}}
+		NotifyFormat: "apprise", NotifyEvening: true, AIQuestion: true, AIWeeklyStory: true, AISendText: true, EveningHour: 21, NotifyMorning: true, MorningHour: 9, Sources: map[string]Source{}}
 	for _, n := range SourceNames {
 		st.Sources[n] = Source{Enabled: true}
 	}
@@ -120,6 +120,22 @@ func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 			}
 		case "setup_complete":
 			st.SetupComplete = v == "1"
+		case "ai_key":
+			st.AIKey = v
+		case "ai_model":
+			st.AIModel = v
+		case "ai_base_url":
+			st.AIBaseURL = v
+		case "ai_transcribe_model":
+			st.AITranscribeModel = v
+		case "ai_language":
+			st.AILanguage = v
+		case "ai_question":
+			st.AIQuestion = v != "0"
+		case "ai_weekly_story":
+			st.AIWeeklyStory = v != "0"
+		case "ai_send_text":
+			st.AISendText = v != "0"
 		}
 	}
 	return st, rows.Err()
@@ -129,24 +145,32 @@ func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 func (s *Store) SaveSettings(ctx context.Context, st Settings) error {
 	b := map[bool]string{true: "1", false: "0"}
 	kv := map[string]string{
-		"title":          st.Title,
-		"date_format":    st.DateFormat,
-		"time_format":    st.TimeFormat,
-		"week_start":     st.WeekStart,
-		"home_currency":  st.HomeCurrency,
-		"distance_unit":  st.DistanceUnit,
-		"home_lat":       strconv.FormatFloat(st.HomeLat, 'f', -1, 64),
-		"home_lon":       strconv.FormatFloat(st.HomeLon, 'f', -1, 64),
-		"home_place":     st.HomePlace,
-		"prompt":         st.Prompt,
-		"backfill_days":  strconv.Itoa(st.BackfillDays),
-		"notify_url":     st.NotifyURL,
-		"notify_format":  st.NotifyFormat,
-		"notify_evening": b[st.NotifyEvening],
-		"evening_hour":   strconv.Itoa(st.EveningHour),
-		"notify_morning": b[st.NotifyMorning],
-		"morning_hour":   strconv.Itoa(st.MorningHour),
-		"setup_complete": b[st.SetupComplete],
+		"title":               st.Title,
+		"date_format":         st.DateFormat,
+		"time_format":         st.TimeFormat,
+		"week_start":          st.WeekStart,
+		"home_currency":       st.HomeCurrency,
+		"distance_unit":       st.DistanceUnit,
+		"home_lat":            strconv.FormatFloat(st.HomeLat, 'f', -1, 64),
+		"home_lon":            strconv.FormatFloat(st.HomeLon, 'f', -1, 64),
+		"home_place":          st.HomePlace,
+		"prompt":              st.Prompt,
+		"backfill_days":       strconv.Itoa(st.BackfillDays),
+		"notify_url":          st.NotifyURL,
+		"notify_format":       st.NotifyFormat,
+		"notify_evening":      b[st.NotifyEvening],
+		"evening_hour":        strconv.Itoa(st.EveningHour),
+		"notify_morning":      b[st.NotifyMorning],
+		"morning_hour":        strconv.Itoa(st.MorningHour),
+		"setup_complete":      b[st.SetupComplete],
+		"ai_key":              st.AIKey,
+		"ai_model":            st.AIModel,
+		"ai_base_url":         st.AIBaseURL,
+		"ai_transcribe_model": st.AITranscribeModel,
+		"ai_language":         st.AILanguage,
+		"ai_question":         b[st.AIQuestion],
+		"ai_weekly_story":     b[st.AIWeeklyStory],
+		"ai_send_text":        b[st.AISendText],
 	}
 	for name, src := range st.Sources {
 		kv["src_"+name+"_url"] = src.URL

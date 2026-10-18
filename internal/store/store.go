@@ -119,7 +119,7 @@ func (s *Store) Backup(ctx context.Context, dst string) error {
 }
 
 // Tables lists the tables counted for metrics / the About page.
-var Tables = []string{"entries", "moments", "pins", "facts", "users", "api_tokens"}
+var Tables = []string{"entries", "moments", "pins", "facts", "ai_stories", "ai_asks", "users", "api_tokens"}
 
 // Counts returns row counts per table.
 func (s *Store) Counts(ctx context.Context) map[string]int {

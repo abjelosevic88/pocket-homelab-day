@@ -83,6 +83,9 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 		}
 	}
 	set(&st.NotifyURL, s.cfg.NotifyURL)
+	set(&st.AIKey, s.cfg.OpenAIKey)
+	set(&st.AIModel, s.cfg.OpenAIModel)
+	set(&st.AIBaseURL, s.cfg.OpenAIBaseURL)
 	if s.cfg.NotifyFormat != "" && st.NotifyURL == s.cfg.NotifyURL && st.NotifyFormat != s.cfg.NotifyFormat {
 		st.NotifyFormat = s.cfg.NotifyFormat
 		changed = true
@@ -204,6 +207,20 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/moments/{id}", s.handleDeleteMoment)
 
 			r.Get("/photos/{id}/thumb", s.handleThumb)
+
+			r.Post("/ai/days/{date}/draft", s.handleAIDraft)
+			r.Get("/ai/days/{date}/question", s.handleAIQuestion)
+			r.Post("/ai/days/{date}/suggest", s.handleAISuggest)
+			r.Post("/ai/transcribe", s.handleAITranscribe)
+			r.Get("/ai/stories", s.handleListStories)
+			r.Get("/ai/stories/{kind}/{period}", s.handleGetStory)
+			r.Post("/ai/stories/{kind}/{period}", s.handleMakeStory)
+			r.Delete("/ai/stories/{kind}/{period}", s.handleDeleteStory)
+			r.Get("/ai/asks", s.handleListAsks)
+			r.Post("/ai/asks", s.handleAsk)
+			r.Delete("/ai/asks/{id}", s.handleDeleteAsk)
+			r.Get("/ai/usage", s.handleAIUsage)
+			r.Get("/patterns", s.handlePatterns)
 
 			r.Post("/facts/backfill", s.handleBackfill)
 			r.Get("/facts/status", s.handleFactsStatus)

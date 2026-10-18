@@ -5,13 +5,18 @@ import { useApp } from '../lib/app-context'
 import { Avatar } from './people'
 import { Search } from './Search'
 
-const nav = [
+type NavItem = { to: string; label: string; ico: string; end?: boolean }
+const baseNav: NavItem[] = [
   { to: '/', label: 'Today', ico: '☀', end: true },
   { to: '/calendar', label: 'Calendar', ico: '▦' },
   { to: '/journal', label: 'Journal', ico: '✎' },
   { to: '/year', label: 'Year', ico: '◔' },
-  { to: '/settings', label: 'Settings', ico: '⚙' },
 ]
+const aiNav: NavItem[] = [
+  { to: '/ask', label: 'Ask', ico: '✨' },
+  { to: '/stories', label: 'Stories', ico: '📖' },
+]
+const settingsNav: NavItem = { to: '/settings', label: 'Settings', ico: '⚙' }
 
 export default function Layout() {
   const { user, settings, status, theme, toggleTheme, setUser } = useApp()
@@ -20,6 +25,8 @@ export default function Layout() {
   const navigate = useNavigate()
   const logout = async () => { await api.post(`${V1}/auth/logout`); setUser(null); navigate('/login') }
   const title = settings?.title || 'Pocket Day'
+  const nav = [...baseNav, ...(settings?.ai_configured ? aiNav : []), settingsNav]
+  const tabs = [...baseNav, ...(settings?.ai_configured ? [aiNav[0]] : [])]
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(s => !s) } }
     window.addEventListener('keydown', h)
@@ -51,7 +58,7 @@ export default function Layout() {
         </header>
         <main className="content"><Outlet /></main>
         <nav className="tabbar">
-          {nav.filter(n => n.to !== '/settings').map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => isActive ? 'active' : ''}><span className="ico">{n.ico}</span><span>{n.label}</span></NavLink>)}
+          {tabs.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => isActive ? 'active' : ''}><span className="ico">{n.ico}</span><span>{n.label}</span></NavLink>)}
           <NavLink to="/settings" className={({ isActive }) => isActive ? 'active' : ''}><span className="ico">⚙</span><span>More</span></NavLink>
         </nav>
       </div>

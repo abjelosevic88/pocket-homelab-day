@@ -23,6 +23,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 - **Frozen in time.** Past days are fetched once and kept. The journal still reads when a source is gone or its data rotated away.
 - **Memories.** The same date in earlier years shows on the day page and in the morning push.
 - **Calendar, journal, year.** A month grid coloured by mood with photos/km/listens per day; a searchable journal; a year in review with month bars, moods by weekday, most played, most watched, books, places, trips and the days you starred.
+- **AI, if you want it.** Add an OpenAI key and the day page drafts your entry from what the apps recorded, asks one specific question about the day, suggests a highlight, tags and mood, and takes dictation. Weeks, months and years get written up as stories, and you can ask the journal things like “when was I last at the lake?” and get an answer that links the days.
 - **Two pushes a day.** An evening “How was today?” with the day's numbers (skipped once you wrote), a morning “On this day”. Apprise, ntfy or a webhook.
 
 <p align="center"><img src="docs/screenshots/day.png" width="900" alt="A day: the entry editor and moments on the left, where, photos, music and watched on the right"></p>
@@ -63,6 +64,24 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
 
 All optional. A day only shows the sources you connected.
+
+## AI (optional)
+
+Settings → AI takes an OpenAI key (or any OpenAI-compatible endpoint). Default model `gpt-5.4-mini`, dictation `gpt-4o-mini-transcribe`. Without a key every AI button stays hidden.
+
+| Feature | Where | What it does |
+|---|---|---|
+| **Draft my day** | day page | A first-person draft from the facts, moments and pins — or only the sentences your own text is missing. Never invents feelings. |
+| **Tonight's question** | day page, evening push | One question about something concrete in the day (“what took you to Prijedor?”) instead of the generic prompt. |
+| **Suggest** | day page | A highlight, tags from your own tag vocabulary and a mood, from what you wrote. |
+| **Dictation** | entry, moments, Ask | 🎙 record in the browser, transcribed and added. |
+| **Stories** | Calendar, Year, Stories | The week, month or year as a short story in the second person; the week is pushed on Sunday evening. |
+| **Ask your journal** | Ask | Plans a date window and keywords, reads the matching days, answers with linked dates. |
+| **What goes with a good day** | Year | Average mood with vs without walks, sun, cooking, photos, TV… — plain arithmetic, shown even without a key. |
+
+The model only ever sees plain-text summaries of the days it needs — never photos — and “Send what I wrote” can keep your own words out of it. Token use per feature is listed under Settings → AI. It writes in the language of your entries unless you set one.
+
+<p align="center"><img src="docs/screenshots/ask.png" width="900" alt="Ask your journal: questions answered with links to the days"></p>
 
 ## Run it
 

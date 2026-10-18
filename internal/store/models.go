@@ -142,5 +142,15 @@ type Settings struct {
 	MorningHour   int     `json:"morning_hour"`
 	SetupComplete bool    `json:"setup_complete"`
 
+	// AI (OpenAI-compatible). Empty key = every AI feature hidden.
+	AIKey             string `json:"ai_key"`
+	AIModel           string `json:"ai_model"`
+	AIBaseURL         string `json:"ai_base_url"`
+	AITranscribeModel string `json:"ai_transcribe_model"`
+	AILanguage        string `json:"ai_language"`     // "" = same as the entries
+	AIQuestion        bool   `json:"ai_question"`     // tonight's question on the day page + evening push
+	AIWeeklyStory     bool   `json:"ai_weekly_story"` // Sunday evening: the week as a story, pushed
+	AISendText        bool   `json:"ai_send_text"`    // include what you wrote, not only the facts
+
 	Sources map[string]Source `json:"sources"`
 }

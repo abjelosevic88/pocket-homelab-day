@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
@@ -109,13 +110,21 @@ func (s *Server) handleYears(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleYear(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	u := userFrom(ctx)
 	year, err := strconv.Atoi(chiParam(r, "year"))
 	if err != nil || year < 1970 || year > 2200 {
 		writeErr(w, http.StatusBadRequest, "year must be a number")
 		return
 	}
+	rec, err := s.buildYear(r.Context(), userFrom(r.Context()), year)
+	if err != nil {
+		s.fail(w, err, "year")
+		return
+	}
+	writeJSON(w, http.StatusOK, rec)
+}
+
+// buildYear computes the year in review for one user.
+func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearRecap, error) {
 	ys := strconv.Itoa(year)
 	from, to := ys+"-01-01", ys+"-12-31"
 	rec := yearRecap{Year: year, Months: make([]monthRecap, 12), Modes: map[string]float64{}, Spend: map[string]float64{}, Books: []sources.Book{}, Trips: []sources.Trip{}, Pinned: []store.Entry{}, Best: []store.Entry{}}
@@ -124,8 +133,7 @@ func (s *Server) handleYear(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, _, err := s.store.ListEntries(ctx, store.EntryFilter{UserID: u.ID, From: from, To: to, Limit: 100000, Asc: true})
 	if err != nil {
-		s.fail(w, err, "year")
-		return
+		return nil, err
 	}
 	moodSum, moodN := 0.0, 0
 	monthMood := make([]float64, 12)
@@ -178,8 +186,7 @@ func (s *Server) handleYear(w http.ResponseWriter, r *http.Request) {
 
 	facts, err := s.store.FactsRange(ctx, from, to)
 	if err != nil {
-		s.fail(w, err, "year facts")
-		return
+		return nil, err
 	}
 	artists, tracks, shows, cats, dishes, places, visits, conds := map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}
 	daysWithFacts := map[string]bool{}
@@ -336,7 +343,7 @@ func (s *Server) handleYear(w http.ResponseWriter, r *http.Request) {
 	rec.Visits = sources.TopCounts(visits, 10)
 	rec.Conditions = sources.TopCounts(conds, 7)
 	sort.SliceStable(rec.Trips, func(i, j int) bool { return rec.Trips[i].StartDate < rec.Trips[j].StartDate })
-	writeJSON(w, http.StatusOK, rec)
+	return &rec, nil
 }
 
 func monthIndex(date string) int {

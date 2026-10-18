@@ -9,7 +9,13 @@ export interface Settings {
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
   notify_url: string; notify_format: string; notify_configured: boolean; notify_evening: boolean; evening_hour: number; notify_morning: boolean; morning_hour: number
   sources: Record<SourceName, Source>; source_names: SourceName[]; setup_complete: boolean; base_url: string; timezone: string
+  ai_key: string; ai_model: string; ai_base_url: string; ai_transcribe_model: string; ai_language: string
+  ai_question: boolean; ai_weekly_story: boolean; ai_send_text: boolean; ai_configured: boolean; ai_default_model: string; ai_default_transcribe: string
 }
+export interface Story { user_id: number; kind: 'week' | 'month' | 'year'; period: string; title: string; text: string; model: string; created_at: string }
+export interface Ask { id: number; question: string; answer: string; dates: string[]; scope: string; model: string; created_at: string }
+export interface Pattern { label: string; with: number; without: number; n_with: number; n_without: number }
+export interface UsageRow { feature: string; model: string; calls: number; prompt_tokens: number; completion_tokens: number }
 
 export interface Entry { id: number; user_id: number; date: string; highlight: string; text: string; mood: number; tags: string; pinned: boolean; created_at: string; updated_at: string; moments?: number; words?: number }
 export interface Moment { id: number; user_id: number; date: string; time: string; text: string; kind: string; created_at: string }

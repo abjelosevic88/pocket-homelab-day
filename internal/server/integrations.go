@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/abjelosevic88/pocket-homelab-day/internal/ai"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/sources"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
 )
@@ -48,6 +50,9 @@ func (s *Server) publicSettings(st store.Settings) map[string]any {
 		"home_lat": st.HomeLat, "home_lon": st.HomeLon, "home_place": st.HomePlace, "prompt": st.Prompt, "backfill_days": st.BackfillDays,
 		"notify_url": st.NotifyURL, "notify_format": st.NotifyFormat, "notify_configured": st.NotifyURL != "",
 		"notify_evening": st.NotifyEvening, "evening_hour": st.EveningHour, "notify_morning": st.NotifyMorning, "morning_hour": st.MorningHour,
+		"ai_key": mask(st.AIKey), "ai_model": st.AIModel, "ai_base_url": st.AIBaseURL, "ai_transcribe_model": st.AITranscribeModel, "ai_language": st.AILanguage,
+		"ai_question": st.AIQuestion, "ai_weekly_story": st.AIWeeklyStory, "ai_send_text": st.AISendText, "ai_configured": st.AIKey != "",
+		"ai_default_model": ai.DefaultModel, "ai_default_transcribe": ai.DefaultTranscribe,
 		"sources": srcs, "source_names": store.SourceNames, "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
 	}
 }
@@ -142,6 +147,30 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	if keys["morning_hour"] && in.MorningHour >= 0 && in.MorningHour <= 23 {
 		cur.MorningHour = in.MorningHour
 	}
+	if keys["ai_key"] && !strings.Contains(in.AIKey, "••") {
+		cur.AIKey = strings.TrimSpace(in.AIKey)
+	}
+	if keys["ai_model"] {
+		cur.AIModel = strings.TrimSpace(in.AIModel)
+	}
+	if keys["ai_base_url"] {
+		cur.AIBaseURL = strings.TrimRight(strings.TrimSpace(in.AIBaseURL), "/")
+	}
+	if keys["ai_transcribe_model"] {
+		cur.AITranscribeModel = strings.TrimSpace(in.AITranscribeModel)
+	}
+	if keys["ai_language"] {
+		cur.AILanguage = strings.TrimSpace(in.AILanguage)
+	}
+	if keys["ai_question"] {
+		cur.AIQuestion = in.AIQuestion
+	}
+	if keys["ai_weekly_story"] {
+		cur.AIWeeklyStory = in.AIWeeklyStory
+	}
+	if keys["ai_send_text"] {
+		cur.AISendText = in.AISendText
+	}
 	for name, p := range in.Sources {
 		src, ok := cur.Sources[name]
 		if !ok {
@@ -227,6 +256,31 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		f = sources.NewGarage(url, key)
 	case "weather":
 		f = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
+	case "ai":
+		base, k, model := strings.TrimRight(strings.TrimSpace(in.URL), "/"), in.Key, strings.TrimSpace(in.Extra)
+		if base == "" {
+			base = st.AIBaseURL
+		}
+		if k == "" || strings.Contains(k, "••") {
+			k = st.AIKey
+		}
+		if model == "" {
+			model = st.AIModel
+		}
+		c := ai.New(base, k, model, "")
+		ids, err := c.Models(ctx)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		for _, id := range ids {
+			if id == c.Model {
+				writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": fmt.Sprintf("Key works; %d models available, “%s” included", len(ids), c.Model)})
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": fmt.Sprintf("Key works, but “%s” is not among its %d models", c.Model, len(ids))})
+		return
 	case "notify":
 		fm := in.Format
 		if fm == "" {

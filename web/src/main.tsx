@@ -11,6 +11,8 @@ import Calendar from './pages/Calendar'
 import Journal from './pages/Journal'
 import Year from './pages/Year'
 import Settings from './pages/Settings'
+import Ask from './pages/Ask'
+import Stories from './pages/Stories'
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { status, user } = useApp()
@@ -34,6 +36,8 @@ function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/year" element={<Year />} />
         <Route path="/year/:year" element={<Year />} />
+        <Route path="/ask" element={<Ask />} />
+        <Route path="/stories" element={<Stories />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

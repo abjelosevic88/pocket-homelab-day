@@ -4,6 +4,7 @@ import { useApp } from '../lib/app-context'
 import { todayISO } from '../lib/format'
 import { MOOD_COLOR, MOOD_ICON, WEATHER_ICON, type CalendarDay } from '../lib/types'
 import { Loading, PageHeader, useAsync } from '../components/ui'
+import { StoryCard, useAI } from '../components/ai'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -11,6 +12,7 @@ export default function Calendar() {
   const { month: mp } = useParams()
   const navigate = useNavigate()
   const { settings } = useApp()
+  const aiOn = useAI()
   const today = todayISO()
   const month = mp && /^\d{4}-\d{2}$/.test(mp) ? mp : today.slice(0, 7)
   const [y, m] = month.split('-').map(Number)
@@ -56,6 +58,7 @@ export default function Calendar() {
           })}
         </div>
       </div>}
+      {aiOn && month <= today.slice(0, 7) && <div className="mt"><StoryCard key={month} kind="month" period={month} label={`${MONTHS[m - 1]} ${y}`} /></div>}
       <p className="muted small mt">The top edge takes the day's mood colour. Numbers: photos, kilometres, listens. Click a day to read or write it.</p>
     </>
   )

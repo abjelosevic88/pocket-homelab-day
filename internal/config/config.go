@@ -45,6 +45,10 @@ type Config struct {
 	NotifyFormat string // ntfy | apprise | json
 	Sources      map[string]SourceEnv
 
+	OpenAIKey     string
+	OpenAIModel   string
+	OpenAIBaseURL string
+
 	// Outbound lookups identify as this.
 	UserAgent string
 
@@ -139,6 +143,10 @@ func Load() (*Config, error) {
 		NotifyURL:    env("NOTIFY_URL", ""),
 		NotifyFormat: strings.ToLower(env("NOTIFY_FORMAT", "")),
 		Sources:      map[string]SourceEnv{},
+
+		OpenAIKey:     env("OPENAI_API_KEY", ""),
+		OpenAIModel:   env("OPENAI_MODEL", ""),
+		OpenAIBaseURL: strings.TrimRight(env("OPENAI_BASE_URL", ""), "/"),
 
 		UserAgent: env("USER_AGENT", "PocketDay/1.0 (+https://github.com/abjelosevic88/pocket-homelab-day)"),
 
