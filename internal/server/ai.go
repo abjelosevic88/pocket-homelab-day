@@ -110,7 +110,7 @@ func (s *Server) aiQuestion(ctx context.Context, u *store.User, date string, for
 		return "", nil
 	}
 	sys := voice + `
-Task: ask ONE question that would help the person write about this day. It must point at something specific in the material (a place, a long drive, a burst of photos, an album on repeat, a missed habit, a film, a purchase, a moment they noted) and invite a story, not a yes/no. Max 22 words. No greeting, no preamble, no quotation marks — just the question.
+Task: ask ONE question that would help the person write about this day. Pick exactly one specific thing from the material — the most unusual or human one (a place they went, a long drive, an album on repeat, a missed habit, a film, an odd purchase, a moment they noted) — and invite a story, not a yes/no. Do not combine two topics, do not quote clock times or numbers, do not ask about the weather unless it was extreme. Max 18 words. No greeting, no preamble, no quotation marks — just the question.
 ` + s.languageRule(ctx, u, st)
 	q, usage, err := c.Complete(ctx, sys, brief, false)
 	s.logUsage(ctx, u.ID, "question", usage)
@@ -667,7 +667,7 @@ Return JSON {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","keywords":["..."]}.
 		return
 	}
 	ansSys := voice + `
-Task: answer the person's question about their own life from the journal material below (today is ` + today + `). Be direct and brief: one to five sentences, or a short list when they ask for several things or counts. Count carefully when asked "how many" — count the days in the material, and say if the material may be incomplete (e.g. apps that started recording later). Cite every day you rely on as [YYYY-MM-DD] (cite days, not the edges of the search window). Always speak to the person as "you" and never about yourself. If the material does not contain the answer, say so plainly and, if useful, name the closest thing you did find. Address them as "you".
+Task: answer the person's question about their own life from the journal material below (today is ` + today + `). Be direct and brief: one to five sentences, or a short list when they ask for several things or counts. Distances: "km in total" includes walking; when asked about driving, walking or cycling use the by-mode figures. Count carefully when asked "how many" — count the days in the material, and say if the material may be incomplete (e.g. apps that started recording later). Cite every day you rely on as [YYYY-MM-DD] (cite days, not the edges of the search window). Always speak to the person as "you" and never about yourself. If the material does not contain the answer, say so plainly and, if useful, name the closest thing you did find. Address them as "you".
 ` + s.languageRule(ctx, u, st) + ` (Answer in the language of the question if it differs.)
 Reply as JSON: {"answer": "...", "dates": ["YYYY-MM-DD", ...]}`
 	var ans struct {

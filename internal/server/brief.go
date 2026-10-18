@@ -54,7 +54,7 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 	}
 	var wh sources.Where
 	if get("dawarich", &wh) && wh.DistanceKm > 0 {
-		s := fmt.Sprintf("%.1f km", wh.DistanceKm)
+		s := fmt.Sprintf("%.1f km in total", wh.DistanceKm)
 		var modes []string
 		for m, v := range wh.Modes {
 			if v >= 0.5 {
@@ -63,7 +63,7 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		sort.Strings(modes)
 		if len(modes) > 0 {
-			s += " (" + strings.Join(modes, ", ") + ")"
+			s += " — by mode: " + strings.Join(modes, ", ")
 		}
 		if wh.FirstMove != "" {
 			s += fmt.Sprintf(", out %s–%s", wh.FirstMove, wh.LastMove)
