@@ -41,6 +41,24 @@ func (s *Server) fetchers(st store.Settings) map[string]sources.Fetcher {
 			out[name] = sources.NewKitchen(src.URL, src.Key)
 		case "garage":
 			out[name] = sources.NewGarage(src.URL, src.Key)
+		case "pinepods":
+			out[name] = sources.NewPinePods(src.URL, src.Key)
+		case "audiobookshelf":
+			out[name] = sources.NewAudiobookshelf(src.URL, src.Key, src.Extra)
+		case "jellyseerr":
+			out[name] = sources.NewJellyseerr(src.URL, src.Key)
+		case "forgejo":
+			out[name] = sources.NewForgejo(src.URL, src.Key, src.Extra)
+		case "nextcloud":
+			out[name] = sources.NewNextcloud(src.URL, src.Key, src.Extra)
+		case "paperless":
+			out[name] = sources.NewPaperless(src.URL, src.Key, src.PublicURL)
+		case "invoicing":
+			out[name] = sources.NewInvoicing(src.URL, src.Key)
+		case "split":
+			out[name] = sources.NewSplit(src.URL, src.Key)
+		case "inventory":
+			out[name] = sources.NewInventory(src.URL, src.Key)
 		case "weather":
 			if st.HomeLat != 0 || st.HomeLon != 0 {
 				out[name] = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
@@ -124,6 +142,9 @@ func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only 
 				_ = s.store.PutFactError(ctx, date, name, err.Error())
 				s.log.Debug("fact fetch failed", "date", date, "source", name, "err", err)
 				return
+			}
+			if name == "pinepods" {
+				s.adjustListening(ctx, date, name, res)
 			}
 			b, _ := json.Marshal(res.Payload)
 			_ = s.store.PutFact(ctx, &store.Fact{Date: date, Source: name, Payload: b, Headline: res.Headline, Summary: res.Summary})

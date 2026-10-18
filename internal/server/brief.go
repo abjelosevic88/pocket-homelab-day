@@ -216,6 +216,46 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Habits", strings.Join(s, "; "))
 	}
+	for _, name := range activityOrder() {
+		var a sources.Activity
+		if !get(name, &a) || a.Count == 0 {
+			continue
+		}
+		m := sources.Activities[name]
+		line := sources.Plural(a.Count, m.One, m.Many)
+		if a.Minutes >= 1 {
+			line += ", " + sources.HoursMinutes(int(a.Minutes+0.5))
+		}
+		if a.Amount > 0 {
+			line += fmt.Sprintf(", %.2f %s", a.Amount, a.Cur)
+		}
+		n := 3
+		if detail {
+			n = 12
+		}
+		var it []string
+		for i, x := range a.Items {
+			if i >= n {
+				it = append(it, "…")
+				break
+			}
+			t := x.Title
+			if x.Sub != "" {
+				t += " (" + x.Sub + ")"
+			}
+			if detail && x.Time != "" {
+				t = x.Time + " " + t
+			}
+			if x.Done {
+				t += " ✓"
+			}
+			it = append(it, t)
+		}
+		if len(it) > 0 {
+			line += ": " + strings.Join(it, "; ")
+		}
+		add(m.Label, line)
+	}
 	var car sources.Car
 	if get("garage", &car) && len(car.Items) > 0 {
 		var it []string
@@ -319,4 +359,15 @@ func (s *Server) languageRule(ctx context.Context, u *store.User, st store.Setti
 		return "Write in English."
 	}
 	return "Write in the same language (and script) the person uses in their own entries — for example: “" + strings.Join(sample, "” / “") + "”."
+}
+
+// activityOrder is the activity sources in a stable order.
+func activityOrder() []string {
+	var out []string
+	for _, n := range store.SourceNames {
+		if sources.IsActivity(n) {
+			out = append(out, n)
+		}
+	}
+	return out
 }

@@ -3,16 +3,20 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
-import { MOODS, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, cap, fmtKm, fmtMinutes, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
+import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
+
+const ACT_ORDER = ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'jellyseerr', 'paperless', 'invoicing', 'split', 'inventory']
 import { Card, Empty, Loading, useAsync } from '../components/ui'
 import { StoryCard, useAI } from '../components/ai'
 import { Ring } from './Calendar'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly'
+type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'jellyseerr' | 'paperless'
 const METRICS: { id: Metric; label: string; icon: string }[] = [
   { id: 'immich', label: 'Photos', icon: '📷' }, { id: 'dawarich', label: 'Distance', icon: '🗺' }, { id: 'maloja', label: 'Music', icon: '🎧' },
-  { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'written', label: 'Written', icon: '✎' },
+  { id: 'pinepods', label: 'Podcasts', icon: '🎙' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: '📖' },
+  { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' }, { id: 'forgejo', label: 'Code', icon: '⌨️' }, { id: 'nextcloud', label: 'Tasks', icon: '☑️' },
+  { id: 'jellyseerr', label: 'Requests', icon: '🎬' }, { id: 'paperless', label: 'Documents', icon: '🗂' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'written', label: 'Written', icon: '✎' },
 ]
 const compact = (n: number) => n >= 10000 ? new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n) : Math.round(n).toLocaleString()
 function money(v: number, cur: string, short = true) {
@@ -74,6 +78,12 @@ export default function Year() {
           {d.listens > 0 && <div className="tile"><span className="ti">🎧</span><div><b>{compact(d.listens)}</b><small>songs played</small></div></div>}
           {d.watch_min > 0 && <div className="tile"><span className="ti">📺</span><div><b>{Math.round(d.watch_min / 60)} h</b><small>{d.shows.length} shows · {d.movies} films</small></div></div>}
           {spendMain > 0 && <div className="tile" title={[money(spendMain, cur, false), ...others.map(([c, v]) => money(v, c, false))].join(' + ')}><span className="ti">💸</span><div><b>{money(spendMain, cur)}</b><small>spent{others.length ? ` (+ ${others.map(([c, v]) => money(v, c)).join(', ')})` : ''}</small></div></div>}
+          {Object.entries(d.activity || {}).filter(([src]) => isActivity(src)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
+            const m = ACTIVITY[src]
+            const big = m.unit === 'min' ? `${Math.round(ay.minutes / 60)} h` : m.unit === 'qty' ? compact(ay.months.reduce((x, y) => x + y, 0)) : m.unit === 'amount' ? money(ay.amount, cur) : compact(ay.count)
+            const small = m.unit === 'min' ? `${SOURCE_LABEL[src].toLowerCase()} · ${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}` : m.unit === 'qty' ? `${m.qtyMany} · ${ay.days} days` : m.unit === 'amount' ? `${SOURCE_LABEL[src].toLowerCase()}` : `${ay.count === 1 ? m.one : m.many}${src === 'nextcloud' ? ' done' : ''}`
+            return <div key={src} className="tile"><span className="ti">{SOURCE_ICON[src]}</span><div><b>{big}</b><small>{small}</small></div></div>
+          })}
           {d.books.length > 0 && <div className="tile"><span className="ti">📚</span><div><b>{d.books.length}</b><small>books finished</small></div></div>}
           {d.cooked > 0 && <div className="tile"><span className="ti">🍳</span><div><b>{d.cooked}</b><small>dishes cooked</small></div></div>}
         </div>
@@ -113,6 +123,15 @@ export default function Year() {
           {d.trips.length > 0 && <Card title="✈️ Trips"><div className="inline-list">{d.trips.map(t => <Link key={t.id} className="li" to={`/day/${t.start_date}`} style={{ color: 'inherit' }}><span className="swatch" style={{ background: t.color || 'var(--accent)' }} /><span className="grow"><b>{t.name}</b>{t.destination && <span className="muted"> · {t.destination}</span>}</span><span className="muted small nowrap">{fmtDate(t.start_date, false)} – {fmtDate(t.end_date, false)}</span></Link>)}</div></Card>}
           {d.conditions.length > 0 && <Card title="⛅ Weather"><WeatherBar items={d.conditions} /></Card>}
           {d.dishes.length > 0 && <Card title="🍳 Cooked most"><Ranked items={d.dishes} unitLabel="×" /></Card>}
+          {Object.entries(d.activity || {}).filter(([src, ay]) => isActivity(src) && (ay.top?.length || ay.titles?.length)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
+            const m = ACTIVITY[src]
+            const repeated = (ay.titles || []).filter(t => t.count > 1)
+            return <Card key={src} title={`${SOURCE_ICON[src]} ${SOURCE_LABEL[src]}`}>
+              <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
+              {ay.top?.length > 0 && <Ranked items={ay.top.slice(0, 6)} />}
+              {repeated.length > 0 && <><div className="sub-head">Most often</div><Ranked items={repeated.slice(0, 4)} unitLabel="×" /></>}
+            </Card>
+          })}
           {d.pinned.length > 0 && <Card title="★ Kept days"><DayList items={d.pinned} /></Card>}
           {d.best.length > 0 && <Card title="😄 Great days"><DayList items={d.best} /></Card>}
           {d.tags.length > 0 && <Card title="# Tags"><div className="chips">{d.tags.map(t => <Link key={t.tag} className="chip" to={`/journal?tag=${encodeURIComponent(t.tag)}`}>#{t.tag} <span className="muted">{t.count}</span></Link>)}</div></Card>}
@@ -138,6 +157,7 @@ function fmtMetric(v: number, m: Metric, unit: 'km' | 'mi', cur: string): string
     case 'mood': return v ? `${v.toFixed(1).replace('.0', '')} ${MOODS[Math.round(v)]}` : 'no mood'
     case 'written': return `${Math.round(v)} written`
   }
+  return isActivity(m) ? fmtHeadline(m, v, cur) : String(Math.round(v))
 }
 function cellColor(v: number, m: Metric, max: number): string | undefined {
   if (!v) return undefined
@@ -200,6 +220,7 @@ function MonthBars({ year, days, metric, today, unit, cur, onOpen }: { year: num
     if (metric === 'dawarich') return `${compact(unit === 'mi' ? v / 1.609344 : v)}`
     if (metric === 'jellystat') return `${Math.round(v / 60)}h`
     if (metric === 'mood') return v.toFixed(1)
+    if (isActivity(metric)) return fmtHeadlineShort(metric, v, cur)
     return compact(v)
   }
   return (

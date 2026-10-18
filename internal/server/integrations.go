@@ -254,6 +254,24 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		f = sources.NewKitchen(url, key)
 	case "garage":
 		f = sources.NewGarage(url, key)
+	case "pinepods":
+		f = sources.NewPinePods(url, key)
+	case "audiobookshelf":
+		f = sources.NewAudiobookshelf(url, key, extra)
+	case "jellyseerr":
+		f = sources.NewJellyseerr(url, key)
+	case "forgejo":
+		f = sources.NewForgejo(url, key, extra)
+	case "nextcloud":
+		f = sources.NewNextcloud(url, key, extra)
+	case "paperless":
+		f = sources.NewPaperless(url, key, saved.PublicURL)
+	case "invoicing":
+		f = sources.NewInvoicing(url, key)
+	case "split":
+		f = sources.NewSplit(url, key)
+	case "inventory":
+		f = sources.NewInventory(url, key)
 	case "weather":
 		f = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
 	case "ai":

@@ -3,7 +3,7 @@ import { V1 } from '../lib/api'
 import { Card } from './ui'
 import {
   SOURCE_APP, SOURCE_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Car, type Checkin, type TrackerRow, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where,
+  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -116,6 +116,12 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       break
     }
     default:
+      if (isActivity(source)) {
+        const a = fact.payload as Activity
+        if (!a.count) { body = empty(`Nothing in ${SOURCE_APP[source] || source} this day.`); break }
+        body = <ActivityBody source={source} a={a} link={link} PinBtn={PinBtn} />
+        break
+      }
       body = <pre className="small">{JSON.stringify(fact.payload, null, 1).slice(0, 800)}</pre>
   }
   return <Card title={title} actions={actions} className={`fact-card src-${source}`}>{body}</Card>
@@ -168,6 +174,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
   if (!fact) return false
   const v = fact.payload as Record<string, unknown> | null
   if (!v) return !!fact.error
+  if (isActivity(source)) return Number((v as { count?: number }).count || 0) > 0
   const n = (k: string) => Number((v as Record<string, unknown>)[k] || 0)
   const len = (k: string) => ((v as Record<string, unknown[]>)[k] || []).length
   switch (source) {
@@ -242,5 +249,31 @@ function HabitsBody({ c }: { c: Checkin }) {
     {c.journal && <p className="quote mt-sm">“{c.journal}”</p>}
     {c.journal_bad && <p className="muted small" style={{ margin: '6px 0 0' }}>Bad: {c.journal_bad}</p>}
     {c.important && <p className="callout warning small">{c.important}</p>}
+  </>
+}
+
+/** Any activity source: a headline, the top groups, the items with their time. */
+function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity; link?: string; PinBtn: (props: PinBtnProps) => React.ReactNode }) {
+  const m = ACTIVITY[source]
+  const cur = a.currency || 'EUR'
+  const headline = m.unit === 'min' ? fmtHeadline(source, a.minutes) : m.unit === 'qty' ? fmtHeadline(source, a.qty || 0) : m.unit === 'amount' ? fmtHeadline(source, a.amount || 0, cur) : fmtHeadline(source, a.count)
+  const second = m.unit === 'count' ? '' : `${a.count} ${a.count === 1 ? m.one : m.many}`
+  const [all, setAll] = useState(false)
+  const items = all ? a.items : a.items.slice(0, 8)
+  const base = link ? link.replace(/\/+$/, '') : ''
+  return <>
+    <div className="fact-head"><b>{headline}</b>{second && <span className="muted"> · {second}</span>}{a.done > 0 && m.doneLabel && <span className="muted"> · {a.done} {m.doneLabel}</span>}</div>
+    {a.top?.length > 1 && <div className="chips">{a.top.slice(0, 5).map(t => <span key={t.name} className="chip">{t.name} <span className="muted">{t.count}</span></span>)}</div>}
+    <div className="inline-list mt-sm">{items.map((it, i) => {
+      const url = it.url ? (it.url.startsWith('/') ? (base ? base + it.url : '') : it.url) : ''
+      return <div key={(it.ref || it.title) + i} className="li act-li">
+        <span className="muted mono small act-t">{it.time || ''}</span>
+        {it.image ? <img className="act-img" src={it.image} alt="" loading="lazy" /> : null}
+        <span className="grow act-body"><b>{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{it.title || '(untitled)'}</a> : (it.title || '(untitled)')}</b>{it.done && <span className="act-done" title={m.doneLabel || 'done'}>✓</span>}{it.sub && <span className="act-sub">{it.sub}</span>}</span>
+        {(it.minutes || 0) >= 1 ? <span className="muted small nowrap">{fmtMinutes(Math.round(it.minutes || 0))}</span> : it.amount ? <span className="money">{fmtAmount(it.amount, it.currency || cur)}</span> : (it.qty || 0) > 0 ? <span className="muted small nowrap">{it.qty} {it.qty === 1 ? m.qtyOne : m.qtyMany}</span> : null}
+        <PinBtn ref_={`${source}:${it.ref || it.title}`} title={it.title} subtitle={it.sub} image={it.image} />
+      </div>
+    })}</div>
+    {a.items.length > 8 && <button className="btn ghost sm mt-sm" onClick={() => setAll(x => !x)}>{all ? 'Show fewer' : `All ${a.items.length}`}</button>}
   </>
 }

@@ -539,6 +539,10 @@ func (s *Server) moodPatterns(ctx context.Context, u *store.User, from, to strin
 		}},
 		{"on a trip", "travel", func(f store.Fact) bool { return f.Headline > 0 }},
 	}
+	for _, name := range activityOrder() {
+		m := sources.Activities[name]
+		tests = append(tests, test{m.Verb, name, func(f store.Fact) bool { return f.Headline > 0 }})
+	}
 	var out []Pattern
 	for _, t := range tests {
 		var sw, so float64
@@ -624,7 +628,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// 1. plan: which days and which words to look for
-	planSys := `You turn a question about someone's personal journal into a search plan. Today is ` + today + ` (` + time.Now().Weekday().String() + `). The journal covers ` + first + ` to ` + today + `. It holds what they wrote plus, per day: places and stops (Dawarich), photo places (Immich), songs and artists (Maloja), shows and films (Jellystat), purchases with descriptions and categories (Firefly III), habits and trackers, books, trips, dishes cooked, car fill-ups, weather. Their tags: ` + strings.Join(vocab, ", ") + `.
+	planSys := `You turn a question about someone's personal journal into a search plan. Today is ` + today + ` (` + time.Now().Weekday().String() + `). The journal covers ` + first + ` to ` + today + `. It holds what they wrote plus, per day: places and stops (Dawarich), photo places (Immich), songs and artists (Maloja), shows and films (Jellystat), purchases with descriptions and categories (Firefly III), habits and trackers, books, trips, dishes cooked, car fill-ups, weather. Also podcasts and other activity per day (titles, shows, minutes). Their tags: ` + strings.Join(vocab, ", ") + `.
 Return JSON {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","keywords":["..."]}.
 - from/to: the narrowest range that surely contains the answer. "last week" = the 7 days before today; "this year" = Jan 1 to today; "ever", "last time", "how often" with no period = the whole journal.
 - keywords: 0–6 lower-case words or names likely to appear literally in the text or data (names, places, artists, shows, dishes, tags; include both the English and the person's own-language form when they differ). No keywords when the question is about the period in general.`

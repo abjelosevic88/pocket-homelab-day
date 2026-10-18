@@ -31,6 +31,19 @@ type monthRecap struct {
 	SunnyPct float64            `json:"sunny_pct"`
 }
 
+type activityYear struct {
+	Count   int             `json:"count"`
+	Minutes float64         `json:"minutes"`
+	Done    int             `json:"done"`
+	Amount  float64         `json:"amount"`
+	Days    int             `json:"days"`
+	Top     []sources.Count `json:"top"`
+	Titles  []sources.Count `json:"titles"` // most repeated item titles
+	Months  [12]float64     `json:"months"` // headline per month
+	groups  map[string]int
+	titles  map[string]int
+}
+
 type catSpend struct {
 	Name   string  `json:"name"`
 	Amount float64 `json:"amount"`
@@ -38,42 +51,43 @@ type catSpend struct {
 }
 
 type yearRecap struct {
-	Year        int                `json:"year"`
-	Months      []monthRecap       `json:"months"`
-	Entries     int                `json:"entries"`
-	Moments     int                `json:"moments"`
-	Words       int                `json:"words"`
-	Mood        float64            `json:"mood"`
-	Moods       [6]int             `json:"moods"`
-	Photos      int                `json:"photos"`
-	Videos      int                `json:"videos"`
-	Km          float64            `json:"km"`
-	Modes       map[string]float64 `json:"modes"`
-	Listens     int                `json:"listens"`
-	Artists     []sources.Count    `json:"artists"`
-	Tracks      []sources.Count    `json:"tracks"`
-	WatchMin    int                `json:"watch_min"`
-	Shows       []sources.Count    `json:"shows"`
-	Movies      int                `json:"movies"`
-	Spend       map[string]float64 `json:"spend"`
-	Categories  []sources.Count    `json:"categories"`
-	CatSpend    []catSpend         `json:"category_spend"` // in SpendCur, largest first
-	SpendCur    string             `json:"spend_currency"`
-	Books       []sources.Book     `json:"books"`
-	Cooked      int                `json:"cooked"`
-	Dishes      []sources.Count    `json:"dishes"`
-	Places      []sources.Count    `json:"places"`
-	Visits      []sources.Count    `json:"visits"`
-	Trips       []sources.Trip     `json:"trips"`
-	Conditions  []sources.Count    `json:"conditions"`
-	Tags        []store.TagCount   `json:"tags"`
-	Pinned      []store.Entry      `json:"pinned"`
-	Best        []store.Entry      `json:"best"`
-	Longest     int                `json:"longest_streak"`
-	DaysFacts   int                `json:"days_with_facts"`
-	BusiestDay  string             `json:"busiest_day"`
-	FarthestDay string             `json:"farthest_day"`
-	WeekdayMood [8]float64         `json:"weekday_mood"`
+	Year        int                      `json:"year"`
+	Months      []monthRecap             `json:"months"`
+	Entries     int                      `json:"entries"`
+	Moments     int                      `json:"moments"`
+	Words       int                      `json:"words"`
+	Mood        float64                  `json:"mood"`
+	Moods       [6]int                   `json:"moods"`
+	Photos      int                      `json:"photos"`
+	Videos      int                      `json:"videos"`
+	Km          float64                  `json:"km"`
+	Modes       map[string]float64       `json:"modes"`
+	Listens     int                      `json:"listens"`
+	Artists     []sources.Count          `json:"artists"`
+	Tracks      []sources.Count          `json:"tracks"`
+	WatchMin    int                      `json:"watch_min"`
+	Shows       []sources.Count          `json:"shows"`
+	Movies      int                      `json:"movies"`
+	Spend       map[string]float64       `json:"spend"`
+	Categories  []sources.Count          `json:"categories"`
+	CatSpend    []catSpend               `json:"category_spend"` // in SpendCur, largest first
+	Activity    map[string]*activityYear `json:"activity"`       // per activity source
+	SpendCur    string                   `json:"spend_currency"`
+	Books       []sources.Book           `json:"books"`
+	Cooked      int                      `json:"cooked"`
+	Dishes      []sources.Count          `json:"dishes"`
+	Places      []sources.Count          `json:"places"`
+	Visits      []sources.Count          `json:"visits"`
+	Trips       []sources.Trip           `json:"trips"`
+	Conditions  []sources.Count          `json:"conditions"`
+	Tags        []store.TagCount         `json:"tags"`
+	Pinned      []store.Entry            `json:"pinned"`
+	Best        []store.Entry            `json:"best"`
+	Longest     int                      `json:"longest_streak"`
+	DaysFacts   int                      `json:"days_with_facts"`
+	BusiestDay  string                   `json:"busiest_day"`
+	FarthestDay string                   `json:"farthest_day"`
+	WeekdayMood [8]float64               `json:"weekday_mood"`
 }
 
 func (s *Server) handleYears(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +150,7 @@ func (s *Server) handleYear(w http.ResponseWriter, r *http.Request) {
 func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearRecap, error) {
 	ys := strconv.Itoa(year)
 	from, to := ys+"-01-01", ys+"-12-31"
-	rec := yearRecap{Year: year, Months: make([]monthRecap, 12), Modes: map[string]float64{}, Spend: map[string]float64{}, Books: []sources.Book{}, Trips: []sources.Trip{}, Pinned: []store.Entry{}, Best: []store.Entry{}}
+	rec := yearRecap{Activity: map[string]*activityYear{}, Year: year, Months: make([]monthRecap, 12), Modes: map[string]float64{}, Spend: map[string]float64{}, Books: []sources.Book{}, Trips: []sources.Trip{}, Pinned: []store.Entry{}, Best: []store.Entry{}}
 	for i := range rec.Months {
 		rec.Months[i] = monthRecap{Month: ys + "-" + pad2(i+1), Spend: map[string]float64{}}
 	}
@@ -212,6 +226,35 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 		}
 		mi := monthIndex(f.Date)
 		daysWithFacts[f.Date] = true
+		if sources.IsActivity(f.Source) {
+			var a sources.Activity
+			if json.Unmarshal(f.Payload, &a) == nil && a.Count > 0 {
+				ay := rec.Activity[f.Source]
+				if ay == nil {
+					ay = &activityYear{groups: map[string]int{}, titles: map[string]int{}}
+					rec.Activity[f.Source] = ay
+				}
+				ay.Count += a.Count
+				ay.Minutes += a.Minutes
+				ay.Done += a.Done
+				ay.Amount += a.Amount
+				ay.Days++
+				ay.Months[mi] += f.Headline
+				for _, it := range a.Items {
+					g := it.Group
+					if g == "" {
+						g = it.Sub
+					}
+					if g != "" {
+						ay.groups[g]++
+					}
+					if it.Title != "" {
+						ay.titles[it.Title]++
+					}
+				}
+			}
+			continue
+		}
 		switch f.Source {
 		case "immich":
 			var p sources.Photos
@@ -363,6 +406,12 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 	rec.Artists = sources.TopCounts(artists, 10)
 	rec.Tracks = sources.TopCounts(tracks, 10)
 	rec.Shows = sources.TopCounts(shows, 8)
+	for _, ay := range rec.Activity {
+		ay.Top = sources.TopCounts(ay.groups, 8)
+		ay.Titles = sources.TopCounts(ay.titles, 5)
+		ay.Minutes = round1(ay.Minutes)
+		ay.Amount = sources.Round2(ay.Amount)
+	}
 	rec.Categories = sources.TopCounts(cats, 8)
 	for cur, v := range rec.Spend {
 		if rec.SpendCur == "" || v > rec.Spend[rec.SpendCur] {

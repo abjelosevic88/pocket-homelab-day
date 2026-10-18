@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
-import { KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Cooked, type Fact, type Moment, type Money, type Music, type Photo, type Photos, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, SOURCE_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type Moment, type Money, type Music, type Photo, type Photos, type Watched, type Where } from '../lib/types'
 import { Card, Segmented, useToast } from './ui'
 import { DictateButton, useAI } from './ai'
 
@@ -48,6 +48,14 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const w of watched?.items || []) timed.push({ time: w.time, key: `w${w.item_id || w.title}`, icon: '📺', kind: 'watch', title: w.series || w.title, sub: [w.series ? w.title : '', fmtMinutes(w.minutes)].filter(Boolean).join(' · ') })
   const money = p<Money>('firefly')
   for (const s of money?.items || []) (s.time ? timed : untimed).push({ time: s.time, key: `t${s.id}`, icon: '💸', kind: 'money', title: s.description, sub: fmtAmount(s.amount, s.currency) })
+  for (const src of Object.keys(ACTIVITY)) {
+    const a = p<Activity>(src)
+    for (const [i, it] of (a?.items || []).entries()) {
+      const extra = (it.minutes || 0) >= 1 ? fmtMinutes(Math.round(it.minutes || 0)) : it.amount ? fmtAmount(it.amount, it.currency || a?.currency || 'EUR') : ''
+      const item: Item = { time: it.time || '', end: it.end && it.end !== it.time ? it.end : undefined, key: `${src}${i}`, icon: SOURCE_ICON[src], kind: 'act', title: it.title + (it.done && ACTIVITY[src].doneLabel ? ` · ${ACTIVITY[src].doneLabel}` : ''), sub: [it.sub, extra].filter(Boolean).join(' · ') || undefined }
+      ;(item.time ? timed : untimed).push(item)
+    }
+  }
   const cooked = p<Cooked>('kitchen')
   for (const c of cooked?.cooks || []) untimed.push({ time: '', key: `c${c.id}`, icon: '🍳', kind: 'cook', title: `Cooked ${c.title}` })
   timed.sort((a, b) => a.time.localeCompare(b.time) || (a.kind === 'moment' ? -1 : 1))

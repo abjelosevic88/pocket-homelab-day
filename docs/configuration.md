@@ -33,7 +33,7 @@ Everything is an environment variable with a sensible default. Sources, the home
 
 ## Sources
 
-Each source takes `<NAME>_URL`, a secret as `<NAME>_TOKEN` / `<NAME>_API_KEY` / `<NAME>_KEY`, an optional `<NAME>_PUBLIC_URL` (what the browser opens for ↗ links) and `<NAME>_EXTRA`. Names: `DAWARICH`, `IMMICH`, `MALOJA`, `JELLYSTAT`, `FIREFLY`, `HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`. `JELLYSTAT_USER` (= `JELLYSTAT_EXTRA`) keeps only one Jellyfin user's plays.
+Each source takes `<NAME>_URL`, a secret as `<NAME>_TOKEN` / `<NAME>_API_KEY` / `<NAME>_KEY`, an optional `<NAME>_PUBLIC_URL` (what the browser opens for ↗ links) and `<NAME>_EXTRA`. Names: `DAWARICH`, `IMMICH`, `MALOJA`, `JELLYSTAT`, `FIREFLY`, `HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`, `PAPERLESS`, `INVOICING`, `SPLIT`, `INVENTORY`. `_EXTRA` is: the Jellyfin user for Jellystat, the users to keep for Audiobookshelf (comma separated), the user name for Forgejo and Nextcloud. `JELLYSTAT_USER` (= `JELLYSTAT_EXTRA`) keeps only one Jellyfin user's plays.
 
 Inside Docker, reach sibling containers by service name or `http://host.docker.internal:PORT` with `extra_hosts: ["host.docker.internal:host-gateway"]`.
 

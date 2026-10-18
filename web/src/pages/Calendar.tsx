@@ -3,15 +3,16 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO, weekday } from '../lib/format'
-import { MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_ICON, WEATHER_ICON, fmtAmount, fmtKm, fmtMinutes, type CalendarDay, type DayPage, type Photos, type YearRecap } from '../lib/types'
+import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_ICON, WEATHER_ICON, fmtHeadlineShort, isActivity, fmtAmount, fmtKm, fmtMinutes, type CalendarDay, type DayPage, type Photos, type YearRecap } from '../lib/types'
 import { Loading, useAsync } from '../components/ui'
 import { StoryCard, useAI } from '../components/ai'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly'
+type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'jellyseerr'
 const LAYERS: { id: Layer; label: string; icon: string }[] = [
   { id: 'photos', label: 'Photos', icon: '📷' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'dawarich', label: 'Distance', icon: '🗺' },
-  { id: 'maloja', label: 'Music', icon: '🎧' }, { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' },
+  { id: 'maloja', label: 'Music', icon: '🎧' }, { id: 'pinepods', label: 'Podcasts', icon: '🎙' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: '📖' },
+  { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' }, { id: 'forgejo', label: 'Code', icon: '⌨️' }, { id: 'nextcloud', label: 'Tasks', icon: '☑️' }, { id: 'jellyseerr', label: 'Requests', icon: '🎬' },
 ]
 const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
 const daysIn = (y: number, m: number) => new Date(y, m, 0).getDate()
@@ -154,6 +155,10 @@ function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string
     case 'jellystat': return fmtMinutes(Math.round(v)).replace(' min', 'm').replace(' h ', 'h')
     case 'firefly': return fmtAmount(Math.round(v), cur).replace(/[.,]00$/, '')
   }
+  if (isActivity(layer)) {
+    const m = ACTIVITY[layer]
+    return m.unit === 'count' || m.unit === 'qty' ? `${Math.round(v)} ${SOURCE_ICON[layer]}` : fmtHeadlineShort(layer, v, cur)
+  }
   return ''
 }
 
@@ -201,7 +206,7 @@ function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'k
 function Preview({ date, onClose }: { date: string; onClose: () => void }) {
   const { data, loading } = useAsync(() => api.get<DayPage>(`${V1}/days/${date}`), [date])
   const photos = (data?.facts?.immich?.payload as Photos | null)?.items?.filter(p => p.type === 'IMAGE').slice(0, 6) || []
-  const order = ['travel', 'dawarich', 'maloja', 'jellystat', 'habits', 'firefly', 'bookshelf', 'kitchen', 'garage', 'weather']
+  const order = ['travel', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'forgejo', 'firefly', 'split', 'invoicing', 'paperless', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
   return (
     <aside className="cal2-panel">
       <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button></div>

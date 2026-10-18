@@ -74,6 +74,13 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Pocket Travel** | the trip the day fell in, and which day of it | URL + token |
 | **Pocket Kitchen** | what was cooked | URL + token |
 | **Pocket Garage** | fill-ups and service records | URL + token |
+| **PinePods** | podcast episodes and minutes per day (spread-out episodes count on each day) | URL + API key |
+| **Audiobookshelf** | audiobook and ABS-podcast listening sessions, per title | URL + admin API key |
+| **Jellyseerr** | films and series requested, and when they became available | URL + API key |
+| **Forgejo** | commits pushed per repository, new repositories, tags, pull requests | URL + read-only token |
+| **Nextcloud** | tasks completed (every list), events and contact birthdays, over CalDAV | URL + user + app password |
+| **Paperless-ngx** | documents added, with correspondent and type | URL + token |
+| **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | URL + token |
 | **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
 
 All optional. A day only shows the sources you connected.

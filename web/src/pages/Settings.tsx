@@ -106,6 +106,15 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   kitchen: { what: 'What was cooked.', key: 'Token from Pocket Kitchen → Settings → API & apps', url: 'http://host.docker.internal:8176' },
   garage: { what: 'Fill-ups and service records.', key: 'Token from Pocket Garage → Settings → API', url: 'http://host.docker.internal:8175' },
   weather: { what: 'Daily weather from Open-Meteo for the home location, or where Dawarich says you were.', key: 'no key needed', url: '' },
+  pinepods: { what: 'Podcast episodes played, with minutes per day. Episodes spread over several days count on each of them (from the day Pocket Day starts watching).', key: 'API key from PinePods → Settings → API keys', url: 'http://host.docker.internal:8136' },
+  audiobookshelf: { what: 'Listening sessions — audiobooks and ABS podcasts — per title, with minutes. Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
+  jellyseerr: { what: 'Films and series requested, and requested titles that became available.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
+  forgejo: { what: 'Your pushes per repository: commits, the latest message, new repositories, tags and pull requests.', key: 'A read-only access token (Settings → Applications, scopes read:user + read:repository)', url: 'http://host.docker.internal:3000', extra: 'User name (empty = the token’s owner)' },
+  nextcloud: { what: 'Tasks completed (every task list), events and contact birthdays, over CalDAV.', key: 'An app password (Personal settings → Security)', url: 'http://host.docker.internal:8080', extra: 'Nextcloud user name' },
+  paperless: { what: 'Documents added that day, with correspondent and type.', key: 'API token from Paperless → My profile', url: 'http://host.docker.internal:8000' },
+  invoicing: { what: 'Invoices issued and payments received, with amounts.', key: 'Token from Pocket Invoicing → Settings → API', url: 'http://host.docker.internal:8168' },
+  split: { what: 'Shared expenses dated that day, across every group.', key: 'Token from Pocket Split → Settings → API', url: 'http://host.docker.internal:8172' },
+  inventory: { what: 'Things added, used up or restocked.', key: 'Token from Pocket Inventory → Settings → API tokens', url: 'http://host.docker.internal:8170' },
 }
 
 function Sources() {
@@ -141,7 +150,7 @@ function Sources() {
           {name !== 'weather' && <div className="grid" style={{ gap: 12 }}>
             <div className={help.extra ? 'three-col tight' : 'two-col tight'}>
               <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} disabled={!isAdmin} /></Field>
-              {src.needs_key && <Field label={name === 'firefly' ? 'Personal access token' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} disabled={!isAdmin} autoComplete="off" /></Field>}
+              {src.needs_key && <Field label={name === 'firefly' ? 'Personal access token' : name === 'nextcloud' ? 'App password' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} disabled={!isAdmin} autoComplete="off" /></Field>}
               {help.extra && <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} disabled={!isAdmin} /></Field>}
             </div>
             <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" disabled={!isAdmin} /></Field>

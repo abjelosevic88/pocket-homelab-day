@@ -3,13 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { addDays, fmtDate, todayISO, weekday } from '../lib/format'
-import { MOODS, MOOD_ICON, SOURCE_ICON, SOURCE_LABEL, fmtAmount, fmtKm, fmtMinutes, tagList, type Checkin, type DayPage, type Entry, type Money, type Music, type Photos, type Pin, type SourceName, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, MOODS, MOOD_ICON, SOURCE_ICON, SOURCE_LABEL, fmtHeadlineShort, type Activity, fmtAmount, fmtKm, fmtMinutes, tagList, type Checkin, type DayPage, type Entry, type Money, type Music, type Photos, type Pin, type SourceName, type Watched, type Where } from '../lib/types'
 import { Card, Confirm, Loading, Segmented, useAsync, useToast } from '../components/ui'
 import { FactCard, WeatherChip, factHasContent, type PinFn } from '../components/facts'
 import { Timeline } from '../components/Timeline'
 import { DictateButton, useAI } from '../components/ai'
 
-const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'jellystat', 'habits', 'firefly', 'bookshelf', 'kitchen', 'garage']
+const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'forgejo', 'firefly', 'split', 'invoicing', 'paperless', 'bookshelf', 'kitchen', 'inventory', 'garage']
 
 export default function Day() {
   const params = useParams()
@@ -213,6 +213,15 @@ function Glance({ facts, unit }: { facts: DayPage['facts']; unit: 'km' | 'mi' })
   const wt = p<Watched>('jellystat'); if (wt?.minutes) pills.push({ src: 'jellystat', icon: '📺', value: fmtMinutes(wt.minutes), label: 'watched' })
   const mo = p<Money>('firefly'); if (mo?.count) pills.push({ src: 'firefly', icon: '💸', value: fmtAmount(mo.totals[mo.main_currency] || 0, mo.main_currency), label: `${mo.count} payment${mo.count === 1 ? '' : 's'}` })
   const h = p<Checkin>('habits'); if (h?.total) pills.push({ src: 'habits', icon: '✅', value: `${h.done}/${h.total}`, label: 'habits' })
+  for (const src of ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'jellyseerr', 'paperless', 'split', 'invoicing']) {
+    const f = facts[src]
+    if (!f || !f.headline) continue
+    const a = f.payload as Activity | null
+    const m = ACTIVITY[src]
+    const value = m.unit === 'count' ? String(Math.round(f.headline)) : fmtHeadlineShort(src, f.headline, a?.currency)
+    const label = m.unit === 'count' ? (f.headline === 1 ? m.one : m.many) : m.unit === 'qty' ? (f.headline === 1 ? m.qtyOne! : m.qtyMany!) : SOURCE_LABEL[src].toLowerCase()
+    pills.push({ src, icon: SOURCE_ICON[src], value, label: src === 'nextcloud' ? `${label} done` : label })
+  }
   if (pills.length === 0) return null
   const jump = (src: string) => document.getElementById(`src-${src}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return <div className="glance">{pills.map(x => <button key={x.src} className="glance-pill" onClick={() => jump(x.src)} title={SOURCE_LABEL[x.src]}><span className="gi">{x.icon}</span><span><b>{x.value}</b><span className="gl">{x.label}</span></span></button>)}</div>

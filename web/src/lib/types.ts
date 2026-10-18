@@ -3,7 +3,7 @@ export interface APIToken { id: number; user_id: number; name: string; prefix: s
 export interface Currency { code: string; name: string; decimals: number }
 
 export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean }
-export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather'
+export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'paperless' | 'invoicing' | 'split' | 'inventory'
 export interface Settings {
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
@@ -58,7 +58,7 @@ export interface WeatherDay { code: number; condition: string; t_max: number | n
 export interface MonthRecap { month: string; entries: number; moments: number; mood: number; photos: number; km: number; listens: number; watch_min: number; spend: Record<string, number>; books: number; cooked: number; habits_pct: number; days: number; sunny_pct: number }
 export interface YearRecap {
   year: number; months: MonthRecap[]; entries: number; moments: number; words: number; mood: number; moods: number[]; photos: number; videos: number; km: number; modes: Record<string, number>
-  listens: number; artists: Count[]; tracks: Count[]; watch_min: number; shows: Count[]; movies: number; spend: Record<string, number>; categories: Count[]; category_spend: { name: string; amount: number; count: number }[]; spend_currency: string; books: Book[]; cooked: number; dishes: Count[]
+  listens: number; artists: Count[]; tracks: Count[]; watch_min: number; shows: Count[]; movies: number; spend: Record<string, number>; categories: Count[]; category_spend: { name: string; amount: number; count: number }[]; spend_currency: string; activity: Record<string, { count: number; minutes: number; done: number; amount: number; days: number; top: Count[]; titles: Count[]; months: number[] }>; books: Book[]; cooked: number; dishes: Count[]
   places: Count[]; visits: Count[]; trips: Trip[]; conditions: Count[]; tags: { tag: string; count: number }[]; pinned: Entry[]; best: Entry[]; longest_streak: number; days_with_facts: number; busiest_day: string; farthest_day: string; weekday_mood: number[]
 }
 
@@ -66,9 +66,9 @@ export const MOODS = ['', 'rough', 'meh', 'okay', 'good', 'great']
 export const MOOD_ICON = ['○', '😖', '😕', '😐', '🙂', '😄']
 export const MOOD_COLOR = ['var(--border)', '#ef4444', '#f59e0b', '#a3a3a3', '#22c55e', '#4f46e5']
 export const KIND_ICON: Record<string, string> = { note: '•', win: '🏆', thanks: '🙏', idea: '💡', event: '📌' }
-export const SOURCE_LABEL: Record<string, string> = { dawarich: 'Where', immich: 'Photos', maloja: 'Music', jellystat: 'Watched', firefly: 'Money', habits: 'Habits', bookshelf: 'Reading', travel: 'Trip', kitchen: 'Cooked', garage: 'Garage', weather: 'Weather' }
-export const SOURCE_APP: Record<string, string> = { dawarich: 'Dawarich', immich: 'Immich', maloja: 'Maloja', jellystat: 'Jellystat', firefly: 'Firefly III', habits: 'Pocket Habits', bookshelf: 'Pocket Bookshelf', travel: 'Pocket Travel', kitchen: 'Pocket Kitchen', garage: 'Pocket Garage', weather: 'Open-Meteo' }
-export const SOURCE_ICON: Record<string, string> = { dawarich: '🗺', immich: '📷', maloja: '🎧', jellystat: '📺', firefly: '💸', habits: '✅', bookshelf: '📚', travel: '✈️', kitchen: '🍳', garage: '🚗', weather: '⛅' }
+export const SOURCE_LABEL: Record<string, string> = { dawarich: 'Where', immich: 'Photos', maloja: 'Music', jellystat: 'Watched', firefly: 'Money', habits: 'Habits', bookshelf: 'Reading', travel: 'Trip', kitchen: 'Cooked', garage: 'Garage', weather: 'Weather', pinepods: 'Podcasts', audiobookshelf: 'Audiobooks', jellyseerr: 'Requests', forgejo: 'Code', nextcloud: 'Tasks', paperless: 'Documents', invoicing: 'Invoices', split: 'Shared costs', inventory: 'Inventory' }
+export const SOURCE_APP: Record<string, string> = { dawarich: 'Dawarich', immich: 'Immich', maloja: 'Maloja', jellystat: 'Jellystat', firefly: 'Firefly III', habits: 'Pocket Habits', bookshelf: 'Pocket Bookshelf', travel: 'Pocket Travel', kitchen: 'Pocket Kitchen', garage: 'Pocket Garage', weather: 'Open-Meteo', pinepods: 'PinePods', audiobookshelf: 'Audiobookshelf', jellyseerr: 'Jellyseerr', forgejo: 'Forgejo', nextcloud: 'Nextcloud', paperless: 'Paperless', invoicing: 'Pocket Invoicing', split: 'Pocket Split', inventory: 'Pocket Inventory' }
+export const SOURCE_ICON: Record<string, string> = { dawarich: '🗺', immich: '📷', maloja: '🎧', jellystat: '📺', firefly: '💸', habits: '✅', bookshelf: '📚', travel: '✈️', kitchen: '🍳', garage: '🚗', weather: '⛅', pinepods: '🎙', audiobookshelf: '📖', jellyseerr: '🎬', forgejo: '⌨️', nextcloud: '☑️', paperless: '🗂', invoicing: '🧾', split: '🤝', inventory: '📦' }
 export const WEATHER_ICON: Record<string, string> = { clear: '☀️', partly: '⛅', cloudy: '☁️', fog: '🌫', rain: '🌧', snow: '❄️', storm: '⛈' }
 export const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1).replace(/_/g, ' ') : ''
 export function fmtMinutes(m: number): string {
@@ -84,3 +84,40 @@ export function fmtAmount(v: number, cur: string): string {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 2 }).format(v) } catch { return `${v.toFixed(2)} ${cur}` }
 }
 export const tagList = (t: string) => t ? t.split(',').filter(Boolean) : []
+
+// ---- activity sources: one payload shape, one renderer ----
+export interface ActivityItem { time?: string; end?: string; title: string; sub?: string; group?: string; minutes?: number; done?: boolean; ref?: string; position?: number; length?: number; amount?: number; currency?: string; qty?: number; url?: string; image?: string }
+export interface Activity { count: number; minutes: number; done: number; amount?: number; currency?: string; qty?: number; top: Count[]; items: ActivityItem[] }
+export interface ActivityMeta { one: string; many: string; unit: 'min' | 'count' | 'amount' | 'qty'; qtyOne?: string; qtyMany?: string; group: string; doneLabel?: string }
+export const ACTIVITY: Record<string, ActivityMeta> = {
+  pinepods: { one: 'episode', many: 'episodes', unit: 'min', group: 'Shows', doneLabel: 'finished' },
+  audiobookshelf: { one: 'title', many: 'titles', unit: 'min', group: 'Authors', doneLabel: 'finished' },
+  jellyseerr: { one: 'request', many: 'requests', unit: 'count', group: 'Kinds', doneLabel: 'available' },
+  forgejo: { one: 'repository', many: 'repositories', unit: 'qty', qtyOne: 'commit', qtyMany: 'commits', group: 'Repositories' },
+  nextcloud: { one: 'task', many: 'tasks', unit: 'count', group: 'Lists' },
+  paperless: { one: 'document', many: 'documents', unit: 'count', group: 'Types' },
+  invoicing: { one: 'item', many: 'items', unit: 'amount', group: 'Clients', doneLabel: 'paid' },
+  split: { one: 'expense', many: 'expenses', unit: 'amount', group: 'Groups' },
+  inventory: { one: 'change', many: 'changes', unit: 'count', group: 'Items' },
+}
+export const isActivity = (s: string) => s in ACTIVITY
+const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`
+/** A source's headline number as text: "1 h 20 min", "33 commits", "€ 8,400", "5 tasks". */
+export function fmtHeadline(src: string, v: number, cur = 'EUR'): string {
+  const m = ACTIVITY[src]
+  if (!m) return String(Math.round(v))
+  switch (m.unit) {
+    case 'min': return fmtMinutes(Math.round(v)) || '0 min'
+    case 'qty': return plural(Math.round(v), m.qtyOne || 'item', m.qtyMany || 'items')
+    case 'amount': return fmtAmount(v, cur)
+    default: return plural(Math.round(v), m.one, m.many)
+  }
+}
+/** The short form for calendar cells and bars: "1h20", "33", "€8.4K". */
+export function fmtHeadlineShort(src: string, v: number, cur = 'EUR'): string {
+  const m = ACTIVITY[src]
+  if (!m) return String(Math.round(v))
+  if (m.unit === 'min') return v >= 60 ? `${Math.floor(v / 60)}h${String(Math.round(v % 60)).padStart(2, '0')}` : `${Math.round(v)}m`
+  if (m.unit === 'amount') { try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, notation: v >= 10000 ? 'compact' : 'standard', maximumFractionDigits: 0 }).format(v) } catch { return String(Math.round(v)) } }
+  return String(Math.round(v))
+}
