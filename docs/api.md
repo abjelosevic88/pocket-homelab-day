@@ -46,7 +46,7 @@ Entries, moments and pins belong to the caller. Facts (what the connected apps k
 ## Facts & sources
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/facts/backfill` | admin, `{from?, to?, force?}` — runs in the background |
+| POST | `/facts/backfill` | admin, `{from?, to?, force?, sources?}` — runs in the background; `sources: ["habits"]` re-pulls only those |
 | GET | `/facts/status` | backfill progress, configured sources, days with facts |
 | POST | `/integrations/test` | admin, `{which, url?, key?, extra?}`; `which: notify` sends a test push |
 | GET | `/geo/search?q=` | Open-Meteo geocoding for the home location |

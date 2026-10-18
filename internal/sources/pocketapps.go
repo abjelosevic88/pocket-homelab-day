@@ -45,11 +45,16 @@ type HabitRow struct {
 
 // TrackerRow is one tracker value on the day.
 type TrackerRow struct {
-	ID    int64    `json:"id"`
-	Name  string   `json:"name"`
-	Unit  string   `json:"unit"`
-	Kind  string   `json:"kind"`
-	Value *float64 `json:"value"`
+	ID             int64    `json:"id"`
+	Name           string   `json:"name"`
+	Unit           string   `json:"unit"`
+	Kind           string   `json:"kind"` // scale | number | yesno
+	Value          *float64 `json:"value"`
+	Min            *float64 `json:"min,omitempty"`
+	Max            *float64 `json:"max,omitempty"`
+	HigherIsBetter *bool    `json:"higher_is_better,omitempty"`
+	Previous       *float64 `json:"previous,omitempty"`
+	Defaulted      bool     `json:"defaulted,omitempty"` // the tracker's default, not something entered
 }
 
 // Checkin is the day in Pocket Habits.
@@ -80,11 +85,16 @@ func (h *Habits) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 			Streak    int    `json:"streak"`
 		} `json:"habits"`
 		Trackers []struct {
-			ID    int64    `json:"id"`
-			Name  string   `json:"name"`
-			Unit  string   `json:"unit"`
-			Kind  string   `json:"kind"`
-			Value *float64 `json:"value"`
+			ID             int64    `json:"id"`
+			Name           string   `json:"name"`
+			Unit           string   `json:"unit"`
+			Kind           string   `json:"kind"`
+			Value          *float64 `json:"value"`
+			Min            *float64 `json:"min_value"`
+			Max            *float64 `json:"max_value"`
+			HigherIsBetter *bool    `json:"higher_is_better"`
+			Previous       *float64 `json:"previous"`
+			Defaulted      bool     `json:"defaulted"`
 		} `json:"trackers"`
 	}
 	if err := h.C.Get(ctx, "/api/v1/days/"+date, nil, &page); err != nil {
@@ -95,7 +105,7 @@ func (h *Habits) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 		c.Habits = append(c.Habits, HabitRow{ID: x.ID, Name: x.Name, Color: x.Color, Status: x.Status, Scheduled: x.Scheduled, Streak: x.Streak})
 	}
 	for _, x := range page.Trackers {
-		c.Trackers = append(c.Trackers, TrackerRow{ID: x.ID, Name: x.Name, Unit: x.Unit, Kind: x.Kind, Value: x.Value})
+		c.Trackers = append(c.Trackers, TrackerRow{ID: x.ID, Name: x.Name, Unit: x.Unit, Kind: x.Kind, Value: x.Value, Min: x.Min, Max: x.Max, HigherIsBetter: x.HigherIsBetter, Previous: x.Previous, Defaulted: x.Defaulted})
 	}
 	sum := ""
 	if c.Total > 0 {

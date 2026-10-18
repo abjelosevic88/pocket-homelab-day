@@ -3,7 +3,7 @@ import { V1 } from '../lib/api'
 import { Card } from './ui'
 import {
   SOURCE_APP, SOURCE_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Car, type Checkin, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where,
+  type Car, type Checkin, type TrackerRow, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -82,15 +82,7 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
     case 'habits': {
       const c = fact.payload as Checkin
       if (!c.total && !c.journal && !c.trackers?.length) { body = empty('No check-in.'); break }
-      const tr = (c.trackers || []).filter(t => t.value !== null)
-      body = <>
-        {c.total > 0 && <div className="fact-head"><b>{c.done} of {c.total}</b><span className="muted"> habits done</span></div>}
-        <div className="chips">{(c.habits || []).filter(h => h.scheduled).map(h => <span key={h.id} className={`chip habit s${h.status}`}>{h.status === 1 ? '✓' : h.status === -1 ? '✕' : '○'} {h.name}</span>)}</div>
-        {tr.length > 0 && <div className="chips mt-sm">{tr.map(t => <span key={t.id} className="chip">{t.name} <b>{t.kind === 'yesno' ? (t.value ? 'yes' : 'no') : t.value}</b>{t.kind !== 'yesno' && t.unit ? ` ${t.unit}` : ''}</span>)}</div>}
-        {c.journal && <p className="quote mt-sm">“{c.journal}”</p>}
-        {c.journal_bad && <p className="muted small">Bad: {c.journal_bad}</p>}
-        {c.important && <p className="callout warning small">{c.important}</p>}
-      </>
+      body = <HabitsBody c={c} />
       break
     }
     case 'bookshelf': {
@@ -191,4 +183,64 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'garage': return len('items') > 0
   }
   return true
+}
+
+type Tone = 'good' | 'mid' | 'bad' | ''
+
+/** Where a tracker value sits: good, middling or bad, given its range and direction. */
+function trackerTone(t: TrackerRow): Tone {
+  if (t.value === null || t.higher_is_better === undefined) return ''
+  if (t.kind === 'yesno') return (t.value > 0) === t.higher_is_better ? 'good' : 'bad'
+  if (t.min === undefined || t.max === undefined || t.max <= t.min) return ''
+  let f = (t.value - t.min) / (t.max - t.min)
+  if (!t.higher_is_better) f = 1 - f
+  return f >= 0.7 ? 'good' : f >= 0.4 ? 'mid' : 'bad'
+}
+
+function Trend({ t }: { t: TrackerRow }) {
+  if (t.kind === 'yesno' || t.value === null || t.previous === undefined || t.previous === null || t.previous === t.value) return null
+  const up = t.value > t.previous
+  const better = t.higher_is_better === undefined ? undefined : up === t.higher_is_better
+  return <span className={`trend ${better === undefined ? '' : better ? 'good' : 'bad'}`} title={`Day before: ${t.previous}`}>{up ? '▲' : '▼'} {Math.abs(t.value - t.previous)}</span>
+}
+
+function TrackerValue({ t }: { t: TrackerRow }) {
+  const tone = trackerTone(t)
+  if (t.value === null) return null
+  if (t.kind === 'yesno') return <span className={`yn ${tone}`}>{t.value > 0 ? 'Yes' : 'No'}</span>
+  if (t.kind === 'scale' && t.min !== undefined && t.max !== undefined && t.max - t.min <= 9) {
+    const steps = Array.from({ length: t.max - t.min + 1 }, (_, i) => t.min! + i)
+    return <span className={`scale ${tone}`} title={`${t.value} of ${t.max}`}>{steps.map(v => <i key={v} className={v <= t.value! ? 'on' : ''} />)}<b>{t.value}<span className="muted">/{t.max}</span></b></span>
+  }
+  return <span className={`num ${tone}`}><b>{t.value}</b>{t.unit && <span className="muted"> {t.unit}</span>}</span>
+}
+
+function HabitsBody({ c }: { c: Checkin }) {
+  const sched = (c.habits || []).filter(h => h.scheduled)
+  const done = sched.filter(h => h.status === 1), missed = sched.filter(h => h.status === -1), open = sched.filter(h => h.status === 0)
+  const ordered = [...done, ...missed, ...open]
+  const trackers = (c.trackers || []).filter(t => t.value !== null)
+  const entered = trackers.filter(t => !t.defaulted), defaulted = trackers.filter(t => t.defaulted)
+  const pct = (n: number) => `${sched.length ? (n / sched.length) * 100 : 0}%`
+  return <>
+    {sched.length > 0 && <>
+      <div className="habit-summary"><b>{done.length}</b><span className="muted"> of {sched.length} done</span>{missed.length > 0 && <span className="hs-missed"> · {missed.length} missed</span>}{open.length > 0 && <span className="muted"> · {open.length} not marked</span>}</div>
+      <div className="habit-bar" aria-hidden><i className="d" style={{ width: pct(done.length) }} /><i className="m" style={{ width: pct(missed.length) }} /></div>
+      <div className="habit-list">{ordered.map(h => <div key={h.id} className={`habit-row s${h.status}`}>
+        <span className="hmark">{h.status === 1 ? '✓' : h.status === -1 ? '✕' : ''}</span>
+        <span className="hname">{h.name}</span>
+        {h.streak > 1 && <span className="hstreak" title={`${h.streak} days in a row`}>🔥{h.streak}</span>}
+      </div>)}</div>
+    </>}
+    {trackers.length > 0 && <>
+      <div className="sub-head">Check-in</div>
+      <div className="tracker-list">
+        {entered.map(t => <div key={t.id} className="tracker-row"><span className="tname">{t.name}</span><TrackerValue t={t} /><Trend t={t} /></div>)}
+        {defaulted.length > 0 && <div className="tracker-default muted small">Not entered, default: {defaulted.map(t => `${t.name} ${t.kind === 'yesno' ? (t.value ? 'yes' : 'no') : t.value}`).join(' · ')}</div>}
+      </div>
+    </>}
+    {c.journal && <p className="quote mt-sm">“{c.journal}”</p>}
+    {c.journal_bad && <p className="muted small" style={{ margin: '6px 0 0' }}>Bad: {c.journal_bad}</p>}
+    {c.important && <p className="callout warning small">{c.important}</p>}
+  </>
 }

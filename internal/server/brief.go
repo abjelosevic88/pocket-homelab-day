@@ -194,7 +194,19 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		if detail {
 			for _, t := range hb.Trackers {
-				if t.Value != nil {
+				if t.Value == nil || t.Defaulted {
+					continue
+				}
+				switch {
+				case t.Kind == "yesno":
+					ans := "no"
+					if *t.Value > 0 {
+						ans = "yes"
+					}
+					s = append(s, t.Name+" "+ans)
+				case t.Kind == "scale" && t.Max != nil:
+					s = append(s, fmt.Sprintf("%s %v/%v", t.Name, *t.Value, *t.Max))
+				default:
 					s = append(s, fmt.Sprintf("%s %v%s", t.Name, *t.Value, unitSuffix(t.Unit)))
 				}
 			}

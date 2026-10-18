@@ -68,6 +68,11 @@ func frozen(date string) bool {
 // pullDay fetches every configured source for one date and stores the facts.
 // Frozen days are skipped unless force is set or a source has nothing yet.
 func (s *Server) pullDay(ctx context.Context, date string, force bool) (map[string]error, bool) {
+	return s.pullDayOnly(ctx, date, force, nil)
+}
+
+// pullDayOnly is pullDay limited to some sources (nil = all).
+func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only []string) (map[string]error, bool) {
 	s.pullMu.Lock()
 	if s.pulling[date] {
 		s.pullMu.Unlock()
@@ -83,6 +88,17 @@ func (s *Server) pullDay(ctx context.Context, date string, force bool) (map[stri
 
 	st, _ := s.store.GetSettings(ctx)
 	fs := s.fetchers(st)
+	if len(only) > 0 {
+		keep := map[string]bool{}
+		for _, o := range only {
+			keep[o] = true
+		}
+		for name := range fs {
+			if !keep[name] {
+				delete(fs, name)
+			}
+		}
+	}
 	if len(fs) == 0 {
 		return nil, true
 	}
@@ -207,7 +223,7 @@ func (s *Server) backfillStatus() backfillState {
 // number of days back from yesterday), skipping frozen days that already
 // have every configured source unless force is set. One day at a time, with a
 // pause, so the other apps are not hammered.
-func (s *Server) runBackfill(ctx context.Context, from, to string, force bool) {
+func (s *Server) runBackfill(ctx context.Context, from, to string, force bool, only ...string) {
 	s.backfill.mu.Lock()
 	if s.backfill.Running {
 		s.backfill.mu.Unlock()
@@ -255,7 +271,7 @@ func (s *Server) runBackfill(ctx context.Context, from, to string, force bool) {
 			s.backfill.mu.Unlock()
 			continue
 		}
-		s.pullDay(ctx, d, force)
+		s.pullDayOnly(ctx, d, force, only)
 		s.backfill.mu.Lock()
 		s.backfill.Done++
 		s.backfill.mu.Unlock()
@@ -273,9 +289,10 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		From  string `json:"from"`
-		To    string `json:"to"`
-		Force bool   `json:"force"`
+		From    string   `json:"from"`
+		To      string   `json:"to"`
+		Force   bool     `json:"force"`
+		Sources []string `json:"sources"`
 	}
 	_ = decode(r, &in)
 	if (in.From != "" && !validDate(in.From)) || (in.To != "" && !validDate(in.To)) {
@@ -286,7 +303,7 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "a backfill is already running", "status": s.backfillStatus()})
 		return
 	}
-	go s.runBackfill(context.Background(), in.From, in.To, in.Force)
+	go s.runBackfill(context.Background(), in.From, in.To, in.Force, in.Sources...)
 	time.Sleep(200 * time.Millisecond)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": s.backfillStatus()})
 }

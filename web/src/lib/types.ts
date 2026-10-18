@@ -43,7 +43,7 @@ export interface Watched { count: number; episodes: number; movies: number; minu
 export interface Spend { id: string; time: string; description: string; amount: number; currency: string; category?: string; budget?: string; destination?: string; source?: string; tags?: string[] }
 export interface Money { count: number; totals: Record<string, number>; categories: Count[]; biggest?: Spend; items: Spend[]; main_currency: string }
 export interface HabitRow { id: number; name: string; color: string; status: number; scheduled: boolean; streak: number }
-export interface TrackerRow { id: number; name: string; unit: string; kind: string; value: number | null }
+export interface TrackerRow { id: number; name: string; unit: string; kind: string; value: number | null; min?: number; max?: number; higher_is_better?: boolean; previous?: number; defaulted?: boolean }
 export interface Checkin { done: number; total: number; habits: HabitRow[]; trackers: TrackerRow[]; journal: string; journal_bad?: string; important?: string }
 export interface Book { id: number; title: string; authors: string; pages?: number; page?: number; percent?: number; rating?: number; status: string; cover?: string; finished_on?: string; started_on?: string }
 export interface Reading { reading: Book[]; started: Book[]; finished: Book[] }
