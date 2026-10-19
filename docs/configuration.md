@@ -13,6 +13,8 @@ Everything is an environment variable with a sensible default. Sources, the home
 | `LOG_LEVEL` / `LOG_FORMAT` | `info` / `text` | `debug` logs every failed source fetch |
 | `TRUST_PROXY` | `true` | honour `X-Forwarded-For` |
 | `METRICS_ENABLED` | `true` | Prometheus `/metrics` |
+| `CORE_URL` / `CORE_REGISTRATION_KEY` | – | [Pocket Core](https://git.bjelke.org/abjelosevic88/pocket-homelab-core): register on start (the key is needed once; the minted app token lives in `$DATA_DIR/core.token`), publish `day.entry_written` / `day.moment_created` / `day.story_created`, and accept the tokens Core hands to paired phones |
+| `CORE_APP_URL` | `BASE_URL` | How Core reaches this app for health checks (e.g. `http://host.docker.internal:8177`) |
 | `DEMO_DATA` | `false` | six weeks of journal and synthetic facts |
 
 ## Auth

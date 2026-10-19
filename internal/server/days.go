@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -148,6 +149,9 @@ func (s *Server) handlePutEntry(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"entry": nil, "date": date})
 		return
 	}
+	s.publish("day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
+		"entry_id": cur.ID, "user_id": u.ID, "date": date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
+	})
 	writeJSON(w, http.StatusOK, map[string]any{"entry": cur, "date": date})
 }
 
@@ -223,6 +227,9 @@ func (s *Server) handleQuickEntry(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "save entry")
 		return
 	}
+	s.publish("day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
+		"entry_id": cur.ID, "user_id": u.ID, "date": cur.Date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
+	})
 	writeJSON(w, http.StatusOK, cur)
 }
 
@@ -450,6 +457,9 @@ func (s *Server) handleCreateMoment(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "create moment")
 		return
 	}
+	s.publish("day.moment_created", fmt.Sprintf("moment:%d", in.ID), map[string]any{
+		"moment_id": in.ID, "user_id": u.ID, "date": in.Date, "time": in.Time, "kind": in.Kind, "text": in.Text,
+	})
 	writeJSON(w, http.StatusCreated, in)
 }
 

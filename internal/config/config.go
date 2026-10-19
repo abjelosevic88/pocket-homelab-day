@@ -55,6 +55,12 @@ type Config struct {
 	// Outbound lookups identify as this.
 	UserAgent string
 
+	// Pocket Core: when CORE_URL is set the app registers itself on start,
+	// publishes events and accepts the tokens Core hands to paired phones.
+	CoreURL             string
+	CoreRegistrationKey string
+	CoreAppURL          string // how Core reaches this app; defaults to BASE_URL
+
 	DemoData bool
 }
 
@@ -154,7 +160,14 @@ func Load() (*Config, error) {
 
 		UserAgent: env("USER_AGENT", "PocketDay/1.0 (+https://github.com/abjelosevic88/pocket-homelab-day)"),
 
+		CoreURL:             strings.TrimRight(env("CORE_URL", ""), "/"),
+		CoreRegistrationKey: env("CORE_REGISTRATION_KEY", ""),
+		CoreAppURL:          strings.TrimRight(env("CORE_APP_URL", ""), "/"),
+
 		DemoData: envBool("DEMO_DATA", false),
+	}
+	if c.CoreAppURL == "" {
+		c.CoreAppURL = c.BaseURL
 	}
 	for _, name := range SourceNames {
 		up := strings.ToUpper(name)

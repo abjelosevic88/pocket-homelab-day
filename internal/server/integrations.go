@@ -346,8 +346,16 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version": Version, "go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH,
+		"core":      s.coreStatus(),
 		"auth_mode": s.cfg.AuthMode, "data_dir": s.cfg.DataDir, "db_path": s.cfg.DBPath, "db_bytes": size,
 		"uptime": time.Since(s.started).Round(time.Second).String(), "timezone": time.Now().Location().String(),
 		"counts": s.store.Counts(r.Context()), "days_with_facts": len(dates), "first_fact_day": first, "backfill": s.backfillStatus(),
 	})
+}
+
+// coreStatus summarises the Pocket Core link for the About page.
+func (s *Server) coreStatus() map[string]any {
+	s.coreMu.Lock()
+	defer s.coreMu.Unlock()
+	return map[string]any{"configured": s.core.Configured(), "url": s.cfg.CoreURL, "registered": s.coreOK, "error": s.coreErr}
 }

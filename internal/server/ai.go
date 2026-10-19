@@ -422,6 +422,9 @@ Reply as JSON: {"title": "...", "text": "..."}`
 	if err := s.store.PutStory(ctx, story); err != nil {
 		return nil, err
 	}
+	s.publish("day.story_created", "story:"+kind+":"+period, map[string]any{
+		"user_id": u.ID, "kind": kind, "period": period, "label": label, "from": from, "to": to, "title": story.Title,
+	})
 	return story, nil
 }
 
