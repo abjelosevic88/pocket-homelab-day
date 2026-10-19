@@ -57,8 +57,10 @@ func (s *Server) publicSettings(st store.Settings) map[string]any {
 	}
 }
 
+// handleGetSettings returns the caller's own settings (their sources, AI key,
+// notifications…) plus the box-wide title.
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
-	st, err := s.store.GetSettings(r.Context())
+	st, err := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
 	if err != nil {
 		s.fail(w, err, "settings")
 		return
@@ -66,11 +68,11 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.publicSettings(st))
 }
 
+// handlePutSettings saves the caller's own settings. The box-wide title is
+// admin-only; a member sending it gets 403.
 func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
-	if !s.requireAdmin(w, r) {
-		return
-	}
-	cur, err := s.store.GetSettings(r.Context())
+	u := userFrom(r.Context())
+	cur, err := s.store.GetSettings(r.Context(), u.ID)
 	if err != nil {
 		s.fail(w, err, "settings")
 		return
@@ -90,11 +92,17 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if keys["title"] {
+	boxChanged := false
+	if keys["title"] && strings.TrimSpace(in.Title) != cur.Title {
+		if u.Role != "admin" {
+			writeErr(w, http.StatusForbidden, "only an admin can rename the app")
+			return
+		}
 		cur.Title = strings.TrimSpace(in.Title)
 		if cur.Title == "" {
 			cur.Title = store.DefaultTitle
 		}
+		boxChanged = true
 	}
 	if keys["date_format"] {
 		cur.DateFormat = in.DateFormat
@@ -193,18 +201,22 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		cur.Sources[name] = src
 	}
-	if err := s.store.SaveSettings(r.Context(), cur); err != nil {
+	if err := s.store.SaveSettings(r.Context(), u.ID, cur); err != nil {
 		s.fail(w, err, "save settings")
 		return
+	}
+	if boxChanged {
+		if err := s.store.SaveBoxSettings(r.Context(), cur); err != nil {
+			s.fail(w, err, "save settings")
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, s.publicSettings(cur))
 }
 
-// handleIntegrationTest checks one source with the posted (or saved) credentials.
+// handleIntegrationTest checks one source with the posted credentials or the
+// caller's own saved ones (never anybody else's).
 func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
-	if !s.requireAdmin(w, r) {
-		return
-	}
 	var in struct {
 		Which  string `json:"which"`
 		URL    string `json:"url"`
@@ -216,7 +228,7 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	st, _ := s.store.GetSettings(r.Context())
+	st, _ := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
 	defer cancel()
 	saved := st.Sources[in.Which]
@@ -339,17 +351,22 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	if fi, err := os.Stat(s.cfg.DBPath); err == nil {
 		size = fi.Size()
 	}
-	dates, _ := s.store.FactDates(r.Context())
+	u := userFrom(r.Context())
+	dates, _ := s.store.FactDates(r.Context(), u.ID)
 	first := ""
 	if len(dates) > 0 {
 		first = dates[len(dates)-1]
+	}
+	counts := map[string]int{}
+	if u.Role == "admin" { // box-wide row counts (numbers only, no content) are for the admin
+		counts = s.store.Counts(r.Context())
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version": Version, "go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH,
 		"core":      s.coreStatus(),
 		"auth_mode": s.cfg.AuthMode, "data_dir": s.cfg.DataDir, "db_path": s.cfg.DBPath, "db_bytes": size,
 		"uptime": time.Since(s.started).Round(time.Second).String(), "timezone": time.Now().Location().String(),
-		"counts": s.store.Counts(r.Context()), "days_with_facts": len(dates), "first_fact_day": first, "backfill": s.backfillStatus(),
+		"counts": counts, "days_with_facts": len(dates), "first_fact_day": first, "backfill": s.backfillStatus(u.ID),
 	})
 }
 

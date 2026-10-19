@@ -16,7 +16,7 @@ import (
 //   - Minutes for an item = position now − the furthest position recorded for
 //     it on earlier days, so an episode spread over three evenings counts on
 //     each of them instead of all at once on the last.
-func (s *Server) adjustListening(ctx context.Context, date, source string, res *sources.Result) {
+func (s *Server) adjustListening(ctx context.Context, userID int64, date, source string, res *sources.Result) {
 	a, ok := res.Payload.(sources.Activity)
 	if !ok {
 		return
@@ -25,7 +25,7 @@ func (s *Server) adjustListening(ctx context.Context, date, source string, res *
 	for _, it := range a.Items {
 		seen[it.Ref] = true
 	}
-	if prev, err := s.store.FactsForDay(ctx, date); err == nil {
+	if prev, err := s.store.FactsForDay(ctx, userID, date); err == nil {
 		if f, ok := prev[source]; ok && len(f.Payload) > 4 {
 			var old sources.Activity
 			if json.Unmarshal(f.Payload, &old) == nil {
@@ -39,7 +39,7 @@ func (s *Server) adjustListening(ctx context.Context, date, source string, res *
 		}
 	}
 	prior := map[string]float64{}
-	if fs, err := s.store.FactsRange(ctx, store.AddDays(date, -60), store.AddDays(date, -1), source); err == nil {
+	if fs, err := s.store.FactsRange(ctx, userID, store.AddDays(date, -60), store.AddDays(date, -1), source); err == nil {
 		for _, f := range fs {
 			var old sources.Activity
 			if json.Unmarshal(f.Payload, &old) != nil {

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
@@ -16,9 +17,22 @@ import (
 // hookPause collects a burst of changes (a bulk edit, the mirror) into one pull per day.
 var hookPause = 3 * time.Second
 
+// hookDay is one person's day to re-pull.
+type hookDay struct {
+	user int64
+	date string
+}
+
 // handleMoneyHook receives Pocket Money's webhooks. A transaction that was
 // added, changed or deleted re-pulls the money facts for its day right away
 // instead of waiting for the 30-minute refresh.
+//
+// The facts refreshed are one person's: the account named by the signed body
+// ("user_email", or "data.user.email") or by ?user=<email> on the webhook URL.
+// A webhook that names nobody (today's Pocket Money and Firefly payloads do
+// not) is the owner's, because the webhook was set up with the owner's
+// Pocket Money account. Only that person's own Firefly/Pocket Money source is
+// called, so nobody else's money facts are touched.
 func (s *Server) handleMoneyHook(w http.ResponseWriter, r *http.Request) {
 	secret := s.cfg.MoneyWebhookSecret
 	if secret == "" {
@@ -39,12 +53,46 @@ func (s *Server) handleMoneyHook(w http.ResponseWriter, r *http.Request) {
 	}
 	dates := hookDates(body)
 	queued := 0
-	for _, d := range dates {
-		if s.queueHookDay(d) {
-			queued++
+	if len(dates) > 0 {
+		uid := s.hookUser(r.Context(), body, r.URL.Query().Get("user"))
+		if uid == 0 {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "days": 0})
+			return
+		}
+		for _, d := range dates {
+			if s.queueHookDay(uid, d) {
+				queued++
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "days": queued})
+}
+
+// hookUser attributes a webhook to a local account (see handleMoneyHook).
+func (s *Server) hookUser(ctx context.Context, body []byte, queryUser string) int64 {
+	var v struct {
+		UserEmail string `json:"user_email"`
+		Data      struct {
+			User struct {
+				Email string `json:"email"`
+			} `json:"user"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(body, &v)
+	for _, email := range []string{v.UserEmail, v.Data.User.Email, queryUser} {
+		email = strings.ToLower(strings.TrimSpace(email))
+		if email == "" {
+			continue
+		}
+		if u, err := s.store.GetUserByEmail(ctx, email); err == nil {
+			return u.ID
+		}
+		s.log.Warn("money webhook: named account not found, ignored", "email", email)
+		return 0
+	}
+	owner := s.store.OwnerID(ctx)
+	s.log.Debug("money webhook names no account: attributed to the owner", "user", owner)
+	return owner
 }
 
 // hookDates reads the transaction dates from either payload format: Pocket
@@ -93,18 +141,18 @@ func hookDates(body []byte) []string {
 	return out
 }
 
-// queueHookDay schedules one day; the first date of a burst starts the timer.
-func (s *Server) queueHookDay(date string) bool {
+// queueHookDay schedules one user's day; the first date of a burst starts the timer.
+func (s *Server) queueHookDay(userID int64, date string) bool {
 	if date > store.Today() {
 		return false // a planned payment: nothing to show yet
 	}
 	s.hookMu.Lock()
 	defer s.hookMu.Unlock()
 	if s.hookDays == nil {
-		s.hookDays = map[string]bool{}
+		s.hookDays = map[hookDay]bool{}
 	}
 	first := len(s.hookDays) == 0
-	s.hookDays[date] = true
+	s.hookDays[hookDay{userID, date}] = true
 	if first {
 		time.AfterFunc(hookPause, s.flushHookDays)
 	}
@@ -113,21 +161,21 @@ func (s *Server) queueHookDay(date string) bool {
 
 func (s *Server) flushHookDays() {
 	s.hookMu.Lock()
-	days := make([]string, 0, len(s.hookDays))
+	days := make([]hookDay, 0, len(s.hookDays))
 	for d := range s.hookDays {
 		days = append(days, d)
 	}
-	s.hookDays = map[string]bool{}
+	s.hookDays = map[hookDay]bool{}
 	s.hookMu.Unlock()
 	ctx := context.Background()
 	for _, d := range days {
 		// a pull already running for the day may have read the old state: try again shortly
 		for try := 0; try < 5; try++ {
-			if _, ran := s.pullDayOnly(ctx, d, true, []string{"firefly"}); ran {
+			if _, ran := s.pullDayOnly(ctx, d.user, d.date, true, []string{"firefly"}); ran {
 				break
 			}
 			time.Sleep(5 * time.Second)
 		}
-		s.log.Info("money webhook refreshed", "date", d)
+		s.log.Info("money webhook refreshed", "user", d.user, "date", d.date)
 	}
 }

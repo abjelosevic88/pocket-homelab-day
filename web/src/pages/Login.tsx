@@ -43,7 +43,7 @@ export default function Login({ mode }: { mode: 'login' | 'setup' }) {
             <button className={`btn lg ${sso ? '' : 'primary'}`} disabled={busy}>{busy ? 'Please wait…' : mode === 'setup' ? 'Create account' : 'Sign in'}</button>
           </form>
         </Card>
-        {mode === 'setup' && <p className="muted small mt">You become the admin and connect the other apps under Settings → Sources. Everyone's journal is their own; what the apps know about a day is shared.</p>}
+        {mode === 'setup' && <p className="muted small mt">You become the admin and connect the other apps under Settings → Sources. Everyone's journal, sources and settings are their own.</p>}
         {status?.version && <p className="muted small right mt">v{status.version.replace(/^v/, '')}</p>}
       </div>
     </div>

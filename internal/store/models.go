@@ -3,8 +3,10 @@ package store
 import "encoding/json"
 
 // User is an account that can sign in. The first user is the admin; admins
-// manage other users and the shared settings. Entries, moments and pins are
-// personal; the facts pulled from other apps are shared.
+// manage other users and the box-wide settings (title). Everything else is
+// personal: entries, moments, pins, stories, questions, the facts pulled
+// from other apps (gathered with that person's own source tokens) and the
+// settings (sources, AI key, notifications, home place, journal options).
 type User struct {
 	ID           int64  `json:"id"`
 	Email        string `json:"email"`
@@ -122,7 +124,7 @@ func (s Source) Configured(name string) bool {
 	return !NeedsKey(name) || s.Key != ""
 }
 
-// Settings are the shared, admin-editable options.
+// Settings are one person's options plus the box-wide title (see BoxSettingKeys).
 type Settings struct {
 	Title         string  `json:"title"`
 	DateFormat    string  `json:"date_format"`

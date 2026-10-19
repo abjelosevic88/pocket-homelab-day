@@ -27,7 +27,7 @@ func (s *Server) aiClient(st store.Settings) *ai.Client {
 
 // aiOrFail returns settings and a client, or writes 400.
 func (s *Server) aiOrFail(w http.ResponseWriter, r *http.Request) (store.Settings, *ai.Client, bool) {
-	st, _ := s.store.GetSettings(r.Context())
+	st, _ := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
 	c := s.aiClient(st)
 	if c == nil {
 		writeErr(w, http.StatusBadRequest, "add an OpenAI API key under Settings → AI first")
@@ -56,7 +56,7 @@ func (s *Server) handleAIDraft(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	u := userFrom(ctx)
-	s.ensureDay(ctx, date)
+	s.ensureDay(ctx, u.ID, date)
 	brief := s.dayBrief(ctx, u, date, st.AISendText, true, 2000)
 	if !hasContent(brief) {
 		writeErr(w, http.StatusBadRequest, "there is nothing about this day yet to draft from")
@@ -88,7 +88,7 @@ Reply as JSON: {"highlight": "...", "text": "..."}`
 // aiQuestion returns a question about the day, cached for three hours on
 // today and for good on older days.
 func (s *Server) aiQuestion(ctx context.Context, u *store.User, date string, force bool) (string, error) {
-	st, _ := s.store.GetSettings(ctx)
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	c := s.aiClient(st)
 	if c == nil {
 		return "", errors.New("AI is not configured")
@@ -332,7 +332,7 @@ func (s *Server) makeStory(ctx context.Context, u *store.User, kind, period stri
 	if err != nil {
 		return nil, err
 	}
-	st, _ := s.store.GetSettings(ctx)
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	c := s.aiClient(st)
 	if c == nil {
 		return nil, errors.New("AI is not configured")
@@ -423,7 +423,7 @@ Reply as JSON: {"title": "...", "text": "..."}`
 		return nil, err
 	}
 	s.publish("day.story_created", "story:"+kind+":"+period, map[string]any{
-		"user_id": u.ID, "kind": kind, "period": period, "label": label, "from": from, "to": to, "title": story.Title,
+		"user_id": u.ID, "user_email": u.Email, "kind": kind, "period": period, "label": label, "from": from, "to": to, "title": story.Title,
 	})
 	return story, nil
 }
@@ -508,7 +508,7 @@ func (s *Server) moodPatterns(ctx context.Context, u *store.User, from, to strin
 	if len(mood) < 8 {
 		return nil
 	}
-	facts, _ := s.store.FactsRange(ctx, from, to)
+	facts, _ := s.store.FactsRange(ctx, u.ID, from, to)
 	byDay := map[string]map[string]store.Fact{}
 	for _, f := range facts {
 		if _, ok := mood[f.Date]; !ok {
@@ -620,7 +620,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	if stt := s.store.Stats(ctx, u.ID, today); stt.FirstDate != "" {
 		first = stt.FirstDate
 	}
-	if dates, _ := s.store.FactDates(ctx); len(dates) > 0 && dates[len(dates)-1] < first {
+	if dates, _ := s.store.FactDates(ctx, u.ID); len(dates) > 0 && dates[len(dates)-1] < first {
 		first = dates[len(dates)-1]
 	}
 	tags, _ := s.store.Tags(ctx, u.ID)
@@ -718,7 +718,7 @@ func (s *Server) askMaterial(ctx context.Context, u *store.User, st store.Settin
 	for _, m := range moments {
 		momentsBy[m.Date] = append(momentsBy[m.Date], strings.ToLower(m.Text))
 	}
-	facts, _ := s.store.FactsRange(ctx, from, to)
+	facts, _ := s.store.FactsRange(ctx, u.ID, from, to)
 	factsBy := map[string]map[string]store.Fact{}
 	for _, f := range facts {
 		if factsBy[f.Date] == nil {
@@ -850,8 +850,10 @@ func (s *Server) handleDeleteAsk(w http.ResponseWriter, r *http.Request) {
 
 // ---- usage ----
 
+// handleAIUsage is the caller's own token use (each person brings their own key).
 func (s *Server) handleAIUsage(w http.ResponseWriter, r *http.Request) {
-	month, _ := s.store.Usage(r.Context(), time.Now().AddDate(0, 0, -30).UTC().Format(time.RFC3339))
-	all, _ := s.store.Usage(r.Context(), "0")
+	uid := userFrom(r.Context()).ID
+	month, _ := s.store.Usage(r.Context(), uid, time.Now().AddDate(0, 0, -30).UTC().Format(time.RFC3339))
+	all, _ := s.store.Usage(r.Context(), uid, "0")
 	writeJSON(w, http.StatusOK, map[string]any{"last_30_days": month, "all_time": all})
 }

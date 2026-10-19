@@ -34,6 +34,10 @@ var ErrConflict = errors.New("already exists")
 type Store struct {
 	DB  *sql.DB
 	log *slog.Logger
+
+	// Defaults, when set, adjusts the built-in setting defaults (box-wide
+	// environment such as the default currency) before stored values apply.
+	Defaults func(*Settings)
 }
 
 // Open opens (and creates if needed) the SQLite database and runs migrations.
@@ -120,6 +124,9 @@ func (s *Store) Backup(ctx context.Context, dst string) error {
 
 // Tables lists the tables counted for metrics / the About page.
 var Tables = []string{"entries", "moments", "pins", "facts", "ai_stories", "ai_asks", "users", "api_tokens"}
+
+// ContentTables carry a user_id on every row (the per-person data).
+var ContentTables = []string{"entries", "moments", "pins", "facts", "ai_stories", "ai_asks", "ai_usage", "user_settings"}
 
 // Counts returns row counts per table.
 func (s *Store) Counts(ctx context.Context) map[string]int {

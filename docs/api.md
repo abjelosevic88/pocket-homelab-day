@@ -2,7 +2,7 @@
 
 Base path `/api/v1`. JSON in and out. Authenticate with the session cookie (browser), `Authorization: Bearer <token>` or `X-API-Key: <token>` (tokens under Settings → API & apps). Dates are `YYYY-MM-DD` in the server's `TZ`; `today` and `yesterday` work wherever a `{date}` is expected.
 
-Entries, moments and pins belong to the caller. Facts (what the connected apps know about a day) are shared.
+Everything belongs to the caller and nobody else sees it, admins included: entries, moments, pins, stories, questions, AI usage, the facts (pulled with the caller's own sources) and the settings. Another account's record answers 404. The only box-wide setting is the app title (admin-only).
 
 ## Auth & account
 | Method | Path | Notes |
@@ -12,7 +12,7 @@ Entries, moments and pins belong to the caller. Facts (what the connected apps k
 | GET/PUT | `/auth/me` | profile, password change |
 | GET/POST/DELETE | `/tokens`, `/tokens/{id}` | personal access tokens |
 | GET/POST/PUT/DELETE | `/users`, `/users/{id}` | admin |
-| GET/PUT | `/settings` · GET `/settings/system` | shared settings; `sources.{name}.{url,key,public_url,extra,enabled}`. Secrets come back masked; a masked value means "keep" |
+| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`. Secrets come back masked; a masked value means "keep" |
 
 ## Days
 | Method | Path | Notes |
@@ -46,9 +46,9 @@ Entries, moments and pins belong to the caller. Facts (what the connected apps k
 ## Facts & sources
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/facts/backfill` | admin, `{from?, to?, force?, sources?}` — runs in the background; `sources: ["habits"]` re-pulls only those |
+| POST | `/facts/backfill` | the caller's own facts from their own sources, `{from?, to?, force?, sources?}` — runs in the background; `sources: ["habits"]` re-pulls only those |
 | GET | `/facts/status` | backfill progress, configured sources, days with facts |
-| POST | `/integrations/test` | admin, `{which, url?, key?, extra?}`; `which: notify` sends a test push |
+| POST | `/integrations/test` | `{which, url?, key?, extra?}` (empty values fall back to the caller's own saved ones); `which: notify` sends a test push |
 | GET | `/geo/search?q=` | Open-Meteo geocoding for the home location |
 | POST | `/notify/test` · `/notify/run` `{which: evening\|morning}` | |
 
@@ -72,7 +72,7 @@ Needs an OpenAI key (Settings → AI); otherwise these return 400.
 *Dictate Text* → *Get Contents of URL* `POST /api/v1/ai/asks` with `{"question": [Dictated Text]}` → *Get Dictionary Value* `answer` → *Speak Text*.
 
 ## Data & health
-`GET /backup` (SQLite copy) · `GET /export.json` (`?nofacts=1`) · `GET /export.md` · `POST /import` (merge) · `GET /dashboard` · `GET /home` · `GET /meta` · `/healthz` · `/readyz` · `/metrics` (outside `/api/v1`).
+`GET /backup` (SQLite copy of the whole box, admin only) · `GET /export.json` (`?nofacts=1`) · `GET /export.md` · `POST /import` (merge) · `GET /dashboard` · `GET /home` · `GET /meta` · `/healthz` · `/readyz` · `/metrics` (outside `/api/v1`).
 
 ### Homepage widget
 

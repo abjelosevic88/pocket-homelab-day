@@ -25,6 +25,9 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		if err := s.store.CreateUser(ctx, u); err != nil {
 			return err
 		}
+		if err := s.seedOwner(ctx); err != nil {
+			return err
+		}
 	} else {
 		users, _ := s.store.ListUsers(ctx)
 		u = &users[0]
@@ -66,7 +69,7 @@ func (s *Server) seedDemo(ctx context.Context) error {
 		where.Places = len(where.Entries)
 		put := func(src string, payload any, head float64, sum string) {
 			b, _ := json.Marshal(payload)
-			_ = s.store.PutFact(ctx, &store.Fact{Date: d, Source: src, Payload: b, Headline: head, Summary: sum})
+			_ = s.store.PutFact(ctx, u.ID, &store.Fact{Date: d, Source: src, Payload: b, Headline: head, Summary: sum})
 		}
 		put("dawarich", where, km, fmt.Sprintf("%.1f km · %s", km, sources.Plural(where.Places, "place", "places")))
 		np := rng.Intn(14)

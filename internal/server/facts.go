@@ -68,9 +68,9 @@ func (s *Server) fetchers(st store.Settings) map[string]sources.Fetcher {
 	return out
 }
 
-// immich returns the Immich client when configured (thumbnails).
-func (s *Server) immich(ctx context.Context) *sources.Immich {
-	st, _ := s.store.GetSettings(ctx)
+// immich returns the user's Immich client when they configured one (thumbnails).
+func (s *Server) immich(ctx context.Context, userID int64) *sources.Immich {
+	st, _ := s.store.GetSettings(ctx, userID)
 	src := st.Sources["immich"]
 	if !src.Configured("immich") {
 		return nil
@@ -83,28 +83,33 @@ func frozen(date string) bool {
 	return date < store.AddDays(store.Today(), -1)
 }
 
-// pullDay fetches every configured source for one date and stores the facts.
-// Frozen days are skipped unless force is set or a source has nothing yet.
-func (s *Server) pullDay(ctx context.Context, date string, force bool) (map[string]error, bool) {
-	return s.pullDayOnly(ctx, date, force, nil)
+// pullDay fetches every source the user configured for one date and stores
+// the facts as theirs. Frozen days are skipped unless force is set or a source
+// has nothing yet.
+func (s *Server) pullDay(ctx context.Context, userID int64, date string, force bool) (map[string]error, bool) {
+	return s.pullDayOnly(ctx, userID, date, force, nil)
 }
 
 // pullDayOnly is pullDay limited to some sources (nil = all).
-func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only []string) (map[string]error, bool) {
+func (s *Server) pullDayOnly(ctx context.Context, userID int64, date string, force bool, only []string) (map[string]error, bool) {
+	if userID <= 0 {
+		return nil, true
+	}
+	key := fmt.Sprintf("%d:%s", userID, date)
 	s.pullMu.Lock()
-	if s.pulling[date] {
+	if s.pulling[key] {
 		s.pullMu.Unlock()
 		return nil, false
 	}
-	s.pulling[date] = true
+	s.pulling[key] = true
 	s.pullMu.Unlock()
 	defer func() {
 		s.pullMu.Lock()
-		delete(s.pulling, date)
+		delete(s.pulling, key)
 		s.pullMu.Unlock()
 	}()
 
-	st, _ := s.store.GetSettings(ctx)
+	st, _ := s.store.GetSettings(ctx, userID)
 	fs := s.fetchers(st)
 	if len(only) > 0 {
 		keep := map[string]bool{}
@@ -120,7 +125,7 @@ func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only 
 	if len(fs) == 0 {
 		return nil, true
 	}
-	have := s.store.FactSources(ctx, date)
+	have := s.store.FactSources(ctx, userID, date)
 	loc := time.Now().Location()
 	errs := map[string]error{}
 	var mu sync.Mutex
@@ -139,27 +144,27 @@ func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only 
 			defer mu.Unlock()
 			if err != nil {
 				errs[name] = err
-				_ = s.store.PutFactError(ctx, date, name, err.Error())
+				_ = s.store.PutFactError(ctx, userID, date, name, err.Error())
 				s.log.Debug("fact fetch failed", "date", date, "source", name, "err", err)
 				return
 			}
 			if name == "pinepods" {
-				s.adjustListening(ctx, date, name, res)
+				s.adjustListening(ctx, userID, date, name, res)
 			}
 			b, _ := json.Marshal(res.Payload)
-			_ = s.store.PutFact(ctx, &store.Fact{Date: date, Source: name, Payload: b, Headline: res.Headline, Summary: res.Summary})
+			_ = s.store.PutFact(ctx, userID, &store.Fact{Date: date, Source: name, Payload: b, Headline: res.Headline, Summary: res.Summary})
 		}(name, f)
 	}
 	wg.Wait()
 	if _, ok := fs["habits"]; ok {
-		s.syncHabitsEntry(ctx, date)
+		s.syncHabitsEntry(ctx, userID, date)
 	}
 	// Weather at the place the day actually happened, when Dawarich knows it.
 	if wf, ok := fs["weather"].(*sources.Weather); ok {
-		if lat, lon, place := s.dayLocation(ctx, date, st); lat != 0 || lon != 0 {
+		if lat, lon, place := s.dayLocation(ctx, userID, date, st); lat != 0 || lon != 0 {
 			if res, err := wf.FetchAt(ctx, date, lat, lon, place); err == nil {
 				b, _ := json.Marshal(res.Payload)
-				_ = s.store.PutFact(ctx, &store.Fact{Date: date, Source: "weather", Payload: b, Headline: res.Headline, Summary: res.Summary})
+				_ = s.store.PutFact(ctx, userID, &store.Fact{Date: date, Source: "weather", Payload: b, Headline: res.Headline, Summary: res.Summary})
 			}
 		}
 	}
@@ -168,8 +173,8 @@ func (s *Server) pullDayOnly(ctx context.Context, date string, force bool, only 
 
 // dayLocation returns where the day was spent when the Dawarich facts say it
 // was clearly somewhere else than home: the centre of the day's bounds.
-func (s *Server) dayLocation(ctx context.Context, date string, st store.Settings) (float64, float64, string) {
-	facts, err := s.store.FactsForDay(ctx, date)
+func (s *Server) dayLocation(ctx context.Context, userID int64, date string, st store.Settings) (float64, float64, string) {
+	facts, err := s.store.FactsForDay(ctx, userID, date)
 	if err != nil {
 		return 0, 0, ""
 	}
@@ -212,21 +217,21 @@ func (s *Server) dayLocation(ctx context.Context, date string, st store.Settings
 	return lat, lon, place
 }
 
-// pullDays pulls several dates, oldest first.
-func (s *Server) pullDays(ctx context.Context, dates []string, force bool) {
+// pullDays pulls several dates for one user, oldest first.
+func (s *Server) pullDays(ctx context.Context, userID int64, dates []string, force bool) {
 	sort.Strings(dates)
 	for _, d := range dates {
 		if ctx.Err() != nil {
 			return
 		}
-		s.pullDay(ctx, d, force)
+		s.pullDay(ctx, userID, d, force)
 	}
 }
 
 // ---- backfill ----
 
+// backfillState is one person's backfill: each runs over their own sources.
 type backfillState struct {
-	mu      sync.Mutex
 	Running bool   `json:"running"`
 	From    string `json:"from"`
 	To      string `json:"to"`
@@ -237,25 +242,66 @@ type backfillState struct {
 	Error   string `json:"error,omitempty"`
 }
 
-func (s *Server) backfillStatus() backfillState {
-	s.backfill.mu.Lock()
-	defer s.backfill.mu.Unlock()
-	return backfillState{Running: s.backfill.Running, From: s.backfill.From, To: s.backfill.To, Done: s.backfill.Done, Total: s.backfill.Total, Current: s.backfill.Current, Last: s.backfill.Last, Error: s.backfill.Error}
+func (s *Server) backfillStatus(userID int64) backfillState {
+	s.backfillMu.Lock()
+	defer s.backfillMu.Unlock()
+	if b := s.backfills[userID]; b != nil {
+		return *b
+	}
+	return backfillState{}
 }
 
-// runBackfill pulls facts for every day in from..to (default: the configured
-// number of days back from yesterday), skipping frozen days that already
-// have every configured source unless force is set. One day at a time, with a
-// pause, so the other apps are not hammered.
-func (s *Server) runBackfill(ctx context.Context, from, to string, force bool, only ...string) {
-	s.backfill.mu.Lock()
-	if s.backfill.Running {
-		s.backfill.mu.Unlock()
+// anyBackfillRunning is for the metrics endpoint.
+func (s *Server) anyBackfillRunning() bool {
+	s.backfillMu.Lock()
+	defer s.backfillMu.Unlock()
+	for _, b := range s.backfills {
+		if b.Running {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) updateBackfill(userID int64, fn func(b *backfillState)) {
+	s.backfillMu.Lock()
+	defer s.backfillMu.Unlock()
+	if s.backfills == nil {
+		s.backfills = map[int64]*backfillState{}
+	}
+	b := s.backfills[userID]
+	if b == nil {
+		b = &backfillState{}
+		s.backfills[userID] = b
+	}
+	fn(b)
+}
+
+// runBackfillAll backfills every account, one after the other, each with
+// their own sources (an account without sources is skipped).
+func (s *Server) runBackfillAll(ctx context.Context, from, to string, force bool) {
+	users, err := s.store.ListUsers(ctx)
+	if err != nil {
 		return
 	}
-	st, _ := s.store.GetSettings(ctx)
+	for _, u := range users {
+		if ctx.Err() != nil {
+			return
+		}
+		s.runBackfill(ctx, u.ID, from, to, force)
+	}
+}
+
+// runBackfill pulls one user's facts for every day in from..to (default: their
+// configured number of days back from yesterday), skipping frozen days that
+// already have every configured source unless force is set. One day at a
+// time, with a pause, so the other apps are not hammered.
+func (s *Server) runBackfill(ctx context.Context, userID int64, from, to string, force bool, only ...string) {
+	if userID <= 0 {
+		return
+	}
+	st, _ := s.store.GetSettings(ctx, userID)
 	if len(s.fetchers(st)) == 0 {
-		s.backfill.mu.Unlock()
 		return
 	}
 	today := store.Today()
@@ -266,52 +312,48 @@ func (s *Server) runBackfill(ctx context.Context, from, to string, force bool, o
 		from = store.AddDays(today, -st.BackfillDays)
 	}
 	if from > to {
-		s.backfill.mu.Unlock()
 		return
 	}
-	s.backfill.Running, s.backfill.From, s.backfill.To, s.backfill.Done, s.backfill.Error = true, from, to, 0, ""
 	var dates []string
 	for d := from; d <= to; d = store.AddDays(d, 1) {
 		dates = append(dates, d)
 	}
-	s.backfill.Total = len(dates)
-	s.backfill.mu.Unlock()
-	defer func() {
-		s.backfill.mu.Lock()
-		s.backfill.Running, s.backfill.Current, s.backfill.Last = false, "", store.Now()
-		s.backfill.mu.Unlock()
-	}()
+	started := false
+	s.updateBackfill(userID, func(b *backfillState) {
+		if b.Running {
+			return
+		}
+		started = true
+		b.Running, b.From, b.To, b.Done, b.Total, b.Error = true, from, to, 0, len(dates), ""
+	})
+	if !started {
+		return
+	}
+	defer s.updateBackfill(userID, func(b *backfillState) { b.Running, b.Current, b.Last = false, "", store.Now() })
 	want := len(s.fetchers(st))
 	for _, d := range dates {
 		if ctx.Err() != nil {
 			return
 		}
-		s.backfill.mu.Lock()
-		s.backfill.Current = d
-		s.backfill.mu.Unlock()
-		if !force && frozen(d) && len(s.store.FactSources(ctx, d)) >= want {
-			s.backfill.mu.Lock()
-			s.backfill.Done++
-			s.backfill.mu.Unlock()
+		s.updateBackfill(userID, func(b *backfillState) { b.Current = d })
+		if !force && frozen(d) && len(s.store.FactSources(ctx, userID, d)) >= want {
+			s.updateBackfill(userID, func(b *backfillState) { b.Done++ })
 			continue
 		}
-		s.pullDayOnly(ctx, d, force, only)
-		s.backfill.mu.Lock()
-		s.backfill.Done++
-		s.backfill.mu.Unlock()
+		s.pullDayOnly(ctx, userID, d, force, only)
+		s.updateBackfill(userID, func(b *backfillState) { b.Done++ })
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(1500 * time.Millisecond):
 		}
 	}
-	s.log.Info("backfill finished", "from", from, "to", to, "days", len(dates))
+	s.log.Info("backfill finished", "user", userID, "from", from, "to", to, "days", len(dates))
 }
 
+// handleBackfill starts a backfill of the caller's own facts from their own sources.
 func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
-	if !s.requireAdmin(w, r) {
-		return
-	}
+	u := userFrom(r.Context())
 	var in struct {
 		From    string   `json:"from"`
 		To      string   `json:"to"`
@@ -323,30 +365,31 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "dates must be YYYY-MM-DD")
 		return
 	}
-	if s.backfillStatus().Running {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "a backfill is already running", "status": s.backfillStatus()})
+	if s.backfillStatus(u.ID).Running {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "a backfill is already running", "status": s.backfillStatus(u.ID)})
 		return
 	}
-	go s.runBackfill(context.Background(), in.From, in.To, in.Force, in.Sources...)
+	go s.runBackfill(context.Background(), u.ID, in.From, in.To, in.Force, in.Sources...)
 	time.Sleep(200 * time.Millisecond)
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": s.backfillStatus()})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": s.backfillStatus(u.ID)})
 }
 
 func (s *Server) handleFactsStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	st, _ := s.store.GetSettings(ctx)
+	u := userFrom(ctx)
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	configured := []string{}
 	for _, n := range store.SourceNames {
 		if st.Sources[n].Configured(n) && (n != "weather" || st.HomeLat != 0 || st.HomeLon != 0) {
 			configured = append(configured, n)
 		}
 	}
-	dates, _ := s.store.FactDates(ctx)
+	dates, _ := s.store.FactDates(ctx, u.ID)
 	first, last := "", ""
 	if len(dates) > 0 {
 		last, first = dates[0], dates[len(dates)-1]
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backfill": s.backfillStatus(), "configured": configured, "days_with_facts": len(dates), "first": first, "last": last})
+	writeJSON(w, http.StatusOK, map[string]any{"backfill": s.backfillStatus(u.ID), "configured": configured, "days_with_facts": len(dates), "first": first, "last": last})
 }
 
 func (s *Server) handleRefreshDay(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +402,8 @@ func (s *Server) handleRefreshDay(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "that day has not happened yet")
 		return
 	}
-	errs, ran := s.pullDay(r.Context(), date, true)
+	u := userFrom(r.Context())
+	errs, ran := s.pullDay(r.Context(), u.ID, date, true)
 	if !ran {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "already refreshing"})
 		return
@@ -368,7 +412,7 @@ func (s *Server) handleRefreshDay(w http.ResponseWriter, r *http.Request) {
 	for k, e := range errs {
 		out[k] = e.Error()
 	}
-	facts, _ := s.store.FactsForDay(r.Context(), date)
+	facts, _ := s.store.FactsForDay(r.Context(), u.ID, date)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "errors": out, "facts": facts})
 }
 
@@ -378,7 +422,7 @@ func (s *Server) handleDayFact(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "date must be YYYY-MM-DD")
 		return
 	}
-	facts, err := s.store.FactsForDay(r.Context(), date)
+	facts, err := s.store.FactsForDay(r.Context(), userFrom(r.Context()).ID, date)
 	if err != nil {
 		s.fail(w, err, "facts")
 		return
@@ -392,7 +436,7 @@ func (s *Server) handleDayFact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleThumb(w http.ResponseWriter, r *http.Request) {
-	im := s.immich(r.Context())
+	im := s.immich(r.Context(), userFrom(r.Context()).ID)
 	if im == nil {
 		writeErr(w, http.StatusNotFound, "immich is not configured")
 		return
@@ -404,27 +448,35 @@ func (s *Server) handleThumb(w http.ResponseWriter, r *http.Request) {
 
 // ensureToday makes sure today's facts exist before the page is shown the
 // first time (the janitor keeps them fresh afterwards).
-func (s *Server) ensureDay(ctx context.Context, date string) {
+func (s *Server) ensureDay(ctx context.Context, userID int64, date string) {
 	if date > store.Today() {
 		return
 	}
-	if len(s.store.FactSources(ctx, date)) > 0 {
+	if len(s.store.FactSources(ctx, userID, date)) > 0 {
 		return
 	}
-	st, _ := s.store.GetSettings(ctx)
+	st, _ := s.store.GetSettings(ctx, userID)
 	if len(s.fetchers(st)) == 0 {
 		return
 	}
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	s.pullDay(cctx, date, false)
+	s.pullDay(cctx, userID, date, false)
 }
 
 var _ = fmt.Sprintf
 
-// BackfillSync runs a backfill in the foreground (CLI).
+// BackfillSync runs a backfill in the foreground (CLI) for every account,
+// each with their own sources.
 func (s *Server) BackfillSync(ctx context.Context, from, to string, force bool) {
-	s.runBackfill(ctx, from, to, force)
-	st := s.backfillStatus()
-	fmt.Printf("backfilled %d of %d days (%s .. %s)\n", st.Done, st.Total, st.From, st.To)
+	users, _ := s.store.ListUsers(ctx)
+	for _, u := range users {
+		s.runBackfill(ctx, u.ID, from, to, force)
+		st := s.backfillStatus(u.ID)
+		if st.Total == 0 {
+			fmt.Printf("%s: no sources configured, skipped\n", u.Email)
+			continue
+		}
+		fmt.Printf("%s: backfilled %d of %d days (%s .. %s)\n", u.Email, st.Done, st.Total, st.From, st.To)
+	}
 }

@@ -38,9 +38,9 @@ func (s *Server) buildDay(r *http.Request, date string) (*dayPage, error) {
 	u := userFrom(ctx)
 	today := store.Today()
 	if date <= today {
-		s.ensureDay(ctx, date)
+		s.ensureDay(ctx, u.ID, date)
 	}
-	st, _ := s.store.GetSettings(ctx)
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	page := &dayPage{Date: date, Weekday: store.WeekdayISO(date), Today: date == today, Future: date > today, Moments: []store.Moment{}, Pins: []store.Pin{}, Facts: map[string]store.Fact{}, Sources: []string{}, Memories: []store.Entry{}, Prompt: st.Prompt, Links: map[string]string{}}
 	if e, err := s.store.GetEntry(ctx, u.ID, date); err == nil {
 		page.Entry = e
@@ -52,7 +52,7 @@ func (s *Server) buildDay(r *http.Request, date string) (*dayPage, error) {
 	if page.Pins, err = s.store.ListPins(ctx, u.ID, date, date); err != nil {
 		return nil, err
 	}
-	if page.Facts, err = s.store.FactsForDay(ctx, date); err != nil {
+	if page.Facts, err = s.store.FactsForDay(ctx, u.ID, date); err != nil {
 		return nil, err
 	}
 	for _, n := range store.SourceNames {
@@ -150,7 +150,7 @@ func (s *Server) handlePutEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publish("day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
-		"entry_id": cur.ID, "user_id": u.ID, "date": date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
+		"entry_id": cur.ID, "user_id": u.ID, "user_email": u.Email, "date": date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"entry": cur, "date": date})
 }
@@ -170,7 +170,7 @@ func (s *Server) handleDeleteEntry(w http.ResponseWriter, r *http.Request) {
 	if prev != nil && prev.Origin == "habits" {
 		_ = s.store.CachePut(r.Context(), habitsSkipKey(u.ID, date), "1") // removed on purpose
 	} else {
-		s.syncHabitsEntry(r.Context(), date) // nothing written any more: the Habits text applies again
+		s.syncHabitsEntry(r.Context(), u.ID, date) // nothing written any more: the Habits text applies again
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -228,7 +228,7 @@ func (s *Server) handleQuickEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publish("day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
-		"entry_id": cur.ID, "user_id": u.ID, "date": cur.Date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
+		"entry_id": cur.ID, "user_id": u.ID, "user_email": u.Email, "date": cur.Date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
 	})
 	writeJSON(w, http.StatusOK, cur)
 }
@@ -257,7 +257,7 @@ func (s *Server) handleListEntries(w http.ResponseWriter, r *http.Request) {
 				to = e.Date
 			}
 		}
-		facts, _ := s.store.FactsRange(r.Context(), from, to)
+		facts, _ := s.store.FactsRange(r.Context(), u.ID, from, to)
 		for _, fc := range facts {
 			if fc.Summary == "" || fc.Error != "" {
 				continue
@@ -360,12 +360,12 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	moments := s.store.MomentCounts(ctx, u.ID, from, to)
-	heads, _ := s.store.FactHeadlines(ctx, from, to)
+	heads, _ := s.store.FactHeadlines(ctx, u.ID, from, to)
 	weather := map[string]string{}
 	tmax := map[string]*float64{}
 	covers := map[string]string{}
 	sums := map[string]map[string]store.Fact{}
-	if fs, err := s.store.FactsRange(ctx, from, to); err == nil {
+	if fs, err := s.store.FactsRange(ctx, u.ID, from, to); err == nil {
 		for _, f := range fs {
 			if len(f.Payload) <= 4 {
 				continue
@@ -458,7 +458,7 @@ func (s *Server) handleCreateMoment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publish("day.moment_created", fmt.Sprintf("moment:%d", in.ID), map[string]any{
-		"moment_id": in.ID, "user_id": u.ID, "date": in.Date, "time": in.Time, "kind": in.Kind, "text": in.Text,
+		"moment_id": in.ID, "user_id": u.ID, "user_email": u.Email, "date": in.Date, "time": in.Time, "kind": in.Kind, "text": in.Text,
 	})
 	writeJSON(w, http.StatusCreated, in)
 }

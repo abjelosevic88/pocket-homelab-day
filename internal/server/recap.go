@@ -118,7 +118,7 @@ func (s *Server) handleYears(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close()
 	// years that only have facts
-	frows, err := s.store.DB.QueryContext(r.Context(), `SELECT DISTINCT substr(date,1,4) FROM facts WHERE payload <> ''`)
+	frows, err := s.store.DB.QueryContext(r.Context(), `SELECT DISTINCT substr(date,1,4) FROM facts WHERE user_id = ? AND payload <> ''`, u.ID)
 	if err == nil {
 		defer frows.Close()
 		for frows.Next() {
@@ -210,7 +210,7 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 	}
 	rec.Tags = tags
 
-	facts, err := s.store.FactsRange(ctx, from, to)
+	facts, err := s.store.FactsRange(ctx, u.ID, from, to)
 	if err != nil {
 		return nil, err
 	}

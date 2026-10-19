@@ -38,12 +38,14 @@ type Server struct {
 	requests atomic.Int64
 	errors   atomic.Int64
 
-	pullMu   sync.Mutex // one pull at a time per date set
-	pulling  map[string]bool
-	hookMu   sync.Mutex // dates Pocket Money said changed, pulled after a short pause
-	hookDays map[string]bool
-	backfill backfillState
-	notified map[string]string // "evening"/"morning" → last day sent
+	pullMu     sync.Mutex // one pull at a time per user and date
+	pulling    map[string]bool
+	hookMu     sync.Mutex // (user, date) Pocket Money said changed, pulled after a short pause
+	hookDays   map[hookDay]bool
+	backfillMu sync.Mutex
+	backfills  map[int64]*backfillState // per user
+	notifyMu   sync.Mutex
+	notified   map[string]string // "<user>:evening"/"<user>:morning"/"<user>:weekly" → last day sent
 
 	oidcMu sync.Mutex
 	oidc   *oidcProvider
@@ -62,14 +64,23 @@ type resolvedURL struct {
 
 // New creates a server.
 func New(cfg *config.Config, st *store.Store, log *slog.Logger, webFS fs.FS) *Server {
-	return &Server{cfg: cfg, store: st, log: log, webFS: webFS, started: time.Now(), pulling: map[string]bool{}, notified: map[string]string{},
+	// box-wide defaults every account starts from (no personal values here)
+	st.Defaults = func(d *store.Settings) {
+		if cfg.DefaultCurrency != "" {
+			d.HomeCurrency = cfg.DefaultCurrency
+		}
+		if cfg.BackfillDays > 0 {
+			d.BackfillDays = cfg.BackfillDays
+		}
+	}
+	return &Server{backfills: map[int64]*backfillState{}, cfg: cfg, store: st, log: log, webFS: webFS, started: time.Now(), pulling: map[string]bool{}, notified: map[string]string{},
 		oidc:     &oidcProvider{issuerURL: cfg.OIDCIssuer},
 		core:     core.New(cfg.CoreURL, core.Options{TokenFile: cfg.DataDir + "/core.token", UserAgent: cfg.UserAgent}),
 		resolved: map[string]resolvedURL{}}
 }
 
-// Bootstrap seeds the first admin (if configured), integration defaults and
-// demo data, then starts the background work.
+// Bootstrap seeds the first admin (if configured), the owner's integration
+// defaults and demo data, then starts the background work.
 func (s *Server) Bootstrap(ctx context.Context) error {
 	n, err := s.store.CountUsers(ctx)
 	if err != nil {
@@ -84,56 +95,15 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 		if err := s.store.CreateUser(ctx, u); err != nil {
 			return err
 		}
-		st, _ := s.store.GetSettings(ctx)
+		st, _ := s.store.GetSettings(ctx, 0)
 		st.SetupComplete = true
-		if err := s.store.SaveSettings(ctx, st); err != nil {
+		if err := s.store.SaveBoxSettings(ctx, st); err != nil {
 			return err
 		}
 		s.log.Info("admin user created from environment", "email", u.Email)
 	}
-	st, err := s.store.GetSettings(ctx)
-	if err != nil {
+	if err := s.seedOwner(ctx); err != nil {
 		return err
-	}
-	changed := false
-	set := func(dst *string, v string) {
-		if *dst == "" && v != "" {
-			*dst = v
-			changed = true
-		}
-	}
-	set(&st.NotifyURL, s.cfg.NotifyURL)
-	set(&st.AIKey, s.cfg.OpenAIKey)
-	set(&st.AIModel, s.cfg.OpenAIModel)
-	set(&st.AIBaseURL, s.cfg.OpenAIBaseURL)
-	if s.cfg.NotifyFormat != "" && st.NotifyURL == s.cfg.NotifyURL && st.NotifyFormat != s.cfg.NotifyFormat {
-		st.NotifyFormat = s.cfg.NotifyFormat
-		changed = true
-	}
-	if st.HomeCurrency == "EUR" && s.cfg.DefaultCurrency != "EUR" {
-		st.HomeCurrency = s.cfg.DefaultCurrency
-		changed = true
-	}
-	if st.HomeLat == 0 && st.HomeLon == 0 && (s.cfg.HomeLat != 0 || s.cfg.HomeLon != 0) {
-		st.HomeLat, st.HomeLon, st.HomePlace = s.cfg.HomeLat, s.cfg.HomeLon, s.cfg.HomePlace
-		changed = true
-	}
-	if st.BackfillDays == 90 && s.cfg.BackfillDays != 90 {
-		st.BackfillDays = s.cfg.BackfillDays
-		changed = true
-	}
-	for name, se := range s.cfg.Sources {
-		src := st.Sources[name]
-		set(&src.URL, se.URL)
-		set(&src.Key, se.Key)
-		set(&src.PublicURL, se.PublicURL)
-		set(&src.Extra, se.Extra)
-		st.Sources[name] = src
-	}
-	if changed {
-		if err := s.store.SaveSettings(ctx, st); err != nil {
-			return err
-		}
 	}
 	if s.cfg.DemoData {
 		if err := s.seedDemo(ctx); err != nil {
@@ -148,16 +118,71 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 	return nil
 }
 
-// janitor runs the background work: today and yesterday every 30 minutes, the
-// two daily pushes once their hour has passed, and the initial backfill.
+// seedOwner gives the owner (the first admin) the source tokens, AI key,
+// notification route and home place from the environment. Those are the
+// owner's own accounts, so nobody else gets them: every other account starts
+// with no sources and configures their own. Only empty values are filled.
+func (s *Server) seedOwner(ctx context.Context) error {
+	owner := s.store.OwnerID(ctx)
+	if owner == 0 {
+		return nil
+	}
+	if err := s.store.AdoptLegacySettings(ctx, owner); err != nil {
+		return err
+	}
+	st, err := s.store.GetSettings(ctx, owner)
+	if err != nil {
+		return err
+	}
+	changed := !s.store.HasPersonalSettings(ctx, owner)
+	set := func(dst *string, v string) {
+		if *dst == "" && v != "" {
+			*dst = v
+			changed = true
+		}
+	}
+	set(&st.NotifyURL, s.cfg.NotifyURL)
+	set(&st.AIKey, s.cfg.OpenAIKey)
+	set(&st.AIModel, s.cfg.OpenAIModel)
+	set(&st.AIBaseURL, s.cfg.OpenAIBaseURL)
+	if s.cfg.NotifyFormat != "" && st.NotifyURL == s.cfg.NotifyURL && st.NotifyFormat != s.cfg.NotifyFormat {
+		st.NotifyFormat = s.cfg.NotifyFormat
+		changed = true
+	}
+	if st.HomeLat == 0 && st.HomeLon == 0 && (s.cfg.HomeLat != 0 || s.cfg.HomeLon != 0) {
+		st.HomeLat, st.HomeLon, st.HomePlace = s.cfg.HomeLat, s.cfg.HomeLon, s.cfg.HomePlace
+		changed = true
+	}
+	for name, se := range s.cfg.Sources {
+		src := st.Sources[name]
+		set(&src.URL, se.URL)
+		set(&src.Key, se.Key)
+		set(&src.PublicURL, se.PublicURL)
+		set(&src.Extra, se.Extra)
+		st.Sources[name] = src
+	}
+	if !changed {
+		return nil
+	}
+	return s.store.SaveSettings(ctx, owner, st)
+}
+
+// janitor runs the background work, for every account with their own
+// sources: today and yesterday every 30 minutes, the daily pushes once their
+// hour has passed, and the initial backfill.
 func (s *Server) janitor(ctx context.Context) {
 	first := time.NewTimer(10 * time.Second)
 	t := time.NewTicker(30 * time.Minute)
 	defer t.Stop()
 	tick := func() {
 		today := store.Today()
-		s.pullDays(ctx, []string{today, store.AddDays(today, -1)}, false)
-		s.maybeNotify(ctx)
+		users, _ := s.store.ListUsers(ctx)
+		for i := range users {
+			s.pullDays(ctx, users[i].ID, []string{today, store.AddDays(today, -1)}, false)
+		}
+		for i := range users {
+			s.maybeNotify(ctx, &users[i])
+		}
 	}
 	for {
 		select {
@@ -166,7 +191,7 @@ func (s *Server) janitor(ctx context.Context) {
 		case <-first.C:
 			s.syncAllHabitsEntries(ctx)
 			tick()
-			go s.runBackfill(ctx, "", "", false)
+			go s.runBackfillAll(ctx, "", "", false)
 		case <-t.C:
 			tick()
 		}
@@ -499,8 +524,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	for k, v := range counts {
 		fmt.Fprintf(w, "pocket_day_rows{table=%q} %d\n", k, v)
 	}
-	bs := s.backfillStatus()
-	fmt.Fprintf(w, "# HELP pocket_day_backfill_running Whether a backfill is running.\n# TYPE pocket_day_backfill_running gauge\npocket_day_backfill_running %d\n", boolInt(bs.Running))
+	fmt.Fprintf(w, "# HELP pocket_day_backfill_running Whether a backfill is running.\n# TYPE pocket_day_backfill_running gauge\npocket_day_backfill_running %d\n", boolInt(s.anyBackfillRunning()))
 }
 
 func boolInt(b bool) int {

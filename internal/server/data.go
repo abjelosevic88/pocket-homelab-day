@@ -20,7 +20,14 @@ func (s *Server) handleNotifyTestWith(w http.ResponseWriter, r *http.Request, ur
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "Test message sent via " + n.Format})
 }
 
+// handleBackup downloads the whole database file. It holds every account's
+// journal, so it is a box operation for the admin only (the same bytes the
+// nightly file backup copies); a member gets 404 and uses the JSON export.
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
+	if u := userFrom(r.Context()); u == nil || u.Role != "admin" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
 	dir := filepath.Join(s.cfg.DataDir, "backups")
 	name := fmt.Sprintf("pocket-day-%s.db", time.Now().Format("20060102-150405"))
 	dst := filepath.Join(dir, name)
@@ -33,7 +40,7 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, dst)
 }
 
-// exportDoc is the JSON backup of one user's journal plus the shared facts.
+// exportDoc is the JSON backup of one user's journal plus their facts.
 type exportDoc struct {
 	App      string         `json:"app"`
 	Version  string         `json:"version"`
@@ -53,7 +60,7 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 	doc.Moments, _ = s.store.ListMoments(ctx, u.ID, "0000-01-01", "9999-12-31", 10000000)
 	doc.Pins, _ = s.store.ListPins(ctx, u.ID, "0000-01-01", "9999-12-31")
 	if !queryBool(r, "nofacts") {
-		doc.Facts, _ = s.store.FactsRange(ctx, "0000-01-01", "9999-12-31")
+		doc.Facts, _ = s.store.FactsRange(ctx, u.ID, "0000-01-01", "9999-12-31")
 	}
 	w.Header().Set("Content-Disposition", `attachment; filename="pocket-day-export.json"`)
 	writeJSON(w, http.StatusOK, doc)
@@ -109,7 +116,8 @@ func (s *Server) handleExportMarkdown(w http.ResponseWriter, r *http.Request) {
 
 // handleImportJSON merges an export into the caller's journal: entries by
 // date (existing text is kept, missing fields filled), moments and pins added
-// when not already present, facts only for days that have none.
+// when not already present, facts (into the caller's own) only for days that
+// have none. Owner ids in the file are ignored: everything becomes the caller's.
 func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 	var doc exportDoc
 	if err := decode(r, &doc); err != nil {
@@ -175,18 +183,17 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 			counts["pins"]++
 		}
 	}
-	if u.Role == "admin" {
-		for _, f := range doc.Facts {
-			if !validDate(f.Date) || f.Source == "" || f.Error != "" || len(f.Payload) <= 4 {
-				continue
-			}
-			if s.store.FactSources(ctx, f.Date)[f.Source] {
-				continue
-			}
-			ff := f
-			if err := s.store.PutFact(ctx, &ff); err == nil {
-				counts["facts"]++
-			}
+	// facts go into the caller's own facts, only for days that have none yet
+	for _, f := range doc.Facts {
+		if !validDate(f.Date) || f.Source == "" || f.Error != "" || len(f.Payload) <= 4 {
+			continue
+		}
+		if s.store.FactSources(ctx, u.ID, f.Date)[f.Source] {
+			continue
+		}
+		ff := f
+		if err := s.store.PutFact(ctx, u.ID, &ff); err == nil {
+			counts["facts"]++
 		}
 	}
 	writeJSON(w, http.StatusOK, counts)

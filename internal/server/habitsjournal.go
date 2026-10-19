@@ -16,23 +16,9 @@ import (
 // note and the "bad thing" line become the text. Such an entry has origin
 // "habits" and keeps following Habits until it is edited here (then it is the
 // user's). Removing one here is remembered, so it does not come back.
-
-// habitsOwner is the account the Habits journal belongs to: the first admin.
-func (s *Server) habitsOwner(ctx context.Context) *store.User {
-	users, err := s.store.ListUsers(ctx)
-	if err != nil {
-		return nil
-	}
-	for i := range users {
-		if users[i].Role == "admin" {
-			return &users[i]
-		}
-	}
-	if len(users) > 0 {
-		return &users[0]
-	}
-	return nil
-}
+//
+// The Habits journal is per person: it comes from that person's own Habits
+// facts (pulled with their own Habits token) and lands in their own entries.
 
 func habitsSkipKey(userID int64, date string) string {
 	return fmt.Sprintf("habits-skip:%d:%s", userID, date)
@@ -56,21 +42,20 @@ func habitsEntryText(c sources.Checkin) (string, string) {
 	return highlight, strings.Join(paras, "\n\n")
 }
 
-// syncHabitsEntry applies the rule for one date. It never touches an entry
-// the user wrote.
-func (s *Server) syncHabitsEntry(ctx context.Context, date string) {
-	u := s.habitsOwner(ctx)
-	if u == nil {
+// syncHabitsEntry applies the rule for one user and date. It never touches an
+// entry the user wrote.
+func (s *Server) syncHabitsEntry(ctx context.Context, userID int64, date string) {
+	if userID <= 0 {
 		return
 	}
-	if v, _, ok := s.store.CacheGet(ctx, habitsSkipKey(u.ID, date)); ok && v == "1" {
+	if v, _, ok := s.store.CacheGet(ctx, habitsSkipKey(userID, date)); ok && v == "1" {
 		return
 	}
-	cur, err := s.store.GetEntry(ctx, u.ID, date)
+	cur, err := s.store.GetEntry(ctx, userID, date)
 	if err == nil && cur.Origin != "habits" && (strings.TrimSpace(cur.Highlight) != "" || strings.TrimSpace(cur.Text) != "") {
 		return // the user's own words win; a mood or tags alone are not words
 	}
-	facts, _ := s.store.FactsForDay(ctx, date)
+	facts, _ := s.store.FactsForDay(ctx, userID, date)
 	f, ok := facts["habits"]
 	if !ok || len(f.Payload) <= 4 {
 		return
@@ -84,7 +69,7 @@ func (s *Server) syncHabitsEntry(ctx context.Context, date string) {
 		if hl == "" && text == "" {
 			return
 		}
-		cur = &store.Entry{UserID: u.ID, Date: date}
+		cur = &store.Entry{UserID: userID, Date: date}
 	}
 	if cur.Highlight == hl && cur.Text == text {
 		return
@@ -98,16 +83,23 @@ func (s *Server) syncHabitsEntry(ctx context.Context, date string) {
 	}
 }
 
-// syncAllHabitsEntries runs the rule over every day Habits has a fact for.
+// syncAllHabitsEntries runs the rule, for every account, over every day that
+// account's Habits has a fact for.
 func (s *Server) syncAllHabitsEntries(ctx context.Context) {
-	fs, err := s.store.FactsRange(ctx, "0000-01-01", "9999-12-31", "habits")
+	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		return
 	}
-	for _, f := range fs {
-		if ctx.Err() != nil {
-			return
+	for _, u := range users {
+		fs, err := s.store.FactsRange(ctx, u.ID, "0000-01-01", "9999-12-31", "habits")
+		if err != nil {
+			continue
 		}
-		s.syncHabitsEntry(ctx, f.Date)
+		for _, f := range fs {
+			if ctx.Err() != nil {
+				return
+			}
+			s.syncHabitsEntry(ctx, u.ID, f.Date)
+		}
 	}
 }

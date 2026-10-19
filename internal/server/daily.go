@@ -31,25 +31,41 @@ func summaryLine(facts map[string]store.Fact, max int) string {
 	return strings.Join(parts, " · ")
 }
 
-// maybeNotify sends the evening prompt and the morning memory once a day each.
-func (s *Server) maybeNotify(ctx context.Context) {
-	st, _ := s.store.GetSettings(ctx)
+// notifiedDay returns (and remembers) the last day a push of one kind went to a user.
+func (s *Server) notifiedDay(ctx context.Context, userID int64, kind string) string {
+	key := fmt.Sprintf("%d:%s", userID, kind)
+	s.notifyMu.Lock()
+	defer s.notifyMu.Unlock()
+	if s.notified[key] == "" {
+		if v, _, ok := s.store.CacheGet(ctx, "notify:"+key); ok {
+			s.notified[key] = v
+		}
+	}
+	return s.notified[key]
+}
+
+func (s *Server) markNotified(ctx context.Context, userID int64, kind, day string) {
+	key := fmt.Sprintf("%d:%s", userID, kind)
+	s.notifyMu.Lock()
+	s.notified[key] = day
+	s.notifyMu.Unlock()
+	_ = s.store.CachePut(ctx, "notify:"+key, day)
+}
+
+// maybeNotify sends one person's evening prompt, morning memory and Sunday
+// story once a day each, to that person's own notification route.
+func (s *Server) maybeNotify(ctx context.Context, u *store.User) {
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	if st.NotifyURL == "" {
 		return
 	}
 	now := time.Now()
 	day := now.Format("2006-01-02")
 	if st.AIWeeklyStory && s.aiClient(st) != nil && now.Weekday() == time.Sunday && now.Hour() >= st.EveningHour {
-		if s.notified["weekly"] == "" {
-			if v, _, ok := s.store.CacheGet(ctx, "notify:weekly"); ok {
-				s.notified["weekly"] = v
-			}
-		}
-		if s.notified["weekly"] != day {
-			s.notified["weekly"] = day
-			_ = s.store.CachePut(ctx, "notify:weekly", day)
-			if _, err := s.sendWeeklyStory(ctx); err != nil {
-				s.log.Warn("weekly story", "err", err)
+		if s.notifiedDay(ctx, u.ID, "weekly") != day {
+			s.markNotified(ctx, u.ID, "weekly", day)
+			if _, err := s.sendWeeklyStory(ctx, u); err != nil {
+				s.log.Warn("weekly story", "user", u.ID, "err", err)
 			}
 		}
 	}
@@ -61,62 +77,47 @@ func (s *Server) maybeNotify(ctx context.Context) {
 		if !enabled || now.Hour() < hour {
 			continue
 		}
-		if s.notified[kind] == "" {
-			if v, _, ok := s.store.CacheGet(ctx, "notify:"+kind); ok {
-				s.notified[kind] = v
-			}
-		}
-		if s.notified[kind] == day {
+		if s.notifiedDay(ctx, u.ID, kind) == day {
 			continue
 		}
-		s.notified[kind] = day
-		_ = s.store.CachePut(ctx, "notify:"+kind, day)
+		s.markNotified(ctx, u.ID, kind, day)
 		var err error
 		if kind == "evening" {
-			_, err = s.sendEvening(ctx, false)
+			_, err = s.sendEvening(ctx, u, false)
 		} else {
-			_, err = s.sendMorning(ctx, false)
+			_, err = s.sendMorning(ctx, u, false)
 		}
 		if err != nil {
-			s.log.Warn("daily notification", "kind", kind, "err", err)
+			s.log.Warn("daily notification", "user", u.ID, "kind", kind, "err", err)
 		}
 	}
 }
 
-// sendEvening asks "how was today?" with the day's numbers. Skipped (unless
-// forced) when every user already wrote something today.
-func (s *Server) sendEvening(ctx context.Context, force bool) (int, error) {
-	st, _ := s.store.GetSettings(ctx)
+// sendEvening asks the person "how was today?" with their day's numbers.
+// Skipped (unless forced) when they already wrote something today.
+func (s *Server) sendEvening(ctx context.Context, u *store.User, force bool) (int, error) {
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	n := notify.New(st.NotifyURL, st.NotifyFormat)
 	if !n.Configured() {
 		return 0, fmt.Errorf("notifications are not configured")
 	}
 	today := store.Today()
 	if !force {
-		users, _ := s.store.ListUsers(ctx)
-		written := 0
-		for _, u := range users {
-			if _, err := s.store.GetEntry(ctx, u.ID, today); err == nil {
-				written++
-			}
-		}
-		if len(users) > 0 && written == len(users) {
+		if _, err := s.store.GetEntry(ctx, u.ID, today); err == nil {
 			return 0, nil
 		}
 	}
-	facts, _ := s.store.FactsForDay(ctx, today)
+	facts, _ := s.store.FactsForDay(ctx, u.ID, today)
 	body := summaryLine(facts, 4)
 	if body == "" {
 		body = "Nothing pulled in yet."
 	}
 	question := st.Prompt
 	if st.AIQuestion && s.aiClient(st) != nil {
-		if users, _ := s.store.ListUsers(ctx); len(users) > 0 {
-			if q, err := s.aiQuestion(ctx, &users[0], today, true); err == nil && q != "" {
-				question = q
-			} else if err != nil {
-				s.log.Warn("ai question for the evening push", "err", err)
-			}
+		if q, err := s.aiQuestion(ctx, u, today, true); err == nil && q != "" {
+			question = q
+		} else if err != nil {
+			s.log.Warn("ai question for the evening push", "err", err)
 		}
 	}
 	body += "\n\n" + question
@@ -130,38 +131,33 @@ func (s *Server) sendEvening(ctx context.Context, force bool) (int, error) {
 	return 1, nil
 }
 
-// sendMorning is yesterday in one line plus "on this day" from earlier years.
-func (s *Server) sendMorning(ctx context.Context, force bool) (int, error) {
-	st, _ := s.store.GetSettings(ctx)
+// sendMorning is the person's yesterday in one line plus their own "on this
+// day" from earlier years.
+func (s *Server) sendMorning(ctx context.Context, u *store.User, force bool) (int, error) {
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	n := notify.New(st.NotifyURL, st.NotifyFormat)
 	if !n.Configured() {
 		return 0, fmt.Errorf("notifications are not configured")
 	}
 	today := store.Today()
 	yesterday := store.AddDays(today, -1)
-	facts, _ := s.store.FactsForDay(ctx, yesterday)
+	facts, _ := s.store.FactsForDay(ctx, u.ID, yesterday)
 	var lines []string
 	if sum := summaryLine(facts, 5); sum != "" {
 		lines = append(lines, "Yesterday: "+sum)
 	}
-	users, _ := s.store.ListUsers(ctx)
-	for _, u := range users {
-		mem, _ := s.store.Memories(ctx, u.ID, today)
-		for _, m := range mem {
-			years := yearsBetween(m.Date, today)
-			line := fmt.Sprintf("%s ago", sources.Plural(years, "year", "years"))
-			if m.Highlight != "" {
-				line += ": " + m.Highlight
-			} else if m.Text != "" {
-				line += ": " + firstLine(m.Text, 120)
-			}
-			if len(users) > 1 && u.Name != "" {
-				line = u.Name + ", " + line
-			}
-			lines = append(lines, line)
-			if len(lines) >= 4 {
-				break
-			}
+	mem, _ := s.store.Memories(ctx, u.ID, today)
+	for _, m := range mem {
+		years := yearsBetween(m.Date, today)
+		line := fmt.Sprintf("%s ago", sources.Plural(years, "year", "years"))
+		if m.Highlight != "" {
+			line += ": " + m.Highlight
+		} else if m.Text != "" {
+			line += ": " + firstLine(m.Text, 120)
+		}
+		lines = append(lines, line)
+		if len(lines) >= 4 {
+			break
 		}
 	}
 	if len(lines) == 0 {
@@ -207,7 +203,7 @@ func firstLine(s string, n int) string {
 }
 
 func (s *Server) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
-	st, _ := s.store.GetSettings(r.Context())
+	st, _ := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
 	n := notify.New(st.NotifyURL, st.NotifyFormat)
 	if err := n.Send(r.Context(), notify.Message{Title: "Pocket Day", Body: "Notifications work. The evening prompt and the morning memories will arrive here.", Priority: "info", Tags: []string{"notebook"}}); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
@@ -221,15 +217,16 @@ func (s *Server) handleNotifyRun(w http.ResponseWriter, r *http.Request) {
 		Which string `json:"which"`
 	}
 	_ = decode(r, &in)
+	u := userFrom(r.Context())
 	var sent int
 	var err error
 	switch in.Which {
 	case "morning":
-		sent, err = s.sendMorning(r.Context(), true)
+		sent, err = s.sendMorning(r.Context(), u, true)
 	case "weekly":
-		sent, err = s.sendWeeklyStory(r.Context())
+		sent, err = s.sendWeeklyStory(r.Context(), u)
 	default:
-		sent, err = s.sendEvening(r.Context(), true)
+		sent, err = s.sendEvening(r.Context(), u, true)
 	}
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error(), "sent": sent})
@@ -247,7 +244,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	stats := s.store.Stats(ctx, u.ID, today)
 	cur, longest := s.store.Streak(ctx, u.ID, today)
 	_, written := s.store.GetEntry(ctx, u.ID, today)
-	facts, _ := s.store.FactsForDay(ctx, today)
+	facts, _ := s.store.FactsForDay(ctx, u.ID, today)
 	head := func(src string) float64 {
 		if f, ok := facts[src]; ok && f.Error == "" {
 			return f.Headline
@@ -273,44 +270,30 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	cur, longest := s.store.Streak(ctx, u.ID, today)
 	recent, _, _ := s.store.ListEntries(ctx, store.EntryFilter{UserID: u.ID, Limit: 7})
 	mem, _ := s.store.Memories(ctx, u.ID, today)
-	writeJSON(w, http.StatusOK, map[string]any{"today": today, "stats": stats, "streak": cur, "longest_streak": longest, "recent": recent, "memories": mem, "backfill": s.backfillStatus()})
+	writeJSON(w, http.StatusOK, map[string]any{"today": today, "stats": stats, "streak": cur, "longest_streak": longest, "recent": recent, "memories": mem, "backfill": s.backfillStatus(u.ID)})
 }
 
 var _ = json.Marshal
 
-// sendWeeklyStory writes this week's story for every user and pushes it.
-func (s *Server) sendWeeklyStory(ctx context.Context) (int, error) {
-	st, _ := s.store.GetSettings(ctx)
+// sendWeeklyStory writes this week's story for one person and pushes it to
+// their own notification route.
+func (s *Server) sendWeeklyStory(ctx context.Context, u *store.User) (int, error) {
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	n := notify.New(st.NotifyURL, st.NotifyFormat)
 	if !n.Configured() {
 		return 0, fmt.Errorf("notifications are not configured")
 	}
 	week := currentWeek(store.Today())
-	users, _ := s.store.ListUsers(ctx)
-	sent := 0
-	var lastErr error
-	for i := range users {
-		story, err := s.makeStory(ctx, &users[i], "week", week)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		title := story.Title
-		if len(users) > 1 && users[i].Name != "" {
-			title = users[i].Name + ": " + title
-		}
-		link := ""
-		if s.cfg.BaseURL != "" {
-			link = s.cfg.BaseURL + "/stories?kind=week&period=" + week
-		}
-		if err := n.Send(ctx, notify.Message{Title: title, Body: clip(story.Text, 1500), Priority: "info", Tags: []string{"books"}, Link: link}); err != nil {
-			lastErr = err
-			continue
-		}
-		sent++
+	story, err := s.makeStory(ctx, u, "week", week)
+	if err != nil {
+		return 0, err
 	}
-	if sent == 0 && lastErr != nil {
-		return 0, lastErr
+	link := ""
+	if s.cfg.BaseURL != "" {
+		link = s.cfg.BaseURL + "/stories?kind=week&period=" + week
 	}
-	return sent, nil
+	if err := n.Send(ctx, notify.Message{Title: story.Title, Body: clip(story.Text, 1500), Priority: "info", Tags: []string{"books"}, Link: link}); err != nil {
+		return 0, err
+	}
+	return 1, nil
 }

@@ -59,8 +59,14 @@ func (s *Store) ListStories(ctx context.Context, userID int64, limit int) ([]Sto
 
 // DeleteStory removes a story.
 func (s *Store) DeleteStory(ctx context.Context, userID int64, kind, period string) error {
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM ai_stories WHERE user_id = ? AND kind = ? AND period = ?`, userID, kind, period)
-	return err
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM ai_stories WHERE user_id = ? AND kind = ? AND period = ?`, userID, kind, period)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Ask is one question to the journal.
@@ -119,8 +125,14 @@ func (s *Store) DeleteAsk(ctx context.Context, userID, id int64) error {
 		_, err := s.DB.ExecContext(ctx, `DELETE FROM ai_asks WHERE user_id = ?`, userID)
 		return err
 	}
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM ai_asks WHERE user_id = ? AND id = ?`, userID, id)
-	return err
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM ai_asks WHERE user_id = ? AND id = ?`, userID, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // LogUsage records the tokens one AI call used.
@@ -137,9 +149,9 @@ type UsageRow struct {
 	Completion int    `json:"completion_tokens"`
 }
 
-// Usage sums token use since an RFC3339 instant.
-func (s *Store) Usage(ctx context.Context, since string) ([]UsageRow, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT feature, model, COUNT(1), SUM(prompt_tokens), SUM(completion_tokens) FROM ai_usage WHERE created_at >= ? GROUP BY feature, model ORDER BY 2 DESC`, since)
+// Usage sums a user's token use since an RFC3339 instant.
+func (s *Store) Usage(ctx context.Context, userID int64, since string) ([]UsageRow, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT feature, model, COUNT(1), SUM(prompt_tokens), SUM(completion_tokens) FROM ai_usage WHERE user_id = ? AND created_at >= ? GROUP BY feature, model ORDER BY 2 DESC`, userID, since)
 	if err != nil {
 		return nil, err
 	}

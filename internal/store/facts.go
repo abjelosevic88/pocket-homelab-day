@@ -21,29 +21,32 @@ func scanFact(row interface{ Scan(...any) error }) (*Fact, error) {
 	return &f, nil
 }
 
-// PutFact stores a successful fetch.
-func (s *Store) PutFact(ctx context.Context, f *Fact) error {
+// Facts are personal: each person's were gathered with their own source
+// tokens, so every query here is scoped by user id.
+
+// PutFact stores a successful fetch for a user.
+func (s *Store) PutFact(ctx context.Context, userID int64, f *Fact) error {
 	payload := string(f.Payload)
 	if payload == "" {
 		payload = "null"
 	}
 	f.FetchedAt = Now()
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO facts (date, source, payload, headline, summary, error, fetched_at) VALUES (?, ?, ?, ?, ?, '', ?)
-		ON CONFLICT(date, source) DO UPDATE SET payload = excluded.payload, headline = excluded.headline, summary = excluded.summary, error = '', fetched_at = excluded.fetched_at`,
-		f.Date, f.Source, payload, f.Headline, f.Summary, f.FetchedAt)
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO facts (user_id, date, source, payload, headline, summary, error, fetched_at) VALUES (?, ?, ?, ?, ?, ?, '', ?)
+		ON CONFLICT(user_id, date, source) DO UPDATE SET payload = excluded.payload, headline = excluded.headline, summary = excluded.summary, error = '', fetched_at = excluded.fetched_at`,
+		userID, f.Date, f.Source, payload, f.Headline, f.Summary, f.FetchedAt)
 	return err
 }
 
 // PutFactError records a failed fetch, keeping any earlier payload.
-func (s *Store) PutFactError(ctx context.Context, date, source, msg string) error {
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO facts (date, source, payload, headline, summary, error, fetched_at) VALUES (?, ?, '', 0, '', ?, ?)
-		ON CONFLICT(date, source) DO UPDATE SET error = excluded.error, fetched_at = excluded.fetched_at`, date, source, msg, Now())
+func (s *Store) PutFactError(ctx context.Context, userID int64, date, source, msg string) error {
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO facts (user_id, date, source, payload, headline, summary, error, fetched_at) VALUES (?, ?, ?, '', 0, '', ?, ?)
+		ON CONFLICT(user_id, date, source) DO UPDATE SET error = excluded.error, fetched_at = excluded.fetched_at`, userID, date, source, msg, Now())
 	return err
 }
 
 // FactsForDay returns source → fact for one date.
-func (s *Store) FactsForDay(ctx context.Context, date string) (map[string]Fact, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+factCols+` FROM facts WHERE date = ?`, date)
+func (s *Store) FactsForDay(ctx context.Context, userID int64, date string) (map[string]Fact, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+factCols+` FROM facts WHERE user_id = ? AND date = ?`, userID, date)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +63,9 @@ func (s *Store) FactsForDay(ctx context.Context, date string) (map[string]Fact, 
 }
 
 // FactsRange returns every fact between two dates, oldest first.
-func (s *Store) FactsRange(ctx context.Context, from, to string, sources ...string) ([]Fact, error) {
-	q := `SELECT ` + factCols + ` FROM facts WHERE date BETWEEN ? AND ?`
-	args := []any{from, to}
+func (s *Store) FactsRange(ctx context.Context, userID int64, from, to string, sources ...string) ([]Fact, error) {
+	q := `SELECT ` + factCols + ` FROM facts WHERE user_id = ? AND date BETWEEN ? AND ?`
+	args := []any{userID, from, to}
 	if len(sources) > 0 {
 		q += ` AND source IN (?` + strings.Repeat(",?", len(sources)-1) + `)`
 		for _, src := range sources {
@@ -86,8 +89,8 @@ func (s *Store) FactsRange(ctx context.Context, from, to string, sources ...stri
 }
 
 // FactHeadlines returns date → source → headline for a range (cheap, no payloads).
-func (s *Store) FactHeadlines(ctx context.Context, from, to string) (map[string]map[string]float64, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT date, source, headline FROM facts WHERE date BETWEEN ? AND ? AND error = '' AND payload <> ''`, from, to)
+func (s *Store) FactHeadlines(ctx context.Context, userID int64, from, to string) (map[string]map[string]float64, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT date, source, headline FROM facts WHERE user_id = ? AND date BETWEEN ? AND ? AND error = '' AND payload <> ''`, userID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +111,9 @@ func (s *Store) FactHeadlines(ctx context.Context, from, to string) (map[string]
 }
 
 // FactSources lists the sources that have a payload for a date.
-func (s *Store) FactSources(ctx context.Context, date string) map[string]bool {
+func (s *Store) FactSources(ctx context.Context, userID int64, date string) map[string]bool {
 	out := map[string]bool{}
-	rows, err := s.DB.QueryContext(ctx, `SELECT source FROM facts WHERE date = ? AND payload <> '' AND error = ''`, date)
+	rows, err := s.DB.QueryContext(ctx, `SELECT source FROM facts WHERE user_id = ? AND date = ? AND payload <> '' AND error = ''`, userID, date)
 	if err != nil {
 		return out
 	}
@@ -124,19 +127,19 @@ func (s *Store) FactSources(ctx context.Context, date string) map[string]bool {
 	return out
 }
 
-// DeleteFacts drops cached facts for a date (so a refresh starts clean), or every date when date is "".
-func (s *Store) DeleteFacts(ctx context.Context, date string) error {
+// DeleteFacts drops a user's cached facts for a date (so a refresh starts clean), or every date when date is "".
+func (s *Store) DeleteFacts(ctx context.Context, userID int64, date string) error {
 	if date == "" {
-		_, err := s.DB.ExecContext(ctx, `DELETE FROM facts`)
+		_, err := s.DB.ExecContext(ctx, `DELETE FROM facts WHERE user_id = ?`, userID)
 		return err
 	}
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM facts WHERE date = ?`, date)
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM facts WHERE user_id = ? AND date = ?`, userID, date)
 	return err
 }
 
 // FactDates returns distinct dates with facts, newest first.
-func (s *Store) FactDates(ctx context.Context) ([]string, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT DISTINCT date FROM facts WHERE payload <> '' ORDER BY date DESC`)
+func (s *Store) FactDates(ctx context.Context, userID int64) ([]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT DISTINCT date FROM facts WHERE user_id = ? AND payload <> '' ORDER BY date DESC`, userID)
 	if err != nil {
 		return nil, err
 	}

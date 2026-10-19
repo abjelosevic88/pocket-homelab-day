@@ -321,7 +321,7 @@ func (s *Server) dayBrief(ctx context.Context, u *store.User, date string, sendT
 		}
 		fmt.Fprintf(&b, "Kept: %s\n", strings.Join(l, "; "))
 	}
-	facts, _ := s.store.FactsForDay(ctx, date)
+	facts, _ := s.store.FactsForDay(ctx, u.ID, date)
 	for _, l := range factLines(facts, detail) {
 		b.WriteString(l + "\n")
 	}

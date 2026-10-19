@@ -1,6 +1,6 @@
 # Configuration
 
-Everything is an environment variable with a sensible default. Sources, the home location, the prompt and notifications are seeded from the environment on first start and then edited under **Settings**; the saved values win.
+Everything is an environment variable with a sensible default. Sources, the AI key, the home location and notifications are seeded from the environment into the **owner's** settings (the first admin) and then edited under **Settings**; the saved values win. Those tokens are the owner's own accounts, so every other account starts with no sources and connects their own under Settings → Sources: settings, facts and the journal are all per person.
 
 ## Server
 | Variable | Default | |
@@ -47,8 +47,8 @@ Inside Docker, reach sibling containers by service name or `http://host.docker.i
 - Every 30 minutes the server pulls **today and yesterday** from every enabled, configured source, in parallel, with a 90-second budget per source.
 - Days before yesterday are **frozen**: once a source has answered for a day it is not asked again. “↻ Pull again” on a day, or a forced backfill, re-fetches.
 - A failed fetch keeps the earlier payload and marks the card *stale*.
-- The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS`, one day every 1.5 s, skipping days that already have every source.
-- **Habits journal as the entry:** on a day with no words written in Pocket Day (a mood or tags alone do not count), the Pocket Habits journal becomes the entry of the first admin — the “good thing” line as the highlight, the important note and the “bad thing” line as the text. It follows Habits until you edit it here (then it is yours) and stays gone if you remove it. It counts as written: streaks, the calendar, memories, the AI and the evening push see it.
+- The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS` for every account with their own sources, one day every 1.5 s, skipping days that already have every source.
+- **Habits journal as the entry:** on a day with no words written in Pocket Day (a mood or tags alone do not count), the person's own Pocket Habits journal (from their own Habits source) becomes their entry — the “good thing” line as the highlight, the important note and the “bad thing” line as the text. It follows Habits until you edit it here (then it is yours) and stays gone if you remove it. It counts as written: streaks, the calendar, memories, the AI and the evening push see it.
 - Weather: the home location, unless the day's Dawarich bounds are more than ~40 km away — then the centre of that day's movement.
 
 ## AI
@@ -66,7 +66,7 @@ Dictation model, the writing language, tonight's question, the Sunday week story
 |---|---|---|
 | `MONEY_WEBHOOK_SECRET` | | enables `POST /api/v1/hooks/money` |
 
-In Pocket Money → Settings → Webhooks, add a webhook to `https://<day>/api/v1/hooks/money` for the three transaction events (either format) and put its signing secret here. The request is checked against `X-Pocket-Signature`. A transaction added, changed or deleted then re-pulls the money facts for its day within a few seconds; a burst of changes, like a bulk edit, becomes one pull per day. Without the secret the endpoint answers 404, and the 30-minute refresh carries on as before.
+In Pocket Money → Settings → Webhooks, add a webhook to `https://<day>/api/v1/hooks/money` for the three transaction events (either format) and put its signing secret here. The request is checked against `X-Pocket-Signature`. A transaction added, changed or deleted then re-pulls the money facts for its day within a few seconds; a burst of changes, like a bulk edit, becomes one pull per day. Without the secret the endpoint answers 404, and the 30-minute refresh carries on as before. The refresh is one person's: the account named by `user_email` (or `data.user.email`) in the signed body or `?user=<email>` on the webhook URL; a webhook that names nobody (today's Pocket Money and Firefly payloads) counts as the owner's, since it was set up with the owner's Pocket Money account.
 
 ## Notifications
 

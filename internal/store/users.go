@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"time"
 )
 
@@ -70,7 +71,8 @@ func (s *Store) GetUser(ctx context.Context, id int64) (*User, error) {
 }
 
 // DeleteUser removes a user with their sessions and tokens (cascade).
-// Their entries, moments and pins go with them (cascade).
+// Their entries, moments, pins, facts, stories, questions and personal
+// settings go with them (cascade); their cache rows and AI usage too.
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	res, err := s.DB.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
 	if err != nil {
@@ -79,7 +81,20 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
+	for _, p := range []string{"aiq:%d:", "habits-skip:%d:", "notify:%d:"} {
+		_ = s.CacheDelete(ctx, fmt.Sprintf(p, id))
+	}
+	_, _ = s.DB.ExecContext(ctx, `DELETE FROM ai_usage WHERE user_id = ?`, id)
 	return nil
+}
+
+// OwnerID returns the box owner: the first admin (or the first account when
+// there is no admin), 0 when there are no users. Everything that existed
+// before data was per person belongs to this account.
+func (s *Store) OwnerID(ctx context.Context) int64 {
+	var id int64
+	_ = s.DB.QueryRowContext(ctx, `SELECT id FROM users ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, id LIMIT 1`).Scan(&id)
+	return id
 }
 
 // CountAdmins returns how many admin accounts exist.
@@ -171,6 +186,12 @@ func (s *Store) ListAPITokens(ctx context.Context, userID int64) ([]APIToken, er
 
 // DeleteAPIToken removes a token.
 func (s *Store) DeleteAPIToken(ctx context.Context, userID, id int64) error {
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM api_tokens WHERE id = ? AND user_id = ?`, id, userID)
-	return err
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM api_tokens WHERE id = ? AND user_id = ?`, id, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

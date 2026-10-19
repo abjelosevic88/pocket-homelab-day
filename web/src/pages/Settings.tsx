@@ -60,11 +60,11 @@ function General() {
     <div className="two-col">
       <Card title="Preferences">
         <div className="grid" style={{ gap: 14 }}>
-          <Field label="App title"><input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} maxLength={40} disabled={!isAdmin} /></Field>
-          <Field label="The question above the text box" help="Shown on every day page and in the evening push."><input value={f.prompt} onChange={e => setF({ ...f, prompt: e.target.value })} maxLength={120} disabled={!isAdmin} /></Field>
+          <Field label="App title"><input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} maxLength={40} disabled={!isAdmin} title={isAdmin ? undefined : "Only an admin can rename the app"} /></Field>
+          <Field label="The question above the text box" help="Shown on every day page and in the evening push."><input value={f.prompt} onChange={e => setF({ ...f, prompt: e.target.value })} maxLength={120} /></Field>
           <div className="two-col tight">
-            <Field label="Date format"><Select value={f.date_format} onChange={v => setF({ ...f, date_format: v as DateFormat })} options={DATE_FORMATS.map(d => ({ value: d.id, label: d.label }))} disabled={!isAdmin} /></Field>
-            <Field label="Time format"><Select value={f.time_format} onChange={v => setF({ ...f, time_format: v as TimeFormat })} options={TIME_FORMATS.map(d => ({ value: d.id, label: d.label }))} disabled={!isAdmin} /></Field>
+            <Field label="Date format"><Select value={f.date_format} onChange={v => setF({ ...f, date_format: v as DateFormat })} options={DATE_FORMATS.map(d => ({ value: d.id, label: d.label }))} /></Field>
+            <Field label="Time format"><Select value={f.time_format} onChange={v => setF({ ...f, time_format: v as TimeFormat })} options={TIME_FORMATS.map(d => ({ value: d.id, label: d.label }))} /></Field>
           </div>
           <div className="two-col tight">
             <Field group label="Week starts on"><Segmented value={f.week_start} onChange={v => setF({ ...f, week_start: v as 'mon' | 'sun' })} options={[{ value: 'mon', label: 'Monday' }, { value: 'sun', label: 'Sunday' }]} size="sm" /></Field>
@@ -72,12 +72,13 @@ function General() {
           </div>
           <Field label="Home location" help="Weather for days spent near home; days Dawarich places far away get the weather there.">
             <div className="grid" style={{ gap: 6 }}>
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder={f.home_place ? `${f.home_place} (${f.home_lat.toFixed(3)}, ${f.home_lon.toFixed(3)}) — type to change` : 'Search a town…'} disabled={!isAdmin} />
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder={f.home_place ? `${f.home_place} (${f.home_lat.toFixed(3)}, ${f.home_lon.toFixed(3)}) — type to change` : 'Search a town…'} />
               {hits.length > 0 && <div className="result-list" style={{ maxHeight: 200 }}>{hits.map((h, i) => <button key={i} className="sl-item" onClick={() => { setF({ ...f, home_place: h.name, home_lat: h.lat, home_lon: h.lon }); setQ(''); setHits([]) }}><span className="grow">{h.name}</span><span className="muted small">{h.region}</span></button>)}</div>}
             </div>
           </Field>
-          <Field label="Backfill" help="How many days back to pull facts for on first start and when a new source is connected."><input type="number" min={0} max={3650} value={f.backfill_days} onChange={e => setF({ ...f, backfill_days: Number(e.target.value) })} disabled={!isAdmin} style={{ maxWidth: 140 }} /></Field>
-          {isAdmin ? <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div> : <p className="muted small">Only an admin can change these.</p>}
+          <Field label="Backfill" help="How many days back to pull facts for on first start and when a new source is connected."><input type="number" min={0} max={3650} value={f.backfill_days} onChange={e => setF({ ...f, backfill_days: Number(e.target.value) })} style={{ maxWidth: 140 }} /></Field>
+          <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div>
+          <p className="muted small">These are your own settings{isAdmin ? '; the app title is the same for everyone' : ''}.</p>
         </div>
       </Card>
       <Card title="How it fits together">
@@ -118,7 +119,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
 }
 
 function Sources() {
-  const { f, setF, save, busy, isAdmin } = useSettingsForm()
+  const { f, setF, save, busy } = useSettingsForm()
   const { toast } = useToast()
   const [test, setTest] = useState<Record<string, string>>({})
   const { data: status, reload } = useAsync(() => api.get<{ backfill: BackfillStatus; configured: string[]; days_with_facts: number; first: string; last: string }>(`${V1}/facts/status`), [])
@@ -139,33 +140,34 @@ function Sources() {
       <Card title="Pulling the days" actions={bf?.running ? <span className="badge cat">running</span> : undefined}>
         <p className="muted small">Today and yesterday are pulled every 30 minutes. Older days are frozen once fetched. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</p>
         {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
-        {isAdmin && <div className="row mt-sm"><button className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}>Backfill missing days ({f.backfill_days} back)</button><button className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts">Re-pull everything</button></div>}
+        <p className="muted small">The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal.</p>
+        <div className="row mt-sm"><button className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}>Backfill missing days ({f.backfill_days} back)</button><button className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts">Re-pull everything</button></div>
       </Card>
       {f.source_names.map(name => {
         const src = f.sources[name]
         const help = SOURCE_HELP[name]
         return <Card key={name} title={<span className="row" style={{ gap: 8 }}><span>{SOURCE_ICON[name]}</span>{SOURCE_APP[name]} <span className="muted" style={{ fontWeight: 400 }}>— {SOURCE_LABEL[name].toLowerCase()}</span></span>}
-          actions={<><span className={`badge ${src.configured ? 'cat' : ''}`}>{src.configured ? 'connected' : name === 'weather' ? 'set a home location' : 'not set'}</span><label className="row small"><input type="checkbox" checked={src.enabled} onChange={e => upd(name, { enabled: e.target.checked })} disabled={!isAdmin} style={{ width: 'auto' }} /> on</label></>}>
+          actions={<><span className={`badge ${src.configured ? 'cat' : ''}`}>{src.configured ? 'connected' : name === 'weather' ? 'set a home location' : 'not set'}</span><label className="row small"><input type="checkbox" checked={src.enabled} onChange={e => upd(name, { enabled: e.target.checked })} style={{ width: 'auto' }} /> on</label></>}>
           <p className="muted small">{help.what}{help.key !== 'no key needed' ? ` ${help.key}.` : ''}</p>
           {name !== 'weather' && <div className="grid" style={{ gap: 12 }}>
             <div className={help.extra ? 'three-col tight' : 'two-col tight'}>
-              <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} disabled={!isAdmin} /></Field>
-              {src.needs_key && <Field label={name === 'firefly' ? 'Personal access token' : name === 'nextcloud' ? 'App password' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} disabled={!isAdmin} autoComplete="off" /></Field>}
-              {help.extra && <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} disabled={!isAdmin} /></Field>}
+              <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
+              {src.needs_key && <Field label={name === 'firefly' ? 'Personal access token' : name === 'nextcloud' ? 'App password' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>}
+              {help.extra && <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field>}
             </div>
-            <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" disabled={!isAdmin} /></Field>
+            <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
             <div className="row"><button className="btn sm" onClick={() => run(name, src)} disabled={!src.url}>Test connection</button>{stat(name)}</div>
           </div>}
           {name === 'weather' && <div className="row"><button className="btn sm" onClick={() => run(name, src)} disabled={!f.home_lat && !f.home_lon}>Test</button>{stat(name)}{!f.home_lat && !f.home_lon && <span className="muted small">Set the home location under General first.</span>}</div>}
         </Card>
       })}
-      {isAdmin ? <div className="row"><button className="btn primary" onClick={() => save()} disabled={busy}>Save sources</button><span className="muted small">A newly connected source is pulled for today on the next tick; use Backfill for the past.</span></div> : <p className="muted small">Only an admin can change these.</p>}
+      <div className="row"><button className="btn primary" onClick={() => save()} disabled={busy}>Save sources</button><span className="muted small">A newly connected source is pulled for today on the next tick; use Backfill for the past.</span></div>
     </div>
   )
 }
 
 function Notify() {
-  const { f, setF, save, busy, isAdmin } = useSettingsForm()
+  const { f, setF, save, busy } = useSettingsForm()
   const { toast } = useToast()
   const [test, setTest] = useState('')
   if (!f) return <Loading />
@@ -179,18 +181,18 @@ function Notify() {
     <div className="two-col">
       <Card title="🔔 Where to send" actions={<span className={`badge ${f.notify_configured ? 'cat' : ''}`}>{f.notify_configured ? 'connected' : 'not set'}</span>}>
         <div className="grid" style={{ gap: 12 }}>
-          <Field label="URL" help="Apprise gateway (…/notify/<key>), an ntfy topic URL, or any webhook that takes JSON."><input value={f.notify_url} onChange={e => setF({ ...f, notify_url: e.target.value })} placeholder="http://apprise:8000/notify/day" disabled={!isAdmin} /></Field>
+          <Field label="URL" help="Apprise gateway (…/notify/<key>), an ntfy topic URL, or any webhook that takes JSON."><input value={f.notify_url} onChange={e => setF({ ...f, notify_url: e.target.value })} placeholder="http://apprise:8000/notify/day" /></Field>
           <Field group label="Format"><Segmented value={f.notify_format} onChange={v => setF({ ...f, notify_format: v })} options={[{ value: 'apprise', label: 'Apprise' }, { value: 'ntfy', label: 'ntfy' }, { value: 'json', label: 'JSON' }]} size="sm" /></Field>
           <div className="row"><button className="btn sm" onClick={run} disabled={!f.notify_url}>Send a test</button><span className={`small ${test.startsWith('✓') ? 'ok' : test.startsWith('✕') ? 'bad' : 'muted'}`}>{test}</span></div>
         </div>
       </Card>
       <Card title="When">
         <div className="grid" style={{ gap: 12 }}>
-          <label className="row"><input type="checkbox" checked={f.notify_evening} onChange={e => setF({ ...f, notify_evening: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Evening: “{f.prompt}” with the day's numbers, unless the day is already written</label>
-          <Field label="Evening hour"><Select value={String(f.evening_hour)} onChange={v => setF({ ...f, evening_hour: Number(v) })} options={hours} disabled={!isAdmin} /></Field>
-          <label className="row"><input type="checkbox" checked={f.notify_morning} onChange={e => setF({ ...f, notify_morning: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Morning: yesterday in one line and “on this day” from earlier years</label>
-          <Field label="Morning hour"><Select value={String(f.morning_hour)} onChange={v => setF({ ...f, morning_hour: Number(v) })} options={hours} disabled={!isAdmin} /></Field>
-          <div className="row wrap">{isAdmin && <button className="btn primary" onClick={() => save()} disabled={busy}>Save</button>}<button className="btn sm" onClick={() => send('evening')} disabled={!f.notify_configured}>Send evening now</button><button className="btn sm" onClick={() => send('morning')} disabled={!f.notify_configured}>Send morning now</button>{f.ai_configured && <button className="btn sm" onClick={() => send('weekly')} disabled={!f.notify_configured}>Send week story now</button>}</div>
+          <label className="row"><input type="checkbox" checked={f.notify_evening} onChange={e => setF({ ...f, notify_evening: e.target.checked })} style={{ width: 'auto' }} /> Evening: “{f.prompt}” with the day's numbers, unless the day is already written</label>
+          <Field label="Evening hour"><Select value={String(f.evening_hour)} onChange={v => setF({ ...f, evening_hour: Number(v) })} options={hours} /></Field>
+          <label className="row"><input type="checkbox" checked={f.notify_morning} onChange={e => setF({ ...f, notify_morning: e.target.checked })} style={{ width: 'auto' }} /> Morning: yesterday in one line and “on this day” from earlier years</label>
+          <Field label="Morning hour"><Select value={String(f.morning_hour)} onChange={v => setF({ ...f, morning_hour: Number(v) })} options={hours} /></Field>
+          <div className="row wrap"><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button><button className="btn sm" onClick={() => send('evening')} disabled={!f.notify_configured}>Send evening now</button><button className="btn sm" onClick={() => send('morning')} disabled={!f.notify_configured}>Send morning now</button>{f.ai_configured && <button className="btn sm" onClick={() => send('weekly')} disabled={!f.notify_configured}>Send week story now</button>}</div>
         </div>
       </Card>
     </div>
@@ -201,7 +203,7 @@ const AI_MODELS = ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.4-nano', 'gpt-5.5', 'gpt-4.
 const FEATURE_LABEL: Record<string, string> = { draft: 'Draft my day', question: "Tonight's question", suggest: 'Suggest highlight & tags', dictation: 'Dictation', 'story-week': 'Week stories', 'story-month': 'Month stories', 'story-year': 'Year stories', ask: 'Ask (answers)', 'ask-plan': 'Ask (planning)' }
 
 function AISettings() {
-  const { f, setF, save, busy, isAdmin } = useSettingsForm()
+  const { f, setF, save, busy } = useSettingsForm()
   const [test, setTest] = useState('')
   const { data: usage } = useAsync(() => api.get<{ last_30_days: UsageRow[]; all_time: UsageRow[] }>(`${V1}/ai/usage`), [])
   if (!f) return <Loading />
@@ -216,14 +218,14 @@ function AISettings() {
       <div className="two-col">
         <Card title="✨ OpenAI" actions={<span className={`badge ${f.ai_configured ? 'cat' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}>
           <div className="grid" style={{ gap: 12 }}>
-            <Field label="API key" help="platform.openai.com → API keys. Any OpenAI-compatible endpoint works with the base URL below."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" disabled={!isAdmin} /></Field>
+            <Field label="API key" help="platform.openai.com → API keys. Any OpenAI-compatible endpoint works with the base URL below."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
             <div className="two-col tight">
-              <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} disabled={!isAdmin} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
-              <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} disabled={!isAdmin} /></Field>
+              <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
+              <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
             </div>
             <div className="two-col tight">
-              <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" disabled={!isAdmin} /></Field>
-              <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" disabled={!isAdmin} /></Field>
+              <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" /></Field>
+              <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
             </div>
             <div className="row"><button className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><span className={`small ${test.startsWith('✓') ? 'ok' : test.startsWith('✕') ? 'bad' : 'muted'}`}>{test}</span></div>
           </div>
@@ -242,11 +244,11 @@ function AISettings() {
       <div className="two-col">
         <Card title="Options">
           <div className="grid" style={{ gap: 12 }}>
-            <label className="row"><input type="checkbox" checked={f.ai_question} onChange={e => setF({ ...f, ai_question: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Tonight's question on the day page and in the evening push</label>
-            <label className="row"><input type="checkbox" checked={f.ai_weekly_story} onChange={e => setF({ ...f, ai_weekly_story: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Write the week's story every Sunday at the evening hour and push it</label>
-            <label className="row"><input type="checkbox" checked={f.ai_send_text} onChange={e => setF({ ...f, ai_send_text: e.target.checked })} style={{ width: 'auto' }} disabled={!isAdmin} /> Send what I wrote (highlights, text, moments), not only the app data</label>
+            <label className="row"><input type="checkbox" checked={f.ai_question} onChange={e => setF({ ...f, ai_question: e.target.checked })} style={{ width: 'auto' }} /> Tonight's question on the day page and in the evening push</label>
+            <label className="row"><input type="checkbox" checked={f.ai_weekly_story} onChange={e => setF({ ...f, ai_weekly_story: e.target.checked })} style={{ width: 'auto' }} /> Write the week's story every Sunday at the evening hour and push it</label>
+            <label className="row"><input type="checkbox" checked={f.ai_send_text} onChange={e => setF({ ...f, ai_send_text: e.target.checked })} style={{ width: 'auto' }} /> Send what I wrote (highlights, text, moments), not only the app data</label>
             <p className="muted small" style={{ margin: 0 }}>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos, audio is sent only while dictating. OpenAI does not train on API data by default.</p>
-            {isAdmin && <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div>}
+            <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div>
           </div>
         </Card>
         <Card title="Usage">
@@ -272,7 +274,7 @@ function Users() {
   const run = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); await reloadMeta(); toast(msg) } catch (e) { toast((e as Error).message, 'err') } }
   return (
     <Card title="Users" actions={isAdmin && <button className="btn primary sm" onClick={() => setEdit({ role: 'member' })}>+ Add user</button>}>
-      <p className="muted">Everyone's journal is their own: entries, moments and pins are private to the account. What the connected apps know about a day is shared. Admins manage users, sources and notifications.</p>
+      <p className="muted">Everything is per person: entries, moments, pins, stories, questions, the facts the connected apps know and the sources, AI key and notifications. Nobody, admins included, sees another account's journal. Admins manage users and the app title.</p>
       <table className="table compact">
         <thead><tr><th /><th>Name</th><th>Email</th><th>Role</th><th /></tr></thead>
         <tbody>
@@ -382,6 +384,7 @@ function Tokens() {
 }
 
 function Data() {
+  const { user } = useApp()
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
   const importJSON = async (file: File) => {
@@ -390,12 +393,12 @@ function Data() {
   }
   return (
     <div className="two-col">
-      <Card title="Backup">
-        <p className="muted">A consistent copy of the SQLite database (<code>VACUUM INTO</code>): every user's journal plus the frozen facts. Restore by stopping the app and replacing <code>pocket-day.db</code> in the data directory.</p>
+      {user?.role === 'admin' && <Card title="Backup">
+        <p className="muted">A consistent copy of the SQLite database (<code>VACUUM INTO</code>): the whole box, every user's journal and facts. Restore by stopping the app and replacing <code>pocket-day.db</code> in the data directory. For your own journal only, use the export.</p>
         <a className="btn primary" href={`${V1}/backup`}>Download database</a>
-      </Card>
+      </Card>}
       <Card title="Export & import">
-        <p className="muted">Your journal (entries, moments, pins) plus the shared facts as one JSON file, or the words alone as Markdown. Importing merges: entries by date (nothing is overwritten), moments and pins added when missing, facts only for days that have none.</p>
+        <p className="muted">Your journal (entries, moments, pins) plus your facts as one JSON file, or the words alone as Markdown. Importing merges: entries by date (nothing is overwritten), moments and pins added when missing, facts only for days that have none.</p>
         <div className="row wrap"><a className="btn" href={`${V1}/export.json`}>Export JSON</a><a className="btn" href={`${V1}/export.json?nofacts=1`}>JSON without facts</a><a className="btn" href={`${V1}/export.md`}>Markdown</a><label className="btn">{busy ? 'Importing…' : 'Import JSON…'}<input type="file" accept="application/json,.json" hidden onChange={e => e.target.files?.[0] && importJSON(e.target.files[0])} /></label></div>
       </Card>
     </div>
