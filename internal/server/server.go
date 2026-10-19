@@ -45,6 +45,9 @@ type Server struct {
 	backfill backfillState
 	notified map[string]string // "evening"/"morning" → last day sent
 
+	oidcMu sync.Mutex
+	oidc   *oidcProvider
+
 	core     *core.Client
 	coreMu   sync.Mutex
 	coreOK   bool
@@ -60,6 +63,7 @@ type resolvedURL struct {
 // New creates a server.
 func New(cfg *config.Config, st *store.Store, log *slog.Logger, webFS fs.FS) *Server {
 	return &Server{cfg: cfg, store: st, log: log, webFS: webFS, started: time.Now(), pulling: map[string]bool{}, notified: map[string]string{},
+		oidc:     &oidcProvider{issuerURL: cfg.OIDCIssuer},
 		core:     core.New(cfg.CoreURL, core.Options{TokenFile: cfg.DataDir + "/core.token", UserAgent: cfg.UserAgent}),
 		resolved: map[string]resolvedURL{}}
 }
@@ -192,6 +196,8 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/login", s.handleLogin)
 		r.Post("/auth/setup", s.handleSetup)
 		r.Get("/auth/status", s.handleAuthStatus)
+		r.Get("/auth/oidc/start", s.handleOIDCStart)
+		r.Get("/auth/oidc/callback", s.handleOIDCCallback)
 		r.Post("/hooks/money", s.handleMoneyHook) // signed, not a session
 
 		r.Group(func(r chi.Router) {
@@ -410,13 +416,18 @@ func (s *Server) coreLoop(ctx context.Context) {
 }
 
 func (s *Server) registerWithCore(ctx context.Context) error {
-	reg, err := s.core.Register(ctx, s.cfg.CoreRegistrationKey, core.Manifest{
+	m := core.Manifest{
 		Slug: "day", Name: "Pocket Day",
 		Description: "A journal that writes itself: one page per day with your own words on top and what the other apps on your server know about it underneath.",
 		Icon:        "/favicon.svg", Version: Version,
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "DAY",
 		Publishes: []string{"day.entry_written", "day.moment_created", "day.story_created"},
-	})
+	}
+	if s.cfg.BaseURL != "" {
+		// ask Core for a relying-party client so "Sign in with Pocket Core" needs no configuration
+		m.OIDC = &core.OIDCRequest{RedirectURIs: []string{s.oidcCallbackURL()}}
+	}
+	reg, err := s.core.Register(ctx, s.cfg.CoreRegistrationKey, m)
 	if err != nil {
 		return err
 	}

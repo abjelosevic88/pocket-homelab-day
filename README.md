@@ -83,7 +83,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | URL + token |
 | **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
 
-All optional. A day only shows the sources you connected. With **Pocket Core** on the box: registers itself, publishes `day.entry_written`, `day.moment_created` and `day.story_created`, accepts paired-phone tokens.
+All optional. A day only shows the sources you connected. With **Pocket Core** on the box: registers itself, publishes `day.entry_written`, `day.moment_created` and `day.story_created`, accepts paired-phone tokens, and shows “Sign in with Pocket Core” on the login page with no OIDC configuration at all.
 
 ## AI (optional)
 
