@@ -41,7 +41,7 @@ func newPerUserEnv(t *testing.T) *perUserEnv {
 			Token string `json:"token"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&in)
-		email := map[string]string{"pcd_owner": "owner@x", "pcd_member": "member@x"}[in.Token]
+		email := map[string]string{"pcd_owner": "owner@x", "pcd_member": "member@x", "pcd_new": "new@x"}[in.Token]
 		if email == "" {
 			_ = json.NewEncoder(w).Encode(map[string]any{"active": false})
 			return
@@ -325,5 +325,29 @@ func TestPullsUseOnlyTheirOwnSources(t *testing.T) {
 	}
 	if d, _ := e.st.FactDates(ctx, e.member.ID); len(d) != 0 {
 		t.Errorf("member fact dates: %v", d)
+	}
+}
+
+// TestAutoCreatedAccountsAreMembers: an account created on first contact
+// (here a Core paired-phone token for an unknown email; OIDC and proxy sign-in
+// go through the same path) is a member with nothing of anyone else's. Only
+// the very first account on an empty box becomes the admin (the owner).
+func TestAutoCreatedAccountsAreMembers(t *testing.T) {
+	e := newPerUserEnv(t)
+	code, body := e.do("pcd_new", http.MethodGet, "/auth/me", "")
+	if code != 200 {
+		t.Fatalf("me = %d %s", code, body)
+	}
+	u, err := e.st.GetUserByEmail(context.Background(), "new@x")
+	if err != nil || u.Role != "member" {
+		t.Fatalf("auto-created account: %+v %v", u, err)
+	}
+	if n, _ := e.st.CountAdmins(context.Background()); n != 1 {
+		t.Errorf("admins = %d, want only the owner", n)
+	}
+	_, body = e.do("pcd_new", http.MethodGet, "/days/2026-10-01", "")
+	e.mustNotLeak("new account", "/days/2026-10-01", body)
+	if code, _ := e.do("pcd_new", http.MethodPost, "/users", `{"email":"x@x","password":"12345678"}`); code != http.StatusForbidden {
+		t.Errorf("auto-created member could create users: %d", code)
 	}
 }
