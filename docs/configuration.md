@@ -40,11 +40,41 @@ Everything is an environment variable with a sensible default. Sources, the AI k
 
 Each source takes `<NAME>_URL`, a secret as `<NAME>_TOKEN` / `<NAME>_API_KEY` / `<NAME>_KEY`, an optional `<NAME>_PUBLIC_URL` (what the browser opens for ↗ links) and `<NAME>_EXTRA`. Names: `DAWARICH`, `IMMICH`, `MALOJA`, `JELLYSTAT`, `FIREFLY`, `HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`, `PAPERLESS`, `INVOICING`, `SPLIT`, `INVENTORY`. `_EXTRA` is: the Jellyfin user for Jellystat, the users to keep for Audiobookshelf (comma separated), the user name for Forgejo and Nextcloud. `JELLYSTAT_USER` (= `JELLYSTAT_EXTRA`) keeps only one Jellyfin user's plays.
 
+`FIREFLY_*` is the money source, shown as **Pocket Money**: any Firefly III-compatible API — Pocket Money's `http://…:8178/firefly` with a Money API token, or a real Firefly III with a personal access token. The internal name stays `firefly`, so days already frozen from Firefly III keep their facts and are not pulled again.
+
+### Pocket apps: Pocket Core, Direct or Off
+
+The Pocket app sources (`HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `INVOICING`, `SPLIT`, `INVENTORY`, `FIREFLY` = Pocket Money) are reached per person in one of three ways, chosen in Settings → Sources:
+
+| Mode | How |
+|---|---|
+| **Pocket Core** | Day acts for the person through a Pocket Core app link: every fetch asks Core for a fresh five-minute `pcx_` token for that person and that app, so a link switched off in Core stops the next pull. Nothing to paste; every person on the box gets their own data. |
+| **Direct** | the URL and API token in Settings (or from the environment, for the owner). Without a URL the app's address comes from Core. |
+| **Off** | not pulled. |
+
+Not chosen yet: Direct when a token is saved (so pasted tokens keep working until the person switches), Pocket Core on a box with Core, Direct otherwise. A source that was switched off before modes existed counts as Off.
+
+Day declares its uses in the manifest, one read-only scope per app (the targets only open these routes to it):
+
+| App | Scope | Day reads |
+|---|---|---|
+| habits | `habits:read` | `GET /api/v1/days/{date}` |
+| bookshelf | `books:read` | `GET /api/v1/books` |
+| travel | `trips:read` | `GET /api/v1/trips` |
+| kitchen | `cooklog:read` | `GET /api/v1/cooklog` |
+| garage | `vehicles:read` | `GET /api/v1/vehicles`, `/vehicles/{id}/fuel`, `/vehicles/{id}/records` |
+| invoicing | `invoices:read` | `GET /api/v1/invoices`, `/payments` |
+| split | `groups:read` | `GET /api/v1/groups`, `/groups/{id}`, `/groups/{id}/expenses` |
+| inventory | `activity:read` | `GET /api/v1/activity` |
+| money | `transactions:read` | `GET /firefly/api/v1/about`, `/firefly/api/v1/transactions` |
+
+plus `GET /api/v1/auth/me` (and the open `/healthz`) for “Test connection”. A link that is off — or a person Core does not let use the app — means the source is skipped for the day, not recorded as failed; Settings → Sources says why (“you switched the Day → Pocket Garage link off …”). If Core does not answer, sources in Pocket Core mode are skipped for that pull. **Disconnect** (Direct) clears the URL and token; values from the environment are copied into the owner's settings once, so a disconnected token stays gone after a restart.
+
 Inside Docker, reach sibling containers by service name or `http://host.docker.internal:PORT` with `extra_hosts: ["host.docker.internal:host-gateway"]`.
 
 ## How facts are pulled
 
-- Every 30 minutes the server pulls **today and yesterday** from every enabled, configured source, in parallel, with a 90-second budget per source.
+- Every 30 minutes the server pulls **today and yesterday** from every connected source (for a Pocket app in Pocket Core mode: while its link is on), in parallel, with a 90-second budget per source.
 - Days before yesterday are **frozen**: once a source has answered for a day it is not asked again. “↻ Pull again” on a day, or a forced backfill, re-fetches.
 - A failed fetch keeps the earlier payload and marks the card *stale*.
 - The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS` for every account with their own sources, one day every 1.5 s, skipping days that already have every source.

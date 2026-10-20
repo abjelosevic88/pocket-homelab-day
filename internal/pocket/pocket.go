@@ -1,6 +1,7 @@
 // Package pocket is the bearer-token JSON client shared by every sibling
-// Pocket app (Habits, Bookshelf, Travel, Kitchen, Garage). They all answer
-// /healthz, /api/v1/auth/me and speak the same {"error": "..."} on failure.
+// Pocket app (Habits, Bookshelf, Travel, Kitchen, Garage, Invoicing, Split,
+// Inventory, Money). They all answer /healthz, /api/v1/auth/me and speak the
+// same {"error": "..."} on failure.
 package pocket
 
 import (
@@ -27,6 +28,22 @@ type Client struct {
 func New(baseURL, token string, timeout time.Duration) *Client {
 	return &Client{BaseURL: strings.TrimRight(baseURL, "/"), Token: token, HTTP: &http.Client{Timeout: timeout}}
 }
+
+// Conn hands a source the client for one fetch: the same URL and token every
+// time (a direct connection) or a fresh Pocket Core link token per call, so a
+// link switched off in Core stops the next fetch.
+type Conn func(ctx context.Context) (*Client, error)
+
+// Fixed is a direct connection: one URL and one token.
+func Fixed(baseURL, token string, timeout time.Duration) Conn {
+	c := New(baseURL, token, timeout)
+	return func(context.Context) (*Client, error) { return c, nil }
+}
+
+// ErrNotConnected means the person has no working connection to the app
+// (switched off, or the Pocket Core link is off): the source is skipped for
+// the day rather than recorded as failed.
+var ErrNotConnected = errors.New("not connected")
 
 // Configured reports whether URL and token are set.
 func (c *Client) Configured() bool { return c != nil && c.BaseURL != "" && c.Token != "" }

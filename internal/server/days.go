@@ -55,15 +55,14 @@ func (s *Server) buildDay(r *http.Request, date string) (*dayPage, error) {
 	if page.Facts, err = s.store.FactsForDay(ctx, u.ID, date); err != nil {
 		return nil, err
 	}
+	states := s.sourceStates(ctx, u, st)
 	for _, n := range store.SourceNames {
-		src := st.Sources[n]
-		if src.Configured(n) && (n != "weather" || st.HomeLat != 0 || st.HomeLon != 0) {
-			page.Sources = append(page.Sources, n)
-			if src.PublicURL != "" {
-				page.Links[n] = src.PublicURL
-			} else if src.URL != "" && !strings.Contains(src.URL, "host.docker.internal") && !strings.Contains(src.URL, "localhost") {
-				page.Links[n] = src.URL
-			}
+		if !states[n].Active {
+			continue
+		}
+		page.Sources = append(page.Sources, n)
+		if l := s.sourceLink(ctx, n, st.Sources[n], states[n]); l != "" {
+			page.Links[n] = l
 		}
 	}
 	page.Memories, _ = s.store.Memories(ctx, u.ID, date)

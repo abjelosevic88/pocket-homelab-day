@@ -37,19 +37,21 @@ func getList(ctx context.Context, c *pocket.Client, path string, q url.Values, o
 // ---------------- Pocket Invoicing ----------------
 
 // Invoicing reads invoices issued and payments received on the day.
-type Invoicing struct{ C *pocket.Client }
+type Invoicing struct{ Conn pocket.Conn }
 
-// NewInvoicing creates a fetcher.
-func NewInvoicing(baseURL, token string) *Invoicing {
-	return &Invoicing{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewInvoicing creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewInvoicing(conn pocket.Conn) *Invoicing { return &Invoicing{Conn: conn} }
 
 // Name implements Fetcher.
 func (p *Invoicing) Name() string { return "invoicing" }
 
 // Test implements Fetcher.
 func (p *Invoicing) Test(ctx context.Context) (string, error) {
-	v, err := p.C.Health(ctx)
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -58,6 +60,10 @@ func (p *Invoicing) Test(ctx context.Context) (string, error) {
 
 // Fetch implements Fetcher.
 func (p *Invoicing) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	act := Activity{}
 	var inv []struct {
 		Number   string  `json:"number"`
@@ -67,7 +73,7 @@ func (p *Invoicing) Fetch(ctx context.Context, date string, loc *time.Location) 
 		Total    float64 `json:"total"`
 		Currency string  `json:"currency"`
 	}
-	if err := getList(ctx, p.C, "/api/v1/invoices", url.Values{"from": {date}, "to": {date}, "limit": {"100"}}, &inv); err != nil {
+	if err := getList(ctx, cl, "/api/v1/invoices", url.Values{"from": {date}, "to": {date}, "limit": {"100"}}, &inv); err != nil {
 		return nil, err
 	}
 	for _, x := range inv {
@@ -83,7 +89,7 @@ func (p *Invoicing) Fetch(ctx context.Context, date string, loc *time.Location) 
 		Invoice  string  `json:"invoice_number"`
 		Client   string  `json:"client_name"`
 	}
-	if err := getList(ctx, p.C, "/api/v1/payments", url.Values{"from": {date}, "to": {date}}, &pays); err == nil {
+	if err := getList(ctx, cl, "/api/v1/payments", url.Values{"from": {date}, "to": {date}}, &pays); err == nil {
 		for _, x := range pays {
 			if strings.HasPrefix(x.Date, date) {
 				act.Items = append(act.Items, ActivityItem{Title: "Paid " + x.Invoice, Sub: JoinNonEmpty(" · ", x.Client, "payment received"), Group: x.Client, Done: true, Ref: "pay/" + x.Invoice})
@@ -105,19 +111,21 @@ func (p *Invoicing) Fetch(ctx context.Context, date string, loc *time.Location) 
 // ---------------- Pocket Split ----------------
 
 // Split reads the shared expenses dated on the day, across every group.
-type Split struct{ C *pocket.Client }
+type Split struct{ Conn pocket.Conn }
 
-// NewSplit creates a fetcher.
-func NewSplit(baseURL, token string) *Split {
-	return &Split{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewSplit creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewSplit(conn pocket.Conn) *Split { return &Split{Conn: conn} }
 
 // Name implements Fetcher.
 func (p *Split) Name() string { return "split" }
 
 // Test implements Fetcher.
 func (p *Split) Test(ctx context.Context) (string, error) {
-	v, err := p.C.Health(ctx)
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -126,6 +134,10 @@ func (p *Split) Test(ctx context.Context) (string, error) {
 
 // Fetch implements Fetcher.
 func (p *Split) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var groups []struct {
 		ID       int64  `json:"id"`
 		Name     string `json:"name"`
@@ -135,7 +147,7 @@ func (p *Split) Fetch(ctx context.Context, date string, loc *time.Location) (*Re
 			Name string `json:"name"`
 		} `json:"members"`
 	}
-	if err := getList(ctx, p.C, "/api/v1/groups", nil, &groups); err != nil {
+	if err := getList(ctx, cl, "/api/v1/groups", nil, &groups); err != nil {
 		return nil, err
 	}
 	act := Activity{}
@@ -149,7 +161,7 @@ func (p *Split) Fetch(ctx context.Context, date string, loc *time.Location) (*Re
 			PaidBy   int64  `json:"paid_by"`
 			Category string `json:"category"`
 		}
-		if err := getList(ctx, p.C, fmt.Sprintf("/api/v1/groups/%d/expenses", g.ID), url.Values{"from": {date}, "to": {date}}, &ex); err != nil {
+		if err := getList(ctx, cl, fmt.Sprintf("/api/v1/groups/%d/expenses", g.ID), url.Values{"from": {date}, "to": {date}}, &ex); err != nil {
 			continue
 		}
 		who := map[int64]string{}
@@ -159,7 +171,7 @@ func (p *Split) Fetch(ctx context.Context, date string, loc *time.Location) (*Re
 				Name string `json:"name"`
 			} `json:"members"`
 		}
-		if p.C.Get(ctx, fmt.Sprintf("/api/v1/groups/%d", g.ID), nil, &full) == nil {
+		if cl.Get(ctx, fmt.Sprintf("/api/v1/groups/%d", g.ID), nil, &full) == nil {
 			for _, m := range full.Members {
 				who[m.ID] = m.Name
 			}
@@ -182,19 +194,21 @@ func (p *Split) Fetch(ctx context.Context, date string, loc *time.Location) (*Re
 // ---------------- Pocket Inventory ----------------
 
 // Inventory reads stock changes and new items on the day.
-type Inventory struct{ C *pocket.Client }
+type Inventory struct{ Conn pocket.Conn }
 
-// NewInventory creates a fetcher.
-func NewInventory(baseURL, token string) *Inventory {
-	return &Inventory{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewInventory creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewInventory(conn pocket.Conn) *Inventory { return &Inventory{Conn: conn} }
 
 // Name implements Fetcher.
 func (p *Inventory) Name() string { return "inventory" }
 
 // Test implements Fetcher.
 func (p *Inventory) Test(ctx context.Context) (string, error) {
-	v, err := p.C.Health(ctx)
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -203,6 +217,10 @@ func (p *Inventory) Test(ctx context.Context) (string, error) {
 
 // Fetch implements Fetcher.
 func (p *Inventory) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var rows []struct {
 		ItemName  string   `json:"item_name"`
 		Delta     *float64 `json:"delta"`
@@ -211,7 +229,7 @@ func (p *Inventory) Fetch(ctx context.Context, date string, loc *time.Location) 
 		User      string   `json:"user_name"`
 		CreatedAt string   `json:"created_at"`
 	}
-	if err := getList(ctx, p.C, "/api/v1/activity", url.Values{"limit": {"1000"}}, &rows); err != nil {
+	if err := getList(ctx, cl, "/api/v1/activity", url.Values{"limit": {"1000"}}, &rows); err != nil {
 		return nil, err
 	}
 	act := Activity{}

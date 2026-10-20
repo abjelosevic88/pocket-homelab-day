@@ -2,13 +2,16 @@ export interface User { id: number; email: string; name: string; role: 'admin' |
 export interface APIToken { id: number; user_id: number; name: string; prefix: string; last_used_at: string | null; created_at: string }
 export interface Currency { code: string; name: string; decimals: number }
 
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean }
+export type ConnMode = 'core' | 'direct' | 'off'
+// pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
+// via says whether that works ('' = not connected) and detail why not.
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string }
 export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'paperless' | 'invoicing' | 'split' | 'inventory'
 export interface Settings {
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
   notify_url: string; notify_format: string; notify_configured: boolean; notify_evening: boolean; evening_hour: number; notify_morning: boolean; morning_hour: number
-  sources: Record<SourceName, Source>; source_names: SourceName[]; setup_complete: boolean; base_url: string; timezone: string
+  sources: Record<SourceName, Source>; source_names: SourceName[]; core_configured: boolean; setup_complete: boolean; base_url: string; timezone: string
   ai_key: string; ai_model: string; ai_base_url: string; ai_transcribe_model: string; ai_language: string
   ai_question: boolean; ai_weekly_story: boolean; ai_send_text: boolean; ai_configured: boolean; ai_default_model: string; ai_default_transcribe: string
 }
@@ -67,7 +70,7 @@ export const MOOD_ICON = ['○', '😖', '😕', '😐', '🙂', '😄']
 export const MOOD_COLOR = ['var(--border)', '#ef4444', '#f59e0b', '#a3a3a3', '#22c55e', '#4f46e5']
 export const KIND_ICON: Record<string, string> = { note: '•', win: '🏆', thanks: '🙏', idea: '💡', event: '📌' }
 export const SOURCE_LABEL: Record<string, string> = { dawarich: 'Where', immich: 'Photos', maloja: 'Music', jellystat: 'Watched', firefly: 'Money', habits: 'Habits', bookshelf: 'Reading', travel: 'Trip', kitchen: 'Cooked', garage: 'Garage', weather: 'Weather', pinepods: 'Podcasts', audiobookshelf: 'Audiobooks', jellyseerr: 'Requests', forgejo: 'Code', nextcloud: 'Tasks', paperless: 'Documents', invoicing: 'Invoices', split: 'Shared costs', inventory: 'Inventory' }
-export const SOURCE_APP: Record<string, string> = { dawarich: 'Dawarich', immich: 'Immich', maloja: 'Maloja', jellystat: 'Jellystat', firefly: 'Firefly III', habits: 'Pocket Habits', bookshelf: 'Pocket Bookshelf', travel: 'Pocket Travel', kitchen: 'Pocket Kitchen', garage: 'Pocket Garage', weather: 'Open-Meteo', pinepods: 'PinePods', audiobookshelf: 'Audiobookshelf', jellyseerr: 'Jellyseerr', forgejo: 'Forgejo', nextcloud: 'Nextcloud', paperless: 'Paperless', invoicing: 'Pocket Invoicing', split: 'Pocket Split', inventory: 'Pocket Inventory' }
+export const SOURCE_APP: Record<string, string> = { dawarich: 'Dawarich', immich: 'Immich', maloja: 'Maloja', jellystat: 'Jellystat', firefly: 'Pocket Money', habits: 'Pocket Habits', bookshelf: 'Pocket Bookshelf', travel: 'Pocket Travel', kitchen: 'Pocket Kitchen', garage: 'Pocket Garage', weather: 'Open-Meteo', pinepods: 'PinePods', audiobookshelf: 'Audiobookshelf', jellyseerr: 'Jellyseerr', forgejo: 'Forgejo', nextcloud: 'Nextcloud', paperless: 'Paperless', invoicing: 'Pocket Invoicing', split: 'Pocket Split', inventory: 'Pocket Inventory' }
 export const SOURCE_ICON: Record<string, string> = { dawarich: '🗺', immich: '📷', maloja: '🎧', jellystat: '📺', firefly: '💸', habits: '✅', bookshelf: '📚', travel: '✈️', kitchen: '🍳', garage: '🚗', weather: '⛅', pinepods: '🎙', audiobookshelf: '📖', jellyseerr: '🎬', forgejo: '⌨️', nextcloud: '☑️', paperless: '🗂', invoicing: '🧾', split: '🤝', inventory: '📦' }
 export const WEATHER_ICON: Record<string, string> = { clear: '☀️', partly: '⛅', cloudy: '☁️', fog: '🌫', rain: '🌧', snow: '❄️', storm: '⛈' }
 export const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1).replace(/_/g, ' ') : ''

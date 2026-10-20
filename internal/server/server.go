@@ -58,8 +58,9 @@ type Server struct {
 }
 
 type resolvedURL struct {
-	url string
-	at  time.Time
+	url    string
+	public string
+	at     time.Time
 }
 
 // New creates a server.
@@ -153,12 +154,32 @@ func (s *Server) seedOwner(ctx context.Context) error {
 		st.HomeLat, st.HomeLon, st.HomePlace = s.cfg.HomeLat, s.cfg.HomeLon, s.cfg.HomePlace
 		changed = true
 	}
+	// A Pocket app source's values are copied once: clearing them in Settings
+	// (Disconnect, to switch over to Pocket Core) must not bring them back at
+	// the next start. A value already there counts as copied.
+	once := func(name, field string, dst *string, v string) {
+		key := fmt.Sprintf("seeded:%d:src_%s_%s", owner, name, field)
+		if _, _, done := s.store.CacheGet(ctx, key); done {
+			return
+		}
+		set(dst, v)
+		if *dst != "" {
+			_ = s.store.CachePut(ctx, key, "1")
+		}
+	}
 	for name, se := range s.cfg.Sources {
 		src := st.Sources[name]
-		set(&src.URL, se.URL)
-		set(&src.Key, se.Key)
-		set(&src.PublicURL, se.PublicURL)
-		set(&src.Extra, se.Extra)
+		if _, ok := pocketSources[name]; ok {
+			once(name, "url", &src.URL, se.URL)
+			once(name, "key", &src.Key, se.Key)
+			once(name, "public", &src.PublicURL, se.PublicURL)
+			once(name, "extra", &src.Extra, se.Extra)
+		} else {
+			set(&src.URL, se.URL)
+			set(&src.Key, se.Key)
+			set(&src.PublicURL, se.PublicURL)
+			set(&src.Extra, se.Extra)
+		}
 		st.Sources[name] = src
 	}
 	if !changed {
@@ -447,6 +468,8 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		Icon:        "/favicon.svg", Version: Version,
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "DAY",
 		Publishes: []string{"day.entry_written", "day.moment_created", "day.story_created"},
+		// Read the person's own data in the other Pocket apps (see siblings.go).
+		Uses: pocketUses(),
 	}
 	if s.cfg.BaseURL != "" {
 		// ask Core for a relying-party client so "Sign in with Pocket Core" needs no configuration
@@ -481,23 +504,31 @@ func (s *Server) publish(topic, subject string, payload map[string]any) {
 // resolveSibling asks Core where a sibling app lives (cached a minute) so the
 // *_URL settings may stay empty on a box with Core.
 func (s *Server) resolveSibling(ctx context.Context, slug string) string {
+	url, _ := s.resolveSiblingFull(ctx, slug)
+	return url
+}
+
+// resolveSiblingFull is resolveSibling with the app's public URL as well.
+func (s *Server) resolveSiblingFull(ctx context.Context, slug string) (string, string) {
 	if !s.core.Configured() {
-		return ""
+		return "", ""
 	}
 	s.coreMu.Lock()
 	if r, ok := s.resolved[slug]; ok && time.Since(r.at) < time.Minute {
 		s.coreMu.Unlock()
-		return r.url
+		return r.url, r.public
 	}
 	s.coreMu.Unlock()
-	url := ""
-	if res, err := s.core.Resolve(ctx, slug); err == nil {
-		url = res.URL
+	url, public := "", ""
+	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if res, err := s.core.Resolve(cctx, slug); err == nil {
+		url, public = res.URL, res.PublicURL
 	}
 	s.coreMu.Lock()
-	s.resolved[slug] = resolvedURL{url: url, at: time.Now()}
+	s.resolved[slug] = resolvedURL{url: url, public: public, at: time.Now()}
 	s.coreMu.Unlock()
-	return url
+	return url, public
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

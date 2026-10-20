@@ -14,7 +14,7 @@
 
 ---
 
-A self-hosted server already records your life in pieces: Dawarich has the route, Immich the photos, Maloja the songs, PinePods and Audiobookshelf what you listened to, Jellystat the episodes, Forgejo the commits, Nextcloud the tasks, Paperless the letters, Firefly III the receipts, the Pocket apps the habits, books, trips and dinners. Nobody puts them on one page. Pocket Day does, and gives you one line a day to say what it meant.
+A self-hosted server already records your life in pieces: Dawarich has the route, Immich the photos, Maloja the songs, PinePods and Audiobookshelf what you listened to, Jellystat the episodes, Forgejo the commits, Nextcloud the tasks, Paperless the letters, Pocket Money the receipts, the other Pocket apps the habits, books, trips and dinners. Nobody puts them on one page. Pocket Day does, and gives you one line a day to say what it meant.
 
 - **Today, filled in.** Every 30 minutes today and yesterday are pulled from every connected app. Open the page in the evening and the day is already there: kilometres and stops, a photo grid, the listening and watching, the check-in, the book you finished, what you cooked and spent, the weather where you were.
 - **One line, then more if you like.** A highlight, a free text, a mood from 😖 to 😄 and tags. Autosaves while you type.
@@ -68,22 +68,24 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Immich** | photos and videos of the day as a thumbnail grid (proxied), places | URL + API key |
 | **Maloja** | listens, top artists, full track list | URL |
 | **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | URL + API key |
-| **Firefly III** / **Pocket Money** | withdrawals with categories, totals per currency; with Pocket Money's webhook a booking shows up within seconds (`MONEY_WEBHOOK_SECRET`) | URL + personal access token (Pocket Money: its `/firefly` URL and an API token) |
-| **Pocket Habits** | habits done, tracker values, the journal line — and on a day with nothing written here, its journal *is* the entry | URL + token |
-| **Pocket Bookshelf** | books being read, started, finished | URL + token |
-| **Pocket Travel** | the trip the day fell in, and which day of it | URL + token |
-| **Pocket Kitchen** | what was cooked | URL + token |
-| **Pocket Garage** | fill-ups and service records | URL + token |
+| **Pocket Money** | withdrawals with categories, totals per currency, read from its Firefly-compatible API; with Pocket Money's webhook a booking shows up within seconds (`MONEY_WEBHOOK_SECRET`) | Pocket Core link, or its `/firefly` URL + an API token (a Firefly III URL + personal access token works too) |
+| **Pocket Habits** | habits done, tracker values, the journal line — and on a day with nothing written here, its journal *is* the entry | Pocket Core link, or URL + token |
+| **Pocket Bookshelf** | books being read, started, finished | Pocket Core link, or URL + token |
+| **Pocket Travel** | the trip the day fell in, and which day of it | Pocket Core link, or URL + token |
+| **Pocket Kitchen** | what was cooked | Pocket Core link, or URL + token |
+| **Pocket Garage** | fill-ups and service records | Pocket Core link, or URL + token |
 | **PinePods** | podcast episodes and minutes per day (spread-out episodes count on each day) | URL + API key |
 | **Audiobookshelf** | audiobook and ABS-podcast listening sessions, per title | URL + admin API key |
 | **Jellyseerr** | films and series requested, and when they became available | URL + API key |
 | **Forgejo** | commits pushed per repository, new repositories, tags, pull requests | URL + read-only token |
 | **Nextcloud** | tasks completed (every list), events and contact birthdays, over CalDAV | URL + user + app password |
 | **Paperless-ngx** | documents added, with correspondent and type | URL + token |
-| **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | URL + token |
+| **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | Pocket Core link, or URL + token |
 | **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
 
 All optional. A day only shows the sources you connected. With **Pocket Core** on the box: registers itself, publishes `day.entry_written`, `day.moment_created` and `day.story_created`, accepts paired-phone tokens, and shows “Sign in with Pocket Core” on the login page with no OIDC configuration at all.
+
+**The Pocket apps through Pocket Core.** Each Pocket app source (Habits, Bookshelf, Travel, Kitchen, Garage, Invoicing, Split, Inventory, Money) has a connection per person under Settings → Sources: **Pocket Core** (Day reads as you through a Core app link — a fresh five-minute token per fetch, one read-only scope per app, nothing to paste, and every person on the box gets their own), **Direct** (your own URL + API token) or **Off**. Until you choose, a saved token means Direct and otherwise Pocket Core. Switch a link off in Pocket Core (for yourself under Settings → Apps acting for me, or for the box under Links) and the next pull skips that source: the day is not marked failed, Settings says why. The scopes Day asks for: `habits:read`, `books:read`, `trips:read`, `cooklog:read`, `vehicles:read`, `invoices:read`, `groups:read`, `activity:read`, `transactions:read`.
 
 ## AI (optional)
 

@@ -12,7 +12,7 @@ Everything belongs to the caller and nobody else sees it, admins included: entri
 | GET/PUT | `/auth/me` | profile, password change |
 | GET/POST/DELETE | `/tokens`, `/tokens/{id}` | personal access tokens |
 | GET/POST/PUT/DELETE | `/users`, `/users/{id}` | admin |
-| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`. Secrets come back masked; a masked value means "keep" |
+| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`, plus for the Pocket app sources `mode` (`core` \| `direct` \| `off`; send it to choose) and, read-only, `pocket`, `app`, `via` (`core` \| `direct` \| `""` = not connected), `detail` (why not); `core_configured`. Secrets come back masked; a masked value means "keep" |
 
 ## Days
 | Method | Path | Notes |
@@ -48,7 +48,7 @@ Everything belongs to the caller and nobody else sees it, admins included: entri
 |---|---|---|
 | POST | `/facts/backfill` | the caller's own facts from their own sources, `{from?, to?, force?, sources?}` — runs in the background; `sources: ["habits"]` re-pulls only those |
 | GET | `/facts/status` | backfill progress, configured sources, days with facts |
-| POST | `/integrations/test` | `{which, url?, key?, extra?}` (empty values fall back to the caller's own saved ones); `which: notify` sends a test push |
+| POST | `/integrations/test` | `{which, url?, key?, extra?}` (empty values fall back to the caller's own saved ones); `which: notify` sends a test push. A Pocket app source is tested the way it is pulled: a typed token directly, otherwise its saved mode (Pocket Core: a fresh link token) |
 | GET | `/geo/search?q=` | Open-Meteo geocoding for the home location |
 | POST | `/notify/test` · `/notify/run` `{which: evening\|morning}` | |
 

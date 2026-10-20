@@ -99,6 +99,9 @@ type Source struct {
 	PublicURL string `json:"public_url"`
 	Extra     string `json:"extra"`
 	Enabled   bool   `json:"enabled"`
+	// Mode is how a Pocket app source is reached: "core" (a Pocket Core app
+	// link, per person), "direct" (URL + token) or "off"; "" = not chosen yet.
+	Mode string `json:"mode"`
 }
 
 // NeedsKey reports whether a source cannot work without a token.

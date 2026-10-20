@@ -110,7 +110,7 @@ export default function Day() {
             </div>
           </div>
           <div className="day-side">
-            {data.sources.length === 0 && cards.length === 0 && <Card title="Nothing connected yet"><p className="muted">Connect Dawarich, Immich, Maloja, Jellystat, Firefly III and the other Pocket apps under <Link to="/settings?tab=sources">Settings → Sources</Link>, and every day fills itself in.</p></Card>}
+            {data.sources.length === 0 && cards.length === 0 && <Card title="Nothing connected yet"><p className="muted">Connect Dawarich, Immich, Maloja, Jellystat, Pocket Money and the other Pocket apps under <Link to="/settings?tab=sources">Settings → Sources</Link>, and every day fills itself in.</p></Card>}
             {cards.map(s => <div key={s} id={`src-${s}`}><FactCard source={s} fact={data.facts[s]} link={data.links[s]} unit={unit} pins={data.pins} onPin={onPin} onUnpin={onUnpin} date={date} /></div>)}
             {quiet.length > 0 && <p className="quiet-sources">Nothing from {quiet.map(q => SOURCE_LABEL[q].toLowerCase()).join(', ')}{data.facts[quiet[0]]?.error ? '' : ' on this day'}.</p>}
           </div>

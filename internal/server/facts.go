@@ -3,21 +3,31 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/abjelosevic88/pocket-homelab-day/internal/pocket"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/sources"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
 )
 
-// fetchers builds one Fetcher per configured, enabled source.
-func (s *Server) fetchers(st store.Settings) map[string]sources.Fetcher {
+// fetchers builds one Fetcher per source that is connected for the person.
+// A Pocket app source in Pocket Core mode is included only while its link is
+// on, and asks Core for a fresh token on every fetch.
+func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings) map[string]sources.Fetcher {
+	states := s.sourceStates(ctx, u, st)
 	out := map[string]sources.Fetcher{}
 	for name, src := range st.Sources {
-		if !src.Configured(name) {
+		ss := states[name]
+		if !ss.Active {
+			continue
+		}
+		if _, ok := pocketSources[name]; ok {
+			out[name] = pocketFetcher(name, s.pocketConn(u, name, src, ss.Mode))
 			continue
 		}
 		switch name {
@@ -29,18 +39,6 @@ func (s *Server) fetchers(st store.Settings) map[string]sources.Fetcher {
 			out[name] = sources.NewMaloja(src.URL)
 		case "jellystat":
 			out[name] = sources.NewJellystat(src.URL, src.Key, src.Extra)
-		case "firefly":
-			out[name] = sources.NewFirefly(src.URL, src.Key)
-		case "habits":
-			out[name] = sources.NewHabits(src.URL, src.Key)
-		case "bookshelf":
-			out[name] = sources.NewBookshelf(src.URL, src.Key)
-		case "travel":
-			out[name] = sources.NewTravel(src.URL, src.Key)
-		case "kitchen":
-			out[name] = sources.NewKitchen(src.URL, src.Key)
-		case "garage":
-			out[name] = sources.NewGarage(src.URL, src.Key)
 		case "pinepods":
 			out[name] = sources.NewPinePods(src.URL, src.Key)
 		case "audiobookshelf":
@@ -53,19 +51,20 @@ func (s *Server) fetchers(st store.Settings) map[string]sources.Fetcher {
 			out[name] = sources.NewNextcloud(src.URL, src.Key, src.Extra)
 		case "paperless":
 			out[name] = sources.NewPaperless(src.URL, src.Key, src.PublicURL)
-		case "invoicing":
-			out[name] = sources.NewInvoicing(src.URL, src.Key)
-		case "split":
-			out[name] = sources.NewSplit(src.URL, src.Key)
-		case "inventory":
-			out[name] = sources.NewInventory(src.URL, src.Key)
 		case "weather":
-			if st.HomeLat != 0 || st.HomeLon != 0 {
-				out[name] = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
-			}
+			out[name] = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
 		}
 	}
 	return out
+}
+
+// userByID loads an account for the background work (nil when gone).
+func (s *Server) userByID(ctx context.Context, userID int64) *store.User {
+	u, err := s.store.GetUser(ctx, userID)
+	if err != nil {
+		return nil
+	}
+	return u
 }
 
 // immich returns the user's Immich client when they configured one (thumbnails).
@@ -109,8 +108,12 @@ func (s *Server) pullDayOnly(ctx context.Context, userID int64, date string, for
 		s.pullMu.Unlock()
 	}()
 
+	u := s.userByID(ctx, userID)
+	if u == nil {
+		return nil, true
+	}
 	st, _ := s.store.GetSettings(ctx, userID)
-	fs := s.fetchers(st)
+	fs := s.fetchers(ctx, u, st)
 	if len(only) > 0 {
 		keep := map[string]bool{}
 		for _, o := range only {
@@ -142,6 +145,11 @@ func (s *Server) pullDayOnly(ctx context.Context, userID int64, date string, for
 			res, err := f.Fetch(cctx, date, loc)
 			mu.Lock()
 			defer mu.Unlock()
+			if errors.Is(err, pocket.ErrNotConnected) {
+				// the Pocket Core link went off since the states were read: skipped, not failed
+				s.log.Debug("fact source not connected", "date", date, "source", name, "err", err)
+				return
+			}
 			if err != nil {
 				errs[name] = err
 				_ = s.store.PutFactError(ctx, userID, date, name, err.Error())
@@ -300,8 +308,13 @@ func (s *Server) runBackfill(ctx context.Context, userID int64, from, to string,
 	if userID <= 0 {
 		return
 	}
+	u := s.userByID(ctx, userID)
+	if u == nil {
+		return
+	}
 	st, _ := s.store.GetSettings(ctx, userID)
-	if len(s.fetchers(st)) == 0 {
+	want := len(s.fetchers(ctx, u, st))
+	if want == 0 {
 		return
 	}
 	today := store.Today()
@@ -330,7 +343,6 @@ func (s *Server) runBackfill(ctx context.Context, userID int64, from, to string,
 		return
 	}
 	defer s.updateBackfill(userID, func(b *backfillState) { b.Running, b.Current, b.Last = false, "", store.Now() })
-	want := len(s.fetchers(st))
 	for _, d := range dates {
 		if ctx.Err() != nil {
 			return
@@ -378,9 +390,10 @@ func (s *Server) handleFactsStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
 	st, _ := s.store.GetSettings(ctx, u.ID)
+	states := s.sourceStates(ctx, u, st)
 	configured := []string{}
 	for _, n := range store.SourceNames {
-		if st.Sources[n].Configured(n) && (n != "weather" || st.HomeLat != 0 || st.HomeLon != 0) {
+		if states[n].Active {
 			configured = append(configured, n)
 		}
 	}
@@ -455,8 +468,12 @@ func (s *Server) ensureDay(ctx context.Context, userID int64, date string) {
 	if len(s.store.FactSources(ctx, userID, date)) > 0 {
 		return
 	}
+	u := s.userByID(ctx, userID)
+	if u == nil {
+		return
+	}
 	st, _ := s.store.GetSettings(ctx, userID)
-	if len(s.fetchers(st)) == 0 {
+	if len(s.fetchers(ctx, u, st)) == 0 {
 		return
 	}
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)

@@ -777,3 +777,12 @@ html, body { overflow-x: hidden; }
 .day-side > *, .day-main > *, .insights > * { min-width: 0; }
 .inline-list .li .act-body { white-space: normal; }
 .act-body b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Pocket app source connections (Settings → Sources) */
+.conn-block { display: grid; gap: 12px; }
+.conn-mode { display: flex; }
+.conn-status { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--muted); padding: 8px 10px; border-radius: 8px; background: var(--surface-2); line-height: 1.4; }
+.conn-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; margin-top: 5px; }
+.conn-status.ok { color: var(--text); }
+.conn-status.ok .dot { background: var(--success); }
+.conn-status.bad .dot { background: var(--warning); }

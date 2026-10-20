@@ -417,10 +417,3 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("signed in", "email", email, "via", "oidc")
 	http.Redirect(w, r, next, http.StatusFound)
 }
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}

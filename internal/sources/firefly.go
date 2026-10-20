@@ -11,26 +11,26 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/abjelosevic88/pocket-homelab-day/internal/pocket"
 )
 
-// Firefly reads the day's withdrawals out of Firefly III.
-type Firefly struct {
-	BaseURL string
-	Token   string
-	HTTP    *http.Client
-}
+// Firefly reads the day's withdrawals from a Firefly III API: Pocket Money's
+// Firefly-compatible one at <money>/firefly (through a Pocket Core link or a
+// Money API token), or a real Firefly III. The source keeps its id "firefly"
+// so the days already frozen under it stay as they are.
+type Firefly struct{ Conn pocket.Conn }
 
-// NewFirefly creates a client.
-func NewFirefly(baseURL, token string) *Firefly {
-	return &Firefly{BaseURL: strings.TrimRight(baseURL, "/"), Token: token, HTTP: &http.Client{Timeout: 30 * time.Second}}
-}
+// NewFirefly creates a fetcher over a connection whose base URL is the API
+// root (the part before /api/v1).
+func NewFirefly(conn pocket.Conn) *Firefly { return &Firefly{Conn: conn} }
 
 // Name implements Fetcher.
-func (c *Firefly) Name() string { return "firefly" }
+func (f *Firefly) Name() string { return "firefly" }
 
-func (c *Firefly) get(ctx context.Context, path string, q url.Values, v any) error {
-	if c.BaseURL == "" || c.Token == "" {
-		return errors.New("firefly is not configured")
+func (f *Firefly) get(ctx context.Context, c *pocket.Client, path string, q url.Values, v any) error {
+	if !c.Configured() {
+		return errors.New("pocket money is not configured")
 	}
 	u := c.BaseURL + path
 	if len(q) > 0 {
@@ -48,23 +48,31 @@ func (c *Firefly) get(ctx context.Context, path string, q url.Values, v any) err
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusUnauthorized {
-		return errors.New("firefly rejected the token (401)")
+		return errors.New("the money API rejected the token (401)")
 	}
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("firefly HTTP %d", res.StatusCode)
+		return fmt.Errorf("money API HTTP %d", res.StatusCode)
 	}
 	return json.NewDecoder(res.Body).Decode(v)
 }
 
 // Test implements Fetcher.
-func (c *Firefly) Test(ctx context.Context) (string, error) {
+func (f *Firefly) Test(ctx context.Context) (string, error) {
+	c, err := f.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
 	var out struct {
 		Data struct {
 			Version string `json:"version"`
+			PHP     string `json:"php_version"`
 		} `json:"data"`
 	}
-	if err := c.get(ctx, "/api/v1/about", nil, &out); err != nil {
+	if err := f.get(ctx, c, "/api/v1/about", nil, &out); err != nil {
 		return "", err
+	}
+	if strings.HasPrefix(out.Data.PHP, "pocket-money") {
+		return "Pocket Money " + strings.TrimSpace(strings.TrimPrefix(out.Data.PHP, "pocket-money")) + " (Firefly-compatible API)", nil
 	}
 	return "Firefly III " + out.Data.Version, nil
 }
@@ -94,7 +102,11 @@ type Money struct {
 }
 
 // Fetch implements Fetcher.
-func (c *Firefly) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+func (f *Firefly) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	c, err := f.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	m := Money{Totals: map[string]float64{}, Items: []Spend{}, Categories: []Count{}}
 	cats := map[string]int{}
 	for page := 1; page < 50; page++ {
@@ -124,7 +136,7 @@ func (c *Firefly) Fetch(ctx context.Context, date string, loc *time.Location) (*
 			} `json:"meta"`
 		}
 		q := url.Values{"start": {date}, "end": {date}, "type": {"withdrawal"}, "limit": {"100"}, "page": {strconv.Itoa(page)}}
-		if err := c.get(ctx, "/api/v1/transactions", q, &res); err != nil {
+		if err := f.get(ctx, c, "/api/v1/transactions", q, &res); err != nil {
 			return nil, err
 		}
 		for _, g := range res.Data {

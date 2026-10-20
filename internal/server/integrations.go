@@ -25,6 +25,8 @@ func mask(s string) string {
 }
 
 // publicSource is a source with its secret masked and a "configured" flag.
+// Pocket app sources also say how they are reached (mode), whether that
+// works (via: core | direct | "") and why not (detail).
 type publicSource struct {
 	URL        string `json:"url"`
 	Key        string `json:"key"`
@@ -33,17 +35,24 @@ type publicSource struct {
 	Enabled    bool   `json:"enabled"`
 	Configured bool   `json:"configured"`
 	NeedsKey   bool   `json:"needs_key"`
+	Pocket     bool   `json:"pocket"`
+	App        string `json:"app,omitempty"`
+	Mode       string `json:"mode,omitempty"`
+	Via        string `json:"via"`
+	Detail     string `json:"detail,omitempty"`
 }
 
-func (s *Server) publicSettings(st store.Settings) map[string]any {
+func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Settings) map[string]any {
+	states := s.sourceStates(ctx, u, st)
 	srcs := map[string]publicSource{}
 	for _, n := range store.SourceNames {
 		src := st.Sources[n]
-		conf := src.Configured(n)
-		if n == "weather" {
-			conf = src.Enabled && (st.HomeLat != 0 || st.HomeLon != 0)
+		ss := states[n]
+		ps := publicSource{URL: src.URL, Key: mask(src.Key), PublicURL: src.PublicURL, Extra: src.Extra, Enabled: src.Enabled, Configured: ss.Active, NeedsKey: store.NeedsKey(n)}
+		if p, ok := pocketSources[n]; ok {
+			ps.Pocket, ps.App, ps.Mode, ps.Via, ps.Detail = true, p.app, ss.Mode, ss.Via, ss.Detail
 		}
-		srcs[n] = publicSource{URL: src.URL, Key: mask(src.Key), PublicURL: src.PublicURL, Extra: src.Extra, Enabled: src.Enabled, Configured: conf, NeedsKey: store.NeedsKey(n)}
+		srcs[n] = ps
 	}
 	return map[string]any{
 		"title": st.Title, "date_format": st.DateFormat, "time_format": st.TimeFormat, "week_start": st.WeekStart, "home_currency": st.HomeCurrency, "distance_unit": st.DistanceUnit,
@@ -53,19 +62,20 @@ func (s *Server) publicSettings(st store.Settings) map[string]any {
 		"ai_key": mask(st.AIKey), "ai_model": st.AIModel, "ai_base_url": st.AIBaseURL, "ai_transcribe_model": st.AITranscribeModel, "ai_language": st.AILanguage,
 		"ai_question": st.AIQuestion, "ai_weekly_story": st.AIWeeklyStory, "ai_send_text": st.AISendText, "ai_configured": st.AIKey != "",
 		"ai_default_model": ai.DefaultModel, "ai_default_transcribe": ai.DefaultTranscribe,
-		"sources": srcs, "source_names": store.SourceNames, "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
+		"sources": srcs, "source_names": store.SourceNames, "core_configured": s.core.Configured(), "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
 	}
 }
 
 // handleGetSettings returns the caller's own settings (their sources, AI key,
 // notifications…) plus the box-wide title.
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
-	st, err := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
+	u := userFrom(r.Context())
+	st, err := s.store.GetSettings(r.Context(), u.ID)
 	if err != nil {
 		s.fail(w, err, "settings")
 		return
 	}
-	writeJSON(w, http.StatusOK, s.publicSettings(st))
+	writeJSON(w, http.StatusOK, s.publicSettings(r.Context(), u, st))
 }
 
 // handlePutSettings saves the caller's own settings. The box-wide title is
@@ -85,6 +95,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			PublicURL *string `json:"public_url"`
 			Extra     *string `json:"extra"`
 			Enabled   *bool   `json:"enabled"`
+			Mode      *string `json:"mode"`
 		} `json:"sources"`
 	}
 	keys, err := decodeKeys(r, &in)
@@ -199,6 +210,10 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		if p.Enabled != nil {
 			src.Enabled = *p.Enabled
 		}
+		if _, ok := pocketSources[name]; ok && p.Mode != nil && validMode(*p.Mode) {
+			src.Mode = *p.Mode
+			src.Enabled = src.Mode != modeOff
+		}
 		cur.Sources[name] = src
 	}
 	if err := s.store.SaveSettings(r.Context(), u.ID, cur); err != nil {
@@ -211,7 +226,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, s.publicSettings(cur))
+	writeJSON(w, http.StatusOK, s.publicSettings(r.Context(), u, cur))
 }
 
 // handleIntegrationTest checks one source with the posted credentials or the
@@ -228,7 +243,8 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	st, _ := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
+	u := userFrom(r.Context())
+	st, _ := s.store.GetSettings(r.Context(), u.ID)
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
 	defer cancel()
 	saved := st.Sources[in.Which]
@@ -245,6 +261,10 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		extra = saved.Extra
 	}
 	var f sources.Fetcher
+	if _, ok := pocketSources[in.Which]; ok {
+		s.testPocketSource(ctx, w, u, in.Which, saved, url, key, in.Key != "" && !strings.Contains(in.Key, "••"))
+		return
+	}
 	switch in.Which {
 	case "dawarich":
 		f = sources.NewDawarich(url, key)
@@ -254,18 +274,6 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		f = sources.NewMaloja(url)
 	case "jellystat":
 		f = sources.NewJellystat(url, key, extra)
-	case "firefly":
-		f = sources.NewFirefly(url, key)
-	case "habits":
-		f = sources.NewHabits(url, key)
-	case "bookshelf":
-		f = sources.NewBookshelf(url, key)
-	case "travel":
-		f = sources.NewTravel(url, key)
-	case "kitchen":
-		f = sources.NewKitchen(url, key)
-	case "garage":
-		f = sources.NewGarage(url, key)
 	case "pinepods":
 		f = sources.NewPinePods(url, key)
 	case "audiobookshelf":
@@ -278,12 +286,6 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		f = sources.NewNextcloud(url, key, extra)
 	case "paperless":
 		f = sources.NewPaperless(url, key, saved.PublicURL)
-	case "invoicing":
-		f = sources.NewInvoicing(url, key)
-	case "split":
-		f = sources.NewSplit(url, key)
-	case "inventory":
-		f = sources.NewInventory(url, key)
 	case "weather":
 		f = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
 	case "ai":
@@ -328,6 +330,30 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg})
+}
+
+// testPocketSource checks a Pocket app source the way it would be fetched: a
+// token typed into the form is tried as is; otherwise the saved mode decides
+// (direct with the saved URL and token, Pocket Core with a fresh link token).
+func (s *Server) testPocketSource(ctx context.Context, w http.ResponseWriter, u *store.User, name string, saved store.Source, url, key string, typed bool) {
+	mode := connMode(saved, s.core.Configured())
+	if typed {
+		mode = modeDirect
+	}
+	how := ", direct connection"
+	src := saved
+	switch mode {
+	case modeDirect:
+		src.URL, src.Key = url, key
+	case modeCore:
+		how = " through Pocket Core"
+	}
+	msg, err := pocketFetcher(name, s.pocketConn(u, name, src, mode)).Test(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg + how})
 }
 
 func (s *Server) handleGeocode(w http.ResponseWriter, r *http.Request) {

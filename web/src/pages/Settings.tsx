@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, ConnMode, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_ICON, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Card, Confirm, Field, Loading, Modal, PageHeader, Segmented, Tabs, useAsync, useToast } from '../components/ui'
@@ -32,6 +32,10 @@ export default function Settings() {
   )
 }
 
+// withoutModes drops the per-source modes so saving the form never pins a
+// default (a mode is only stored when chosen in a Connection).
+const withoutModes = (srcs: Record<SourceName, Source>) => Object.fromEntries(Object.entries(srcs).map(([k, v]) => [k, { ...v, mode: undefined }])) as Record<SourceName, Source>
+
 function useSettingsForm() {
   const { settings, setSettings, user } = useApp()
   const { toast } = useToast()
@@ -41,7 +45,7 @@ function useSettingsForm() {
   const save = async (patch?: Partial<SettingsT>) => {
     if (!f) return
     setBusy(true)
-    try { const s = await api.put<SettingsT>(`${V1}/settings`, { ...f, ...patch }); setSettings(s); setF(s); toast('Saved') } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
+    try { const s = await api.put<SettingsT>(`${V1}/settings`, { ...f, sources: withoutModes(f.sources), ...patch }); setSettings(s); setF(s); toast('Saved') } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
   }
   return { f, setF, save, busy, isAdmin: user?.role === 'admin' }
 }
@@ -100,7 +104,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   immich: { what: 'Photos and videos taken that day, with a thumbnail grid proxied through this app.', key: 'API key from Immich → Account settings → API keys', url: 'http://host.docker.internal:2283' },
   maloja: { what: 'What played: listens, top artists, the full track list.', key: 'no key needed (read API is open)', url: 'http://host.docker.internal:42010' },
   jellystat: { what: 'What you watched in Jellyfin: episodes, films, minutes.', key: 'API key from Jellystat → Settings → API keys', url: 'http://host.docker.internal:3000', extra: 'Jellyfin user name to keep (empty = everyone)' },
-  firefly: { what: 'Withdrawals of the day with categories and totals per currency.', key: 'Personal access token from Firefly III → Profile → OAuth', url: 'http://host.docker.internal:8080' },
+  firefly: { what: 'Withdrawals of the day with categories and totals per currency, read from Pocket Money’s Firefly-compatible API.', key: 'Direct: a token from Pocket Money → Settings → API tokens with the URL ending in /firefly (a Firefly III URL with its personal access token works too)', url: 'http://host.docker.internal:8178/firefly' },
   habits: { what: 'The check-in: habits done, tracker values, the journal line.', key: 'Token from Pocket Habits → Settings → API tokens', url: 'http://host.docker.internal:8169' },
   bookshelf: { what: 'Books being read, started or finished.', key: 'Token from Pocket Bookshelf → Settings → API', url: 'http://host.docker.internal:8171' },
   travel: { what: 'Which trip the day fell in, and which day of it.', key: 'Token from Pocket Travel → Settings → API', url: 'http://host.docker.internal:8174' },
@@ -131,28 +135,43 @@ function Sources() {
   }
   const stat = (which: string) => <span className={`small ${test[which]?.startsWith('✓') ? 'ok' : test[which]?.startsWith('✕') ? 'bad' : 'muted'}`}>{test[which]}</span>
   const upd = (name: SourceName, patch: Partial<Source>) => setF({ ...f, sources: { ...f.sources, [name]: { ...f.sources[name], ...patch } } })
+  const saveSource = (name: SourceName, patch: Partial<Source>) => save({ sources: { ...withoutModes(f.sources), [name]: { ...f.sources[name], mode: undefined, ...patch } } })
   const backfill = async (force: boolean) => {
     try { const r = await api.post<{ ok: boolean; error?: string }>(`${V1}/facts/backfill`, { force }); toast(r.ok ? 'Backfill started' : r.error || 'failed', r.ok ? 'ok' : 'err'); reload() } catch (e) { toast((e as Error).message, 'err') }
   }
   const bf = status?.backfill
+  const title = (name: SourceName) => <span className="row" style={{ gap: 8 }}><span>{SOURCE_ICON[name]}</span>{SOURCE_APP[name]} <span className="muted" style={{ fontWeight: 400 }}>— {SOURCE_LABEL[name].toLowerCase()}</span></span>
   return (
     <div className="grid" style={{ gap: 16 }}>
       <Card title="Pulling the days" actions={bf?.running ? <span className="badge cat">running</span> : undefined}>
         <p className="muted small">Today and yesterday are pulled every 30 minutes. Older days are frozen once fetched. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</p>
         {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
-        <p className="muted small">The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal.</p>
+        <p className="muted small">The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste.</p>
         <div className="row mt-sm"><button className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}>Backfill missing days ({f.backfill_days} back)</button><button className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts">Re-pull everything</button></div>
       </Card>
       {f.source_names.map(name => {
         const src = f.sources[name]
         const help = SOURCE_HELP[name]
-        return <Card key={name} title={<span className="row" style={{ gap: 8 }}><span>{SOURCE_ICON[name]}</span>{SOURCE_APP[name]} <span className="muted" style={{ fontWeight: 400 }}>— {SOURCE_LABEL[name].toLowerCase()}</span></span>}
+        if (src.pocket) return <Card key={name} title={title(name)} actions={connBadge(src.mode || 'off', src.via)}>
+          <p className="muted small">{help.what}</p>
+          <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={f.core_configured} hasToken={!!src.key || !!src.url}
+            onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '' })}
+            test={<><button className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>}
+            direct={<>
+              <div className="two-col tight">
+                <Field label="URL" help={name === 'firefly' ? 'Pocket Money’s URL followed by /firefly. Inside Docker use http://host.docker.internal:PORT.' : 'Inside Docker use http://host.docker.internal:PORT or the service name.'}><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
+                <Field label="API token" help={help.key}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>
+              </div>
+              <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
+            </>} />
+        </Card>
+        return <Card key={name} title={title(name)}
           actions={<><span className={`badge ${src.configured ? 'cat' : ''}`}>{src.configured ? 'connected' : name === 'weather' ? 'set a home location' : 'not set'}</span><label className="row small"><input type="checkbox" checked={src.enabled} onChange={e => upd(name, { enabled: e.target.checked })} style={{ width: 'auto' }} /> on</label></>}>
           <p className="muted small">{help.what}{help.key !== 'no key needed' ? ` ${help.key}.` : ''}</p>
           {name !== 'weather' && <div className="grid" style={{ gap: 12 }}>
             <div className={help.extra ? 'three-col tight' : 'two-col tight'}>
               <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
-              {src.needs_key && <Field label={name === 'firefly' ? 'Personal access token' : name === 'nextcloud' ? 'App password' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>}
+              {src.needs_key && <Field label={name === 'nextcloud' ? 'App password' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>}
               {help.extra && <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field>}
             </div>
             <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
@@ -165,6 +184,39 @@ function Sources() {
     </div>
   )
 }
+
+// Connection is how Day reaches one Pocket app for you: through Pocket Core
+// (as you, nothing to paste), with your own URL and token, or not at all.
+function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasToken, test, direct }: {
+  app: string; mode: ConnMode; via: string; detail: string; core: boolean; onMode: (m: ConnMode) => void; onDisconnect: () => void
+  hasToken: boolean; test: React.ReactNode; direct: React.ReactNode
+}) {
+  const ok = via !== ''
+  const line = mode === 'off' ? `Off: Day does not read ${app}.`
+    : mode === 'core' ? (ok ? 'Connected through Pocket Core, as you. Nothing to fill in; switch it off for yourself in Pocket Core → Settings → Apps acting for me.' : `Not connected: ${detail}.`)
+    : (ok ? `Direct connection with your own ${app} URL and token; use Test connection to check it.` : `Not connected: ${detail || 'add the URL and a token'}.`)
+  return (
+    <div className="conn-block">
+      <div className="conn-mode">
+        <Segmented size="sm" value={mode} onChange={m => onMode(m as ConnMode)} options={[
+          { value: 'core', label: 'Pocket Core', title: core ? 'Through Pocket Core: per person, nothing to paste' : 'There is no Pocket Core on this box' },
+          { value: 'direct', label: 'Direct', title: 'Your own URL and API token' },
+          { value: 'off', label: 'Off' },
+        ]} />
+      </div>
+      <div className={`conn-status ${mode === 'off' ? '' : ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {mode === 'direct' && <>
+        {direct}
+        <div className="row wrap">{test}{hasToken && <button className="btn sm ghost danger-text" onClick={onDisconnect} title="Remove the saved URL and token">Disconnect</button>}</div>
+      </>}
+      {mode === 'core' && <div className="row wrap">{test}</div>}
+    </div>
+  )
+}
+
+const connBadge = (mode: ConnMode, via: string) => mode === 'off' ? <span className="badge">off</span>
+  : via ? <span className="badge cat">{via === 'core' ? 'Pocket Core' : 'direct'}</span>
+  : <span className="badge warn">not connected</span>
 
 function Notify() {
   const { f, setF, save, busy } = useSettingsForm()

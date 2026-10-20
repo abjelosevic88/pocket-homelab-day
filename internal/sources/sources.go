@@ -1,6 +1,7 @@
 // Package sources pulls one day's worth of knowledge out of each connected
 // app: where you were (Dawarich), the photos (Immich), what played (Maloja),
-// what you watched (Jellystat), what you spent (Firefly III), the check-in
+// what you watched (Jellystat), what you spent (Pocket Money, through its
+// Firefly-compatible API), the check-in
 // (Pocket Habits), the books (Pocket Bookshelf), the trip (Pocket Travel),
 // what you cooked (Pocket Kitchen), the fill-ups (Pocket Garage) and the
 // weather (Open-Meteo). Every fetcher returns a payload, one headline number

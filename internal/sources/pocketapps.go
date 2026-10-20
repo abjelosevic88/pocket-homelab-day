@@ -14,19 +14,21 @@ import (
 // ---------------- Pocket Habits ----------------
 
 // Habits reads the day's check-in: habits, trackers, the journal line.
-type Habits struct{ C *pocket.Client }
+type Habits struct{ Conn pocket.Conn }
 
-// NewHabits creates a fetcher.
-func NewHabits(baseURL, token string) *Habits {
-	return &Habits{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewHabits creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewHabits(conn pocket.Conn) *Habits { return &Habits{Conn: conn} }
 
 // Name implements Fetcher.
 func (h *Habits) Name() string { return "habits" }
 
 // Test implements Fetcher.
 func (h *Habits) Test(ctx context.Context) (string, error) {
-	v, err := h.C.Health(ctx)
+	cl, err := h.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -70,6 +72,10 @@ type Checkin struct {
 
 // Fetch implements Fetcher.
 func (h *Habits) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := h.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var page struct {
 		Done    int    `json:"done"`
 		Total   int    `json:"total"`
@@ -97,7 +103,7 @@ func (h *Habits) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 			Defaulted      bool     `json:"defaulted"`
 		} `json:"trackers"`
 	}
-	if err := h.C.Get(ctx, "/api/v1/days/"+date, nil, &page); err != nil {
+	if err := cl.Get(ctx, "/api/v1/days/"+date, nil, &page); err != nil {
 		return nil, err
 	}
 	c := Checkin{Done: page.Done, Total: page.Total, Journal: page.Journal, Bad: page.Bad, Important: page.Imp, Habits: []HabitRow{}, Trackers: []TrackerRow{}}
@@ -136,19 +142,21 @@ func trim(s string, n int) string {
 // ---------------- Pocket Bookshelf ----------------
 
 // Bookshelf reads what was being read, started or finished on the day.
-type Bookshelf struct{ C *pocket.Client }
+type Bookshelf struct{ Conn pocket.Conn }
 
-// NewBookshelf creates a fetcher.
-func NewBookshelf(baseURL, token string) *Bookshelf {
-	return &Bookshelf{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewBookshelf creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewBookshelf(conn pocket.Conn) *Bookshelf { return &Bookshelf{Conn: conn} }
 
 // Name implements Fetcher.
 func (b *Bookshelf) Name() string { return "bookshelf" }
 
 // Test implements Fetcher.
 func (b *Bookshelf) Test(ctx context.Context) (string, error) {
-	v, err := b.C.Health(ctx)
+	cl, err := b.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -215,11 +223,15 @@ func toBook(r bookRow, status string) Book {
 
 // Fetch implements Fetcher.
 func (b *Bookshelf) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := b.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rd := Reading{Reading: []Book{}, Started: []Book{}, Finished: []Book{}}
 	today := time.Now().In(loc).Format("2006-01-02")
 	year := date[:4]
 	// Finished (or started) exactly on that day, from the year's finished list and the reading list.
-	fin, err := decodeBooks(b.C, ctx, url.Values{"year": {year}, "limit": {"500"}})
+	fin, err := decodeBooks(cl, ctx, url.Values{"year": {year}, "limit": {"500"}})
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +246,7 @@ func (b *Bookshelf) Fetch(ctx context.Context, date string, loc *time.Location) 
 			seen[r.ID] = true
 		}
 	}
-	cur, err := decodeBooks(b.C, ctx, url.Values{"status": {"reading"}, "limit": {"100"}})
+	cur, err := decodeBooks(cl, ctx, url.Values{"status": {"reading"}, "limit": {"100"}})
 	if err != nil {
 		return nil, err
 	}
@@ -267,19 +279,21 @@ func (b *Bookshelf) Fetch(ctx context.Context, date string, loc *time.Location) 
 // ---------------- Pocket Travel ----------------
 
 // Travel finds the trip (if any) the day fell in.
-type Travel struct{ C *pocket.Client }
+type Travel struct{ Conn pocket.Conn }
 
-// NewTravel creates a fetcher.
-func NewTravel(baseURL, token string) *Travel {
-	return &Travel{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewTravel creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewTravel(conn pocket.Conn) *Travel { return &Travel{Conn: conn} }
 
 // Name implements Fetcher.
 func (t *Travel) Name() string { return "travel" }
 
 // Test implements Fetcher.
 func (t *Travel) Test(ctx context.Context) (string, error) {
-	v, err := t.C.Health(ctx)
+	cl, err := t.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -306,6 +320,10 @@ type Trips struct {
 
 // Fetch implements Fetcher.
 func (t *Travel) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := t.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var raw []struct {
 		ID          int64  `json:"id"`
 		Name        string `json:"name"`
@@ -316,7 +334,7 @@ func (t *Travel) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 		Status      string `json:"status"`
 		Archived    bool   `json:"archived"`
 	}
-	if err := t.C.Get(ctx, "/api/v1/trips", url.Values{"all": {"1"}}, &raw); err != nil {
+	if err := cl.Get(ctx, "/api/v1/trips", url.Values{"all": {"1"}}, &raw); err != nil {
 		return nil, err
 	}
 	out := Trips{Trips: []Trip{}}
@@ -340,19 +358,21 @@ func (t *Travel) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 // ---------------- Pocket Kitchen ----------------
 
 // Kitchen reads what was cooked on the day.
-type Kitchen struct{ C *pocket.Client }
+type Kitchen struct{ Conn pocket.Conn }
 
-// NewKitchen creates a fetcher.
-func NewKitchen(baseURL, token string) *Kitchen {
-	return &Kitchen{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewKitchen creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewKitchen(conn pocket.Conn) *Kitchen { return &Kitchen{Conn: conn} }
 
 // Name implements Fetcher.
 func (k *Kitchen) Name() string { return "kitchen" }
 
 // Test implements Fetcher.
 func (k *Kitchen) Test(ctx context.Context) (string, error) {
-	v, err := k.C.Health(ctx)
+	cl, err := k.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -377,6 +397,10 @@ type Cooked struct {
 
 // Fetch implements Fetcher.
 func (k *Kitchen) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := k.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var raw []struct {
 		ID          int64  `json:"id"`
 		RecipeID    *int64 `json:"recipe_id"`
@@ -387,7 +411,7 @@ func (k *Kitchen) Fetch(ctx context.Context, date string, loc *time.Location) (*
 		RecipeTitle string `json:"recipe_title"`
 		UserName    string `json:"user_name"`
 	}
-	if err := k.C.Get(ctx, "/api/v1/cooklog", url.Values{"limit": {"500"}}, &raw); err != nil {
+	if err := cl.Get(ctx, "/api/v1/cooklog", url.Values{"limit": {"500"}}, &raw); err != nil {
 		return nil, err
 	}
 	out := Cooked{Cooks: []Cook{}}
@@ -419,19 +443,21 @@ func (k *Kitchen) Fetch(ctx context.Context, date string, loc *time.Location) (*
 // ---------------- Pocket Garage ----------------
 
 // Garage reads the day's fill-ups and service records.
-type Garage struct{ C *pocket.Client }
+type Garage struct{ Conn pocket.Conn }
 
-// NewGarage creates a fetcher.
-func NewGarage(baseURL, token string) *Garage {
-	return &Garage{C: pocket.New(baseURL, token, 20*time.Second)}
-}
+// NewGarage creates a fetcher over a connection (pocket.Fixed for a URL and token).
+func NewGarage(conn pocket.Conn) *Garage { return &Garage{Conn: conn} }
 
 // Name implements Fetcher.
 func (g *Garage) Name() string { return "garage" }
 
 // Test implements Fetcher.
 func (g *Garage) Test(ctx context.Context) (string, error) {
-	v, err := g.C.Health(ctx)
+	cl, err := g.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -457,13 +483,17 @@ type Car struct {
 
 // Fetch implements Fetcher.
 func (g *Garage) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := g.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var vehicles []struct {
 		ID    int64  `json:"id"`
 		Name  string `json:"name"`
 		Make  string `json:"make"`
 		Model string `json:"model"`
 	}
-	if err := g.C.Get(ctx, "/api/v1/vehicles", url.Values{"bare": {"1"}}, &vehicles); err != nil {
+	if err := cl.Get(ctx, "/api/v1/vehicles", url.Values{"bare": {"1"}}, &vehicles); err != nil {
 		return nil, err
 	}
 	out := Car{Items: []Fill{}}
@@ -480,7 +510,7 @@ func (g *Garage) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 			Odometer float64 `json:"odometer"`
 			Station  string  `json:"station"`
 		}
-		if err := g.C.Get(ctx, fmt.Sprintf("/api/v1/vehicles/%d/fuel", v.ID), nil, &fuel); err == nil {
+		if err := cl.Get(ctx, fmt.Sprintf("/api/v1/vehicles/%d/fuel", v.ID), nil, &fuel); err == nil {
 			for _, f := range fuel {
 				if f.Date == date {
 					out.Items = append(out.Items, Fill{Vehicle: name, Kind: "fuel", Title: fmt.Sprintf("%.1f l", f.Volume), Volume: f.Volume, Cost: f.Cost, Currency: f.Currency, Odometer: f.Odometer, Station: f.Station})
@@ -496,7 +526,7 @@ func (g *Garage) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 			Odometer float64 `json:"odometer"`
 			Vendor   string  `json:"vendor"`
 		}
-		if err := g.C.Get(ctx, fmt.Sprintf("/api/v1/vehicles/%d/records", v.ID), url.Values{"from": {date}, "to": {date}}, &recs); err == nil {
+		if err := cl.Get(ctx, fmt.Sprintf("/api/v1/vehicles/%d/records", v.ID), url.Values{"from": {date}, "to": {date}}, &recs); err == nil {
 			for _, r := range recs {
 				if r.Date == date {
 					out.Items = append(out.Items, Fill{Vehicle: name, Kind: r.Kind, Title: r.Title, Cost: r.Cost, Currency: r.Currency, Odometer: r.Odometer, Station: r.Vendor})
