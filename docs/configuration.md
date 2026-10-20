@@ -13,7 +13,7 @@ Everything is an environment variable with a sensible default. Sources, the AI k
 | `LOG_LEVEL` / `LOG_FORMAT` | `info` / `text` | `debug` logs every failed source fetch |
 | `TRUST_PROXY` | `true` | honour `X-Forwarded-For` |
 | `METRICS_ENABLED` | `true` | Prometheus `/metrics` |
-| `CORE_URL` / `CORE_REGISTRATION_KEY` | – | [Pocket Core](https://git.bjelke.org/abjelosevic88/pocket-homelab-core): register on start (the key is needed once; the minted app token lives in `$DATA_DIR/core.token`), publish `day.entry_written` / `day.moment_created` / `day.story_created`, and accept the tokens Core hands to paired phones |
+| `CORE_URL` / `CORE_REGISTRATION_KEY` | – | [Pocket Core](https://git.bjelke.org/abjelosevic88/pocket-homelab-core): register on start (the key is needed once; the minted app token lives in `$DATA_DIR/core.token`), publish `day.entry_written` / `day.moment_created` / `day.story_created`, accept the tokens Core hands to paired phones, and report everybody's connection modes (core / direct / off) for Core's Links page |
 | `CORE_APP_URL` | `BASE_URL` | How Core reaches this app for health checks (e.g. `http://host.docker.internal:8177`) |
 | `DEMO_DATA` | `false` | six weeks of journal and synthetic facts |
 
@@ -76,11 +76,17 @@ The other sources (`IMMICH`, `MALOJA`, `DAWARICH`, `JELLYSTAT`, `PINEPODS`, `AUD
 
 | Mode | How |
 |---|---|
-| **Pocket Core** | on every pull, test and Immich thumbnail Day asks Core (`POST /api/v1/services/credential`) for the service's address and the person's credential there, and keeps neither. The person's own key (set in Core by hand or by a connector) is used when there is one; the box's key only when the person is an admin. A member with no account of their own gets `no_account`: “not connected”, the source is skipped, nothing fails. |
+| **Pocket Core** | Day asks Core (`POST /api/v1/services/credential`) for the service's address and the person's credential there; Day itself keeps neither, the Core SDK reuses the answer for a minute (a pull or a page of Immich thumbnails asks once; a switch-off in Core applies within that minute) and, while Core cannot be reached, the last answer for up to 15 minutes, so a Core restart does not stop the pulls. **Test connection** always asks Core afresh. The person's own key (set in Core by hand or by a connector) is used when there is one; the box's key only when the person is an admin. A member with no account of their own gets `no_account`: “not connected”, the source is skipped, nothing fails. |
 | **Direct** | the URL and key in Settings (or from the environment, for the owner), as before. |
 | **Off** | not pulled. |
 
 Not chosen yet: Direct when a key is saved (Maloja, which needs no key: when a URL is saved), Pocket Core on a box with Core, Direct otherwise; switched off before modes existed counts as Off. Settings → Sources says “Connected through Pocket Core (your own key)” or “(the box's key)”, or why not (“you have no account of your own in Immich yet; ask the admin or let a connector create one”). Whether a service is on comes from `GET /api/v1/links/status` (`service:<type>`, scope `account`); whose key it is, from the last credential Day was handed (the Settings page asks once when it does not know yet).
+
+### Direct connections on Core's map
+
+Core cannot see a URL and key pasted into Day, so Day reports every person's mode in effect per source (what Settings → Sources shows, defaults included) with `PUT /api/v1/links/modes`: targets `habits`, `bookshelf`, `travel`, `kitchen`, `garage`, `invoicing`, `split`, `inventory`, `money` (the money source) and `service:<type>` for the services, mode `core` / `direct` / `off`. One call for everybody after each registration (on start and every 30 minutes) and right after a person's modes change (a mode picked, Disconnect, a key pasted or cleared). Report only; failures are logged.
+
+In Settings → Sources on a box with Core the switch shows **Pocket Core | Off**; Direct is behind “Advanced: connect directly with a URL and key” (shown at once to anyone already on Direct). Without Core, Direct is shown as before.
 
 | Source | Core type | Credential from Core | How Day sends it |
 |---|---|---|---|

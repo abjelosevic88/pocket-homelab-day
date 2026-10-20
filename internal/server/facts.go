@@ -53,7 +53,8 @@ func (s *Server) userByID(ctx context.Context, userID int64) *store.User {
 }
 
 // immich returns the user's Immich client when they connected it (thumbnails),
-// asking Pocket Core for the key on every call in Pocket Core mode.
+// asking Pocket Core for the key in Pocket Core mode (the SDK reuses it for a
+// minute, so a page of thumbnails asks once).
 func (s *Server) immich(ctx context.Context, u *store.User) *sources.Immich {
 	st, _ := s.store.GetSettings(ctx, u.ID)
 	src := st.Sources["immich"]

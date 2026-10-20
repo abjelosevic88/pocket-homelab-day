@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -51,6 +52,10 @@ type linkWorld struct {
 	svcOff      map[string]string           // "user type" → state (status and credential refused)
 	svcCredOff  map[string]bool             // "user type" → only the credential is refused
 	svcPersonal map[string]bool             // "user type" → the person has their own key in Core
+	svcDown     bool                        // credentials answer 503 (Core restarting)
+
+	modes  []map[string]string // the last PUT /api/v1/links/modes
+	nModes int                 // how many reports came in
 }
 
 const day0 = "2026-09-01"
@@ -118,6 +123,11 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&in)
 		w.svcAsked = append(w.svcAsked, in.User+" "+in.Type)
+		if w.svcDown {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = rw.Write([]byte(`{"error":"restarting"}`))
+			return
+		}
 		state := w.serviceState(in.User, in.Type)
 		if state == "on" && w.svcCredOff[in.User+" "+in.Type] {
 			state = "off_person"
@@ -144,6 +154,16 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 			fields["API_KEY"] = key
 		}
 		_ = json.NewEncoder(rw).Encode(map[string]any{"type": in.Type, "name": in.Type, "url": w.svcs[in.Type].URL, "public_url": "https://" + in.Type + ".example", "key": key, "fields": fields, "source": source})
+	case "/api/v1/links/modes":
+		var in struct {
+			Modes []map[string]string `json:"modes"`
+		}
+		if r.Method != http.MethodPut || r.Header.Get("Authorization") != "Bearer pca_day" || json.NewDecoder(r.Body).Decode(&in) != nil {
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.modes, w.nModes = in.Modes, w.nModes+1
+		_, _ = fmt.Fprintf(rw, `{"recorded":%d}`, len(in.Modes))
 	case "/api/v1/links/token":
 		if r.Header.Get("Authorization") != "Bearer pca_day" {
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -381,7 +401,9 @@ func newLinkEnv(t *testing.T, withCore bool) *linkEnv {
 	t.Cleanup(func() { st.Close() })
 	s := New(cfg, st, log, nil)
 	if withCore {
-		s.core = core.New(w.coreURL, core.Options{Token: "pca_day"})
+		// ServiceCache -1: Core is asked on every use, so the tests see each
+		// ask; TestServiceCredentialCache covers the SDK's one-minute cache.
+		s.core = core.New(w.coreURL, core.Options{Token: "pca_day", ServiceCache: -1})
 	} else {
 		s.core = core.New("", core.Options{})
 	}

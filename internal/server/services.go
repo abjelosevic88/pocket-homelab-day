@@ -21,8 +21,10 @@ import (
 // the same three modes as the Pocket ones (see siblings.go):
 //
 //   - core: Day asks Pocket Core for the service's address and the person's
-//     credential there (a "service connection": POST /services/credential)
-//     on every pull and test, and never keeps the key. The person's own key
+//     credential there (a "service connection": POST /services/credential).
+//     The SDK reuses the answer for a minute (a pull, or a page of photo
+//     thumbnails, asks once) and Test connection always asks afresh; Day
+//     itself never keeps the key. The person's own key
 //     comes back for anyone who has one in Core; the box's key only when the
 //     person is an admin. A member without an account of their own there is
 //     "not connected" (no_account) and the source is skipped.
@@ -111,7 +113,18 @@ func (s *Server) rememberService(userID int64, name string, v seenSvc) {
 
 // serviceConn resolves a person's connection to a service for one fetch.
 // Errors wrapping pocket.ErrNotConnected mean "skip, nothing failed".
+// Through Pocket Core the SDK reuses the answer for a minute (and rides out
+// Core being briefly unreachable); serviceConnFresh skips that.
 func (s *Server) serviceConn(ctx context.Context, u *store.User, name string, src store.Source, mode string) (*serviceCred, error) {
+	return s.resolveService(ctx, u, name, src, mode, false)
+}
+
+// serviceConnFresh is serviceConn asking Core right now (Test connection).
+func (s *Server) serviceConnFresh(ctx context.Context, u *store.User, name string, src store.Source, mode string) (*serviceCred, error) {
+	return s.resolveService(ctx, u, name, src, mode, true)
+}
+
+func (s *Server) resolveService(ctx context.Context, u *store.User, name string, src store.Source, mode string, fresh bool) (*serviceCred, error) {
 	sv := serviceSources[name]
 	switch mode {
 	case modeOff:
@@ -127,7 +140,11 @@ func (s *Server) serviceConn(ctx context.Context, u *store.User, name string, sr
 	}
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	c, err := s.core.ServiceFor(cctx, u.Email, sv.typ)
+	ask := s.core.ServiceFor
+	if fresh {
+		ask = s.core.ServiceForFresh
+	}
+	c, err := ask(cctx, u.Email, sv.typ)
 	if err != nil {
 		var le *core.LinkError
 		if errors.As(err, &le) {
@@ -189,8 +206,10 @@ func serviceClient(name string, c *serviceCred, src store.Source) sources.Fetche
 	return nil
 }
 
-// serviceFetcher resolves the connection on every Fetch and Test, so a switch
-// flipped in Pocket Core (or a key changed there) applies at once.
+// serviceFetcher resolves the connection on every Fetch and Test. A Fetch
+// through Core uses the SDK's one-minute credential cache, so a switch flipped
+// in Pocket Core (or a key changed there) applies within a minute; Test asks
+// Core afresh.
 type serviceFetcher struct {
 	s    *Server
 	u    *store.User
@@ -205,8 +224,8 @@ func (s *Server) serviceFetcher(u *store.User, name string, src store.Source, mo
 
 func (f *serviceFetcher) Name() string { return f.name }
 
-func (f *serviceFetcher) client(ctx context.Context) (sources.Fetcher, *serviceCred, error) {
-	c, err := f.s.serviceConn(ctx, f.u, f.name, f.src, f.mode)
+func (f *serviceFetcher) client(ctx context.Context, fresh bool) (sources.Fetcher, *serviceCred, error) {
+	c, err := f.s.resolveService(ctx, f.u, f.name, f.src, f.mode, fresh)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -214,15 +233,16 @@ func (f *serviceFetcher) client(ctx context.Context) (sources.Fetcher, *serviceC
 }
 
 func (f *serviceFetcher) Fetch(ctx context.Context, date string, loc *time.Location) (*sources.Result, error) {
-	cl, _, err := f.client(ctx)
+	cl, _, err := f.client(ctx, false)
 	if err != nil {
 		return nil, err
 	}
 	return cl.Fetch(ctx, date, loc)
 }
 
+// Test is "Test connection": it asks Core afresh, never the cached answer.
 func (f *serviceFetcher) Test(ctx context.Context) (string, error) {
-	cl, c, err := f.client(ctx)
+	cl, c, err := f.client(ctx, true)
 	if err != nil {
 		return "", err
 	}

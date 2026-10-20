@@ -92,6 +92,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "settings")
 		return
 	}
+	modesBefore := s.personModes(u.Email, cur)
 	var in struct {
 		store.Settings
 		Sources map[string]struct {
@@ -230,6 +231,9 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, err, "save settings")
 			return
 		}
+	}
+	if !sameModes(modesBefore, s.personModes(u.Email, cur)) {
+		s.reportModesSoon() // a mode picked, Disconnect, a key pasted or cleared
 	}
 	writeJSON(w, http.StatusOK, s.publicSettings(r.Context(), u, cur))
 }
