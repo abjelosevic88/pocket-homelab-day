@@ -7,7 +7,7 @@ export type ConnMode = 'core' | 'direct' | 'off'
 // service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
 // via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
 export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box' }
-export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'documents' | 'invoicing' | 'split' | 'inventory'
+export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'documents' | 'invoicing' | 'split' | 'inventory' | 'tasks'
 export interface Settings {
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
@@ -70,9 +70,9 @@ export const MOODS = ['', 'rough', 'meh', 'okay', 'good', 'great']
 export const MOOD_ICON = ['○', '😖', '😕', '😐', '🙂', '😄']
 export const MOOD_COLOR = ['var(--border)', '#ef4444', '#f59e0b', '#a3a3a3', '#22c55e', '#4f46e5']
 export const KIND_ICON: Record<string, string> = { note: '•', win: '🏆', thanks: '🙏', idea: '💡', event: '📌' }
-export const SOURCE_LABEL: Record<string, string> = { dawarich: 'Where', immich: 'Photos', maloja: 'Music', jellystat: 'Watched', firefly: 'Money', habits: 'Habits', bookshelf: 'Reading', travel: 'Trip', kitchen: 'Cooked', garage: 'Garage', weather: 'Weather', pinepods: 'Podcasts', audiobookshelf: 'Audiobooks', jellyseerr: 'Requests', forgejo: 'Code', nextcloud: 'Tasks', documents: 'Documents', invoicing: 'Invoices', split: 'Shared costs', inventory: 'Inventory' }
-export const SOURCE_APP: Record<string, string> = { dawarich: 'Dawarich', immich: 'Immich', maloja: 'Maloja', jellystat: 'Jellystat', firefly: 'Pocket Money', habits: 'Pocket Habits', bookshelf: 'Pocket Bookshelf', travel: 'Pocket Travel', kitchen: 'Pocket Kitchen', garage: 'Pocket Garage', weather: 'Open-Meteo', pinepods: 'PinePods', audiobookshelf: 'Audiobookshelf', jellyseerr: 'Jellyseerr', forgejo: 'Forgejo', nextcloud: 'Nextcloud', documents: 'Pocket Documents', invoicing: 'Pocket Invoicing', split: 'Pocket Split', inventory: 'Pocket Inventory' }
-export const SOURCE_ICON: Record<string, string> = { dawarich: '🗺', immich: '📷', maloja: '🎧', jellystat: '📺', firefly: '💸', habits: '✅', bookshelf: '📚', travel: '✈️', kitchen: '🍳', garage: '🚗', weather: '⛅', pinepods: '🎙', audiobookshelf: '📖', jellyseerr: '🎬', forgejo: '⌨️', nextcloud: '☑️', documents: '🗂', invoicing: '🧾', split: '🤝', inventory: '📦' }
+export const SOURCE_LABEL: Record<string, string> = { dawarich: 'Where', immich: 'Photos', maloja: 'Music', jellystat: 'Watched', firefly: 'Money', habits: 'Habits', bookshelf: 'Reading', travel: 'Trip', kitchen: 'Cooked', garage: 'Garage', weather: 'Weather', pinepods: 'Podcasts', audiobookshelf: 'Audiobooks', jellyseerr: 'Requests', forgejo: 'Code', nextcloud: 'Tasks', documents: 'Documents', invoicing: 'Invoices', split: 'Shared costs', tasks: 'Tasks', inventory: 'Inventory' }
+export const SOURCE_APP: Record<string, string> = { dawarich: 'Dawarich', immich: 'Immich', maloja: 'Maloja', jellystat: 'Jellystat', firefly: 'Pocket Money', habits: 'Pocket Habits', bookshelf: 'Pocket Bookshelf', travel: 'Pocket Travel', kitchen: 'Pocket Kitchen', garage: 'Pocket Garage', weather: 'Open-Meteo', pinepods: 'PinePods', audiobookshelf: 'Audiobookshelf', jellyseerr: 'Jellyseerr', forgejo: 'Forgejo', nextcloud: 'Nextcloud', documents: 'Pocket Documents', invoicing: 'Pocket Invoicing', split: 'Pocket Split', tasks: 'Pocket Tasks', inventory: 'Pocket Inventory' }
+export const SOURCE_ICON: Record<string, string> = { dawarich: '🗺', immich: '📷', maloja: '🎧', jellystat: '📺', firefly: '💸', habits: '✅', bookshelf: '📚', travel: '✈️', kitchen: '🍳', garage: '🚗', weather: '⛅', pinepods: '🎙', audiobookshelf: '📖', jellyseerr: '🎬', forgejo: '⌨️', nextcloud: '☑️', documents: '🗂', invoicing: '🧾', split: '🤝', tasks: '☑️', inventory: '📦' }
 export const WEATHER_ICON: Record<string, string> = { clear: '☀️', partly: '⛅', cloudy: '☁️', fog: '🌫', rain: '🌧', snow: '❄️', storm: '⛈' }
 export const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1).replace(/_/g, ' ') : ''
 export function fmtMinutes(m: number): string {
@@ -102,6 +102,7 @@ export const ACTIVITY: Record<string, ActivityMeta> = {
   documents: { one: 'document', many: 'documents', unit: 'count', group: 'Types' },
   invoicing: { one: 'item', many: 'items', unit: 'amount', group: 'Clients', doneLabel: 'paid' },
   split: { one: 'expense', many: 'expenses', unit: 'amount', group: 'Groups' },
+  tasks: { one: 'task', many: 'tasks', unit: 'count', group: 'Lists', doneLabel: 'completed' },
   inventory: { one: 'change', many: 'changes', unit: 'count', group: 'Items' },
 }
 export const isActivity = (s: string) => s in ACTIVITY

@@ -21,6 +21,7 @@ import (
 
 // The routes each target allows a pcx_ token, exactly as the targets offer them.
 var fakeLinkRoutes = map[string][]*regexp.Regexp{
+	"tasks:read":    {regexp.MustCompile(`^/api/v1/tasks$`)},
 	"habits:read":   {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
 	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`)},
 	"trips:read":    {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
@@ -322,6 +323,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 		p := r.URL.Path
 		write := func(s string) { _, _ = rw.Write([]byte(s)) }
 		switch {
+		case p == "/api/v1/tasks":
+			write(`{"tasks":[{"id":1,"title":"Fix the shelf","completed_at":"` + d + `T12:00:00Z"}],"total":1}`)
 		case p == "/api/v1/auth/me":
 			write(`{"id":1,"email":"owner@x"}`)
 		case strings.HasPrefix(p, "/api/v1/days/"):
@@ -402,12 +405,15 @@ func newLinkEnv(t *testing.T, withCore bool) *linkEnv {
 	}
 	t.Cleanup(func() { st.Close() })
 	s := New(cfg, st, log, nil)
+	if err := s.core.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	if withCore {
 		// ServiceCache -1: Core is asked on every use, so the tests see each
 		// ask; TestServiceCredentialCache covers the SDK's one-minute cache.
-		s.core = core.New(w.coreURL, core.Options{Token: "pca_day", ServiceCache: -1})
+		s.core = core.New(w.coreURL, core.Options{DB: s.store.DB, Token: "pca_day", ServiceCache: -1})
 	} else {
-		s.core = core.New("", core.Options{})
+		s.core = core.New("", core.Options{DB: s.store.DB})
 	}
 	ts := httptest.NewServer(s.Router())
 	t.Cleanup(ts.Close)
@@ -489,7 +495,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read travel=trips:read"
+	want := "bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}

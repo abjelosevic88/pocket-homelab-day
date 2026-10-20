@@ -43,9 +43,10 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "firefly"}
+var pocketSourceOrder = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "firefly"}
 
 var pocketSources = map[string]pocketSource{
+	"tasks":     {slug: "tasks", app: "Pocket Tasks", scope: "tasks:read", reason: "Tasks you completed in your journal"},
 	"habits":    {slug: "habits", app: "Pocket Habits", scope: "habits:read", reason: "Your habits in the journal"},
 	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
 	"travel":    {slug: "travel", app: "Pocket Travel", scope: "trips:read", reason: "Trips"},
@@ -317,6 +318,8 @@ func (s *Server) pocketConn(u *store.User, name string, src store.Source, mode s
 // pocketFetcher builds the fetcher of a Pocket app source over a connection.
 func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 	switch name {
+	case "tasks":
+		return sources.NewTasks(conn)
 	case "habits":
 		return sources.NewHabits(conn)
 	case "bookshelf":

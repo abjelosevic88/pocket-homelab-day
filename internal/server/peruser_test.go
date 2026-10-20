@@ -46,7 +46,7 @@ func newPerUserEnv(t *testing.T) *perUserEnv {
 			_ = json.NewEncoder(w).Encode(map[string]any{"active": false})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"active": true, "kind": "device", "user": map[string]any{"id": 9, "email": email, "name": email}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"active": true, "kind": "device", "user": map[string]any{"id": 9, "sub": email, "email": email, "name": email}})
 	}))
 	t.Cleanup(core.Close)
 

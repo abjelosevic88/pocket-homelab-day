@@ -12,7 +12,7 @@ import (
 
 // modeTargets is every target Day reports, in Core's names: the Pocket apps
 // (the money source as "money") and the services.
-var modeTargets = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "money",
+var modeTargets = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "money",
 	"service:immich", "service:maloja", "service:dawarich", "service:jellystat", "service:pinepods", "service:audiobookshelf",
 	"service:jellyseerr", "service:forgejo", "service:nextcloud"}
 
@@ -140,7 +140,7 @@ func TestModesWithoutCore(t *testing.T) {
 func TestServiceCredentialCache(t *testing.T) {
 	e := newLinkEnv(t, true)
 	ctx := context.Background()
-	e.s.core = core.New(e.coreURL, core.Options{Token: "pca_day"}) // default: one minute
+	e.s.core = core.New(e.coreURL, core.Options{DB: e.s.store.DB, Token: "pca_day"}) // default: one minute
 
 	before := e.askedFor("immich")
 	e.s.pullDayOnly(ctx, e.owner.ID, day0, true, []string{"immich"})
@@ -172,7 +172,7 @@ func TestServiceCredentialCache(t *testing.T) {
 	}
 
 	// Core restarting: a fresh test says so, pulls ride on the last answer
-	e.s.core = core.New(e.coreURL, core.Options{Token: "pca_day", ServiceCache: time.Millisecond})
+	e.s.core = core.New(e.coreURL, core.Options{DB: e.s.store.DB, Token: "pca_day", ServiceCache: time.Millisecond})
 	e.s.pullDayOnly(ctx, e.owner.ID, day0, true, []string{"immich"})
 	time.Sleep(5 * time.Millisecond)
 	e.mu.Lock()

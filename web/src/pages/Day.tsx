@@ -9,7 +9,7 @@ import { FactCard, WeatherChip, factHasContent, type PinFn } from '../components
 import { Timeline } from '../components/Timeline'
 import { DictateButton, useAI } from '../components/ai'
 
-const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
+const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'tasks', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
 
 export default function Day() {
   const params = useParams()
@@ -213,7 +213,7 @@ function Glance({ facts, unit }: { facts: DayPage['facts']; unit: 'km' | 'mi' })
   const wt = p<Watched>('jellystat'); if (wt?.minutes) pills.push({ src: 'jellystat', icon: '📺', value: fmtMinutes(wt.minutes), label: 'watched' })
   const mo = p<Money>('firefly'); if (mo?.count) pills.push({ src: 'firefly', icon: '💸', value: fmtAmount(mo.totals[mo.main_currency] || 0, mo.main_currency), label: `${mo.count} payment${mo.count === 1 ? '' : 's'}` })
   const h = p<Checkin>('habits'); if (h?.total) pills.push({ src: 'habits', icon: '✅', value: `${h.done}/${h.total}`, label: 'habits' })
-  for (const src of ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'jellyseerr', 'documents', 'split', 'invoicing']) {
+  for (const src of ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'split', 'invoicing']) {
     const f = facts[src]
     if (!f || !f.headline) continue
     const a = f.payload as Activity | null
