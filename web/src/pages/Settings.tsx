@@ -146,7 +146,7 @@ function Sources() {
       <Card title="Pulling the days" actions={bf?.running ? <span className="badge cat">running</span> : undefined}>
         <p className="muted small">Today and yesterday are pulled every 30 minutes. Older days are frozen once fetched. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</p>
         {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
-        <p className="muted small">The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste.</p>
+        <p className="muted small">The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste; so can the other services (Immich, Maloja, Dawarich…), with your own account there from Pocket Core.</p>
         <div className="row mt-sm"><button className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}>Backfill missing days ({f.backfill_days} back)</button><button className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts">Re-pull everything</button></div>
       </Card>
       {f.source_names.map(name => {
@@ -165,19 +165,31 @@ function Sources() {
               <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
             </>} />
         </Card>
+        if (src.service) {
+          // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
+          const credExtra = name === 'nextcloud'
+          const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
+          return <Card key={name} title={title(name)} actions={connBadge(src.mode || 'off', src.via)}>
+            <p className="muted small">{help.what}</p>
+            <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={f.core_configured} hasToken={!!src.key || !!src.url}
+              service keySource={src.key_source || ''} keyless={!src.needs_key}
+              onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
+              extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
+              test={<><button className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>}
+              direct={<>
+                <div className={credExtra ? 'three-col tight' : 'two-col tight'}>
+                  <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
+                  {src.needs_key && <Field label={name === 'nextcloud' ? 'App password' : 'API key / token'} help={help.key}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>}
+                  {credExtra && <Field label={help.extra || 'User name'}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field>}
+                </div>
+                <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
+              </>} />
+          </Card>
+        }
         return <Card key={name} title={title(name)}
-          actions={<><span className={`badge ${src.configured ? 'cat' : ''}`}>{src.configured ? 'connected' : name === 'weather' ? 'set a home location' : 'not set'}</span><label className="row small"><input type="checkbox" checked={src.enabled} onChange={e => upd(name, { enabled: e.target.checked })} style={{ width: 'auto' }} /> on</label></>}>
-          <p className="muted small">{help.what}{help.key !== 'no key needed' ? ` ${help.key}.` : ''}</p>
-          {name !== 'weather' && <div className="grid" style={{ gap: 12 }}>
-            <div className={help.extra ? 'three-col tight' : 'two-col tight'}>
-              <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
-              {src.needs_key && <Field label={name === 'nextcloud' ? 'App password' : 'API key / token'}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>}
-              {help.extra && <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field>}
-            </div>
-            <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
-            <div className="row"><button className="btn sm" onClick={() => run(name, src)} disabled={!src.url}>Test connection</button>{stat(name)}</div>
-          </div>}
-          {name === 'weather' && <div className="row"><button className="btn sm" onClick={() => run(name, src)} disabled={!f.home_lat && !f.home_lon}>Test</button>{stat(name)}{!f.home_lat && !f.home_lon && <span className="muted small">Set the home location under General first.</span>}</div>}
+          actions={<><span className={`badge ${src.configured ? 'cat' : ''}`}>{src.configured ? 'connected' : 'set a home location'}</span><label className="row small"><input type="checkbox" checked={src.enabled} onChange={e => upd(name, { enabled: e.target.checked })} style={{ width: 'auto' }} /> on</label></>}>
+          <p className="muted small">{help.what}</p>
+          <div className="row"><button className="btn sm" onClick={() => run(name, src)} disabled={!f.home_lat && !f.home_lon}>Test</button>{stat(name)}{!f.home_lat && !f.home_lon && <span className="muted small">Set the home location under General first.</span>}</div>
         </Card>
       })}
       <div className="row"><button className="btn primary" onClick={() => save()} disabled={busy}>Save sources</button><span className="muted small">A newly connected source is pulled for today on the next tick; use Backfill for the past.</span></div>
@@ -185,22 +197,30 @@ function Sources() {
   )
 }
 
-// Connection is how Day reaches one Pocket app for you: through Pocket Core
-// (as you, nothing to paste), with your own URL and token, or not at all.
-function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasToken, test, direct }: {
+// Connection is how Day reaches one Pocket app or service for you: through
+// Pocket Core (as you, nothing to paste), with your own URL and token, or not
+// at all. A service through Pocket Core says whose key it comes with; extra
+// holds its settings that are not credentials (shown in every mode but off).
+function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasToken, test, direct, service, keySource, keyless, extra }: {
   app: string; mode: ConnMode; via: string; detail: string; core: boolean; onMode: (m: ConnMode) => void; onDisconnect: () => void
   hasToken: boolean; test: React.ReactNode; direct: React.ReactNode
+  service?: boolean; keySource?: string; keyless?: boolean; extra?: React.ReactNode
 }) {
   const ok = via !== ''
+  const cred = keyless ? 'URL' : service ? 'URL and key' : 'URL and token'
+  const whose = keySource === 'personal' ? (keyless ? ' (your own entry)' : ' (your own key)') : keySource === 'box' ? (keyless ? " (the box's address)" : " (the box's key)") : ''
+  const coreLine = service
+    ? `Connected through Pocket Core${whose}. Nothing to fill in; switch it off for yourself in Pocket Core → Settings → Apps acting for me.`
+    : 'Connected through Pocket Core, as you. Nothing to fill in; switch it off for yourself in Pocket Core → Settings → Apps acting for me.'
   const line = mode === 'off' ? `Off: Day does not read ${app}.`
-    : mode === 'core' ? (ok ? 'Connected through Pocket Core, as you. Nothing to fill in; switch it off for yourself in Pocket Core → Settings → Apps acting for me.' : `Not connected: ${detail}.`)
-    : (ok ? `Direct connection with your own ${app} URL and token; use Test connection to check it.` : `Not connected: ${detail || 'add the URL and a token'}.`)
+    : mode === 'core' ? (ok ? coreLine : `Not connected: ${detail}.`)
+    : (ok ? `Direct connection with your own ${app} ${cred}; use Test connection to check it.` : `Not connected: ${detail || `add the ${cred}`}.`)
   return (
     <div className="conn-block">
       <div className="conn-mode">
         <Segmented size="sm" value={mode} onChange={m => onMode(m as ConnMode)} options={[
           { value: 'core', label: 'Pocket Core', title: core ? 'Through Pocket Core: per person, nothing to paste' : 'There is no Pocket Core on this box' },
-          { value: 'direct', label: 'Direct', title: 'Your own URL and API token' },
+          { value: 'direct', label: 'Direct', title: `Your own ${cred}` },
           { value: 'off', label: 'Off' },
         ]} />
       </div>
@@ -210,6 +230,7 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
         <div className="row wrap">{test}{hasToken && <button className="btn sm ghost danger-text" onClick={onDisconnect} title="Remove the saved URL and token">Disconnect</button>}</div>
       </>}
       {mode === 'core' && <div className="row wrap">{test}</div>}
+      {mode !== 'off' && extra}
     </div>
   )
 }

@@ -64,28 +64,30 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 
 | Source | What lands on the day | Needs |
 |---|---|---|
-| **Dawarich** | distance, moving time, distance per mode, recognised stops | URL + API key |
-| **Immich** | photos and videos of the day as a thumbnail grid (proxied), places | URL + API key |
-| **Maloja** | listens, top artists, full track list | URL |
-| **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | URL + API key |
+| **Dawarich** | distance, moving time, distance per mode, recognised stops | Pocket Core service, or URL + API key |
+| **Immich** | photos and videos of the day as a thumbnail grid (proxied), places | Pocket Core service, or URL + API key |
+| **Maloja** | listens, top artists, full track list | Pocket Core service, or URL |
+| **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | Pocket Core service, or URL + API key |
 | **Pocket Money** | withdrawals with categories, totals per currency, read from its Firefly-compatible API; with Pocket Money's webhook a booking shows up within seconds (`MONEY_WEBHOOK_SECRET`) | Pocket Core link, or its `/firefly` URL + an API token (a Firefly III URL + personal access token works too) |
 | **Pocket Habits** | habits done, tracker values, the journal line — and on a day with nothing written here, its journal *is* the entry | Pocket Core link, or URL + token |
 | **Pocket Bookshelf** | books being read, started, finished | Pocket Core link, or URL + token |
 | **Pocket Travel** | the trip the day fell in, and which day of it | Pocket Core link, or URL + token |
 | **Pocket Kitchen** | what was cooked | Pocket Core link, or URL + token |
 | **Pocket Garage** | fill-ups and service records | Pocket Core link, or URL + token |
-| **PinePods** | podcast episodes and minutes per day (spread-out episodes count on each day) | URL + API key |
-| **Audiobookshelf** | audiobook and ABS-podcast listening sessions, per title | URL + admin API key |
-| **Jellyseerr** | films and series requested, and when they became available | URL + API key |
-| **Forgejo** | commits pushed per repository, new repositories, tags, pull requests | URL + read-only token |
-| **Nextcloud** | tasks completed (every list), events and contact birthdays, over CalDAV | URL + user + app password |
-| **Paperless-ngx** | documents added, with correspondent and type | URL + token |
+| **PinePods** | podcast episodes and minutes per day (spread-out episodes count on each day) | Pocket Core service, or URL + API key |
+| **Audiobookshelf** | audiobook and ABS-podcast listening sessions, per title | Pocket Core service (your own ABS account, or the box's admin key for an admin), or URL + admin API key |
+| **Jellyseerr** | films and series requested, and when they became available | Pocket Core service, or URL + API key |
+| **Forgejo** | commits pushed per repository, new repositories, tags, pull requests | Pocket Core service, or URL + read-only token |
+| **Nextcloud** | tasks completed (every list), events and contact birthdays, over CalDAV | Pocket Core service, or URL + user + app password |
+| **Paperless-ngx** | documents added, with correspondent and type | Pocket Core service, or URL + token |
 | **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | Pocket Core link, or URL + token |
 | **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
 
 All optional. A day only shows the sources you connected. With **Pocket Core** on the box: registers itself, publishes `day.entry_written`, `day.moment_created` and `day.story_created`, accepts paired-phone tokens, and shows “Sign in with Pocket Core” on the login page with no OIDC configuration at all.
 
 **The Pocket apps through Pocket Core.** Each Pocket app source (Habits, Bookshelf, Travel, Kitchen, Garage, Invoicing, Split, Inventory, Money) has a connection per person under Settings → Sources: **Pocket Core** (Day reads as you through a Core app link — a fresh five-minute token per fetch, one read-only scope per app, nothing to paste, and every person on the box gets their own), **Direct** (your own URL + API token) or **Off**. Until you choose, a saved token means Direct and otherwise Pocket Core. Switch a link off in Pocket Core (for yourself under Settings → Apps acting for me, or for the box under Links) and the next pull skips that source: the day is not marked failed, Settings says why. The scopes Day asks for: `habits:read`, `books:read`, `trips:read`, `cooklog:read`, `vehicles:read`, `invoices:read`, `groups:read`, `activity:read`, `transactions:read`.
+
+**The other services through Pocket Core.** Immich, Maloja, Dawarich, Jellystat, PinePods, Audiobookshelf, Jellyseerr, Forgejo, Nextcloud and Paperless-ngx have the same three modes, through Pocket Core *service connections*: on every pull and test Day asks Core for the service's address and your own key there (the box's key only when you are an admin), and keeps neither. A member with no account of their own in a service is “not connected” and the source is skipped; Settings says whose key a connected one uses. Until you choose, a saved key (for Maloja, a saved URL) means Direct, so an existing setup changes nothing. Filters that are not credentials (the Jellystat and Audiobookshelf users, the Forgejo user name) apply in every mode.
 
 ## AI (optional)
 

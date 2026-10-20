@@ -43,12 +43,27 @@ type linkWorld struct {
 	tokOff  map[string]bool             // "app scope" → only the token is refused
 	coreURL string
 	reg     json.RawMessage // the last manifest Day registered
+
+	// third-party services (see services_test.go)
+	svcs        map[string]*httptest.Server // type → fake service
+	svcCalls    map[string][]string         // type → "METHOD PATH?QUERY auth=…"
+	svcAsked    []string                    // "user type" credentials asked of Core
+	svcOff      map[string]string           // "user type" → state (status and credential refused)
+	svcCredOff  map[string]bool             // "user type" → only the credential is refused
+	svcPersonal map[string]bool             // "user type" → the person has their own key in Core
 }
 
 const day0 = "2026-09-01"
 
 func newLinkWorld(t *testing.T) *linkWorld {
-	w := &linkWorld{t: t, targets: map[string]*httptest.Server{}, calls: map[string][]string{}, off: map[string]string{}, tokOff: map[string]bool{}}
+	w := &linkWorld{t: t, targets: map[string]*httptest.Server{}, calls: map[string][]string{}, off: map[string]string{}, tokOff: map[string]bool{},
+		svcs: map[string]*httptest.Server{}, svcCalls: map[string][]string{}, svcOff: map[string]string{}, svcCredOff: map[string]bool{}, svcPersonal: map[string]bool{}}
+	for _, n := range serviceSourceOrder {
+		typ := serviceSources[n].typ
+		srv := httptest.NewServer(w.service(typ))
+		t.Cleanup(srv.Close)
+		w.svcs[typ] = srv
+	}
 	for _, n := range pocketSourceOrder {
 		slug := pocketSources[n].slug
 		srv := httptest.NewServer(w.target(slug))
@@ -87,7 +102,48 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 			}
 			out = append(out, map[string]any{"app": ps.slug, "scope": ps.scope, "state": state, "on": state == "on"})
 		}
+		for _, n := range serviceSourceOrder {
+			state := w.serviceState(user, serviceSources[n].typ)
+			out = append(out, map[string]any{"app": "service:" + serviceSources[n].typ, "scope": "account", "state": state, "on": state == "on"})
+		}
 		_ = json.NewEncoder(rw).Encode(out)
+	case "/api/v1/services/credential":
+		if r.Header.Get("Authorization") != "Bearer pca_day" || r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		var in struct {
+			User string `json:"user"`
+			Type string `json:"type"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		w.svcAsked = append(w.svcAsked, in.User+" "+in.Type)
+		state := w.serviceState(in.User, in.Type)
+		if state == "on" && w.svcCredOff[in.User+" "+in.Type] {
+			state = "off_person"
+		}
+		if state != "on" {
+			rw.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(rw).Encode(map[string]any{"error": in.Type + ": refused", "reason": state})
+			return
+		}
+		source, key := "box", "box-"+in.Type
+		if w.svcPersonal[in.User+" "+in.Type] {
+			source, key = "personal", "own-"+in.Type+"-"+strings.SplitN(in.User, "@", 2)[0]
+		}
+		fields := map[string]string{}
+		switch in.Type {
+		case "maloja": // keyless: the address alone
+			key = ""
+		case "nextcloud":
+			fields["USERNAME"] = strings.SplitN(in.User, "@", 2)[0] + "-nc"
+			fields["APP_PASSWORD"] = key
+		case "audiobookshelf", "forgejo", "paperless":
+			fields["TOKEN"] = key
+		default:
+			fields["API_KEY"] = key
+		}
+		_ = json.NewEncoder(rw).Encode(map[string]any{"type": in.Type, "name": in.Type, "url": w.svcs[in.Type].URL, "public_url": "https://" + in.Type + ".example", "key": key, "fields": fields, "source": source})
 	case "/api/v1/links/token":
 		if r.Header.Get("Authorization") != "Bearer pca_day" {
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -119,6 +175,93 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(rw, r)
 	}
+}
+
+// serviceState is a service link's state for a person: the owner (an admin)
+// gets the box's key, a member only their own.
+func (w *linkWorld) serviceState(user, typ string) string {
+	if s, ok := w.svcOff[user+" "+typ]; ok {
+		return s
+	}
+	switch {
+	case user == "owner@x" || w.svcPersonal[user+" "+typ]:
+		return "on"
+	case user == "member@x":
+		return "no_account"
+	}
+	return "unknown_user"
+}
+
+// service is one fake third-party service: it records how it was called and
+// answers the paths Day's Test and (Immich, Maloja, Audiobookshelf) Fetch read.
+func (w *linkWorld) service(typ string) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		auth := firstNonEmpty(r.Header.Get("x-api-key"), r.Header.Get("x-api-token"), r.Header.Get("Api-Key"), r.Header.Get("Authorization"))
+		if u, p, ok := r.BasicAuth(); ok {
+			auth = "basic " + u + ":" + p
+		}
+		w.mu.Lock()
+		w.svcCalls[typ] = append(w.svcCalls[typ], r.Method+" "+r.URL.Path+"?"+r.URL.RawQuery+" auth="+auth)
+		w.mu.Unlock()
+		write := func(s string) { _, _ = rw.Write([]byte(s)) }
+		switch p := r.URL.Path; {
+		case p == "/api/server/version":
+			write(`{"major":1,"minor":2,"patch":3}`)
+		case p == "/api/search/metadata":
+			write(`{"assets":{"items":[{"id":"a1","type":"IMAGE","localDateTime":"` + day0 + `T10:00:00.000Z"}],"nextPage":null}}`)
+		case strings.HasPrefix(p, "/api/assets/"):
+			rw.Header().Set("Content-Type", "image/jpeg")
+			write("jpeg")
+		case p == "/apis/mlj_1/numscrobbles":
+			write(`{"status":"ok","amount":5}`)
+		case p == "/apis/mlj_1/scrobbles":
+			write(`{"status":"ok","list":[],"pagination":{"next_page":null}}`)
+		case p == "/api/v1/timeline":
+			write(`{"days":[]}`)
+		case strings.HasPrefix(p, "/api/v1/users/") && strings.HasSuffix(p, "/activities/feeds"):
+			write(`[]`)
+		case strings.HasPrefix(p, "/api/data/user_history/"):
+			write(`{"data":[]}`)
+		case p == "/api/v1/health":
+			write(`{"status":"ok"}`)
+		case p == "/api/getHistory":
+			write(`{"current_page":1,"pages":1,"results":[]}`)
+		case p == "/api/data/get_user":
+			write(`{"retrieved_id":2}`)
+		case p == "/api/data/get_stats":
+			write(`{"PodcastsPlayed":1,"PodcastsAdded":2}`)
+		case p == "/api/sessions" || p == "/api/me/listening-sessions":
+			write(`{"total":3,"numPages":1,"sessions":[{"userId":"u1","libraryItemId":"li1","mediaType":"book","displayTitle":"Dune","date":"` + day0 + `","timeListening":600,"duration":3600}]}`)
+		case p == "/api/v1/request":
+			write(`{"pageInfo":{"results":4}}`)
+		case p == "/api/v1/user":
+			write(`{"login":"owner"}`)
+		case p == "/api/v1/version":
+			write(`{"version":"9.0"}`)
+		case strings.HasPrefix(p, "/remote.php/dav/calendars/"):
+			rw.WriteHeader(207)
+			write(`<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"></d:multistatus>`)
+		case p == "/api/documents/":
+			write(`{"count":7}`)
+		default:
+			rw.WriteHeader(http.StatusNotFound)
+		}
+	})
+}
+
+func (w *linkWorld) svcCallCount(typ string) int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return len(w.svcCalls[typ])
+}
+
+func (w *linkWorld) svcLastCall(typ string) string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if len(w.svcCalls[typ]) == 0 {
+		return ""
+	}
+	return w.svcCalls[typ][len(w.svcCalls[typ])-1]
 }
 
 // target is one fake Pocket app: it answers the paths Day reads and refuses a
@@ -343,7 +486,7 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 			t.Errorf("%s: %+v", n, ps)
 		}
 	}
-	if v.Sources["firefly"].App != "Pocket Money" || v.Sources["dawarich"].Pocket || v.Sources["dawarich"].Mode != "" {
+	if v.Sources["firefly"].App != "Pocket Money" || v.Sources["dawarich"].Pocket || !v.Sources["dawarich"].Service || v.Sources["weather"].Mode != "" {
 		t.Errorf("labels: %+v / %+v", v.Sources["firefly"], v.Sources["dawarich"])
 	}
 
@@ -473,7 +616,7 @@ func TestPocketSourceModes(t *testing.T) {
 	e.mu.Unlock()
 	// backfill counts only what is connected (kitchen off, garage link off)
 	st, _ := e.st.GetSettings(ctx, e.owner.ID)
-	if n := len(e.s.fetchers(ctx, e.owner, st)); n != len(pocketSourceOrder)-2 {
+	if n := len(e.s.fetchers(ctx, e.owner, st)); n != len(pocketSourceOrder)-2+len(serviceSourceOrder) {
 		t.Errorf("%d fetchers", n)
 	}
 

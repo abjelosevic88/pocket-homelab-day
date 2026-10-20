@@ -12,7 +12,7 @@ Everything belongs to the caller and nobody else sees it, admins included: entri
 | GET/PUT | `/auth/me` | profile, password change |
 | GET/POST/DELETE | `/tokens`, `/tokens/{id}` | personal access tokens |
 | GET/POST/PUT/DELETE | `/users`, `/users/{id}` | admin |
-| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`, plus for the Pocket app sources `mode` (`core` \| `direct` \| `off`; send it to choose) and, read-only, `pocket`, `app`, `via` (`core` \| `direct` \| `""` = not connected), `detail` (why not); `core_configured`. Secrets come back masked; a masked value means "keep" |
+| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`, plus for the Pocket app and third-party service sources `mode` (`core` \| `direct` \| `off`; send it to choose) and, read-only, `pocket` / `service`, `app`, `via` (`core` \| `direct` \| `""` = not connected), `detail` (why not), `key_source` (a service through Pocket Core: `personal` \| `box`); `core_configured`. Secrets come back masked; a masked value means "keep" |
 
 ## Days
 | Method | Path | Notes |

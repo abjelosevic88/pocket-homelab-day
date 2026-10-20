@@ -18,7 +18,17 @@ type Audiobookshelf struct {
 	BaseURL string
 	Token   string
 	Users   []string
-	HTTP    *http.Client
+	// Own reads only the token owner's sessions (/api/me/listening-sessions),
+	// for a person's own, non-admin key; the Users filter does not apply.
+	Own  bool
+	HTTP *http.Client
+}
+
+func (c *Audiobookshelf) sessionsPath() string {
+	if c.Own {
+		return "/api/me/listening-sessions"
+	}
+	return "/api/sessions"
 }
 
 // NewAudiobookshelf creates a fetcher.
@@ -54,6 +64,9 @@ func (c *Audiobookshelf) get(ctx context.Context, path string, q url.Values, v a
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
+		if c.Own {
+			return errors.New("audiobookshelf rejected the token")
+		}
 		return errors.New("audiobookshelf rejected the token (it needs an admin key to see every user's sessions)")
 	}
 	if res.StatusCode != http.StatusOK {
@@ -67,7 +80,7 @@ func (c *Audiobookshelf) Test(ctx context.Context) (string, error) {
 	var out struct {
 		Total int `json:"total"`
 	}
-	if err := c.get(ctx, "/api/sessions", url.Values{"itemsPerPage": {"1"}, "page": {"0"}}, &out); err != nil {
+	if err := c.get(ctx, c.sessionsPath(), url.Values{"itemsPerPage": {"1"}, "page": {"0"}}, &out); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Audiobookshelf reachable, %d listening sessions", out.Total), nil
@@ -76,7 +89,7 @@ func (c *Audiobookshelf) Test(ctx context.Context) (string, error) {
 // Fetch implements Fetcher.
 func (c *Audiobookshelf) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
 	names := map[string]string{}
-	if len(c.Users) > 0 {
+	if len(c.Users) > 0 && !c.Own {
 		var us struct {
 			Users []struct {
 				ID       string `json:"id"`
@@ -90,7 +103,7 @@ func (c *Audiobookshelf) Fetch(ctx context.Context, date string, loc *time.Locat
 		}
 	}
 	keep := func(userID string) bool {
-		if len(c.Users) == 0 {
+		if len(c.Users) == 0 || c.Own {
 			return true
 		}
 		for _, u := range c.Users {
@@ -126,7 +139,7 @@ func (c *Audiobookshelf) Fetch(ctx context.Context, date string, loc *time.Locat
 				} `json:"mediaMetadata"`
 			} `json:"sessions"`
 		}
-		if err := c.get(ctx, "/api/sessions", url.Values{"itemsPerPage": {"100"}, "page": {fmt.Sprint(page)}}, &out); err != nil {
+		if err := c.get(ctx, c.sessionsPath(), url.Values{"itemsPerPage": {"100"}, "page": {fmt.Sprint(page)}}, &out); err != nil {
 			return nil, err
 		}
 		older := 0

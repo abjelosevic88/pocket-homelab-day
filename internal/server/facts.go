@@ -16,8 +16,9 @@ import (
 )
 
 // fetchers builds one Fetcher per source that is connected for the person.
-// A Pocket app source in Pocket Core mode is included only while its link is
-// on, and asks Core for a fresh token on every fetch.
+// A source in Pocket Core mode is included only while its link is on, and
+// asks Core again on every fetch (a fresh token for a Pocket app, the
+// address and key for a service).
 func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings) map[string]sources.Fetcher {
 	states := s.sourceStates(ctx, u, st)
 	out := map[string]sources.Fetcher{}
@@ -30,27 +31,11 @@ func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings)
 			out[name] = pocketFetcher(name, s.pocketConn(u, name, src, ss.Mode))
 			continue
 		}
+		if _, ok := serviceSources[name]; ok {
+			out[name] = s.serviceFetcher(u, name, src, ss.Mode)
+			continue
+		}
 		switch name {
-		case "dawarich":
-			out[name] = sources.NewDawarich(src.URL, src.Key)
-		case "immich":
-			out[name] = sources.NewImmich(src.URL, src.Key)
-		case "maloja":
-			out[name] = sources.NewMaloja(src.URL)
-		case "jellystat":
-			out[name] = sources.NewJellystat(src.URL, src.Key, src.Extra)
-		case "pinepods":
-			out[name] = sources.NewPinePods(src.URL, src.Key)
-		case "audiobookshelf":
-			out[name] = sources.NewAudiobookshelf(src.URL, src.Key, src.Extra)
-		case "jellyseerr":
-			out[name] = sources.NewJellyseerr(src.URL, src.Key)
-		case "forgejo":
-			out[name] = sources.NewForgejo(src.URL, src.Key, src.Extra)
-		case "nextcloud":
-			out[name] = sources.NewNextcloud(src.URL, src.Key, src.Extra)
-		case "paperless":
-			out[name] = sources.NewPaperless(src.URL, src.Key, src.PublicURL)
 		case "weather":
 			out[name] = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
 		}
@@ -67,14 +52,16 @@ func (s *Server) userByID(ctx context.Context, userID int64) *store.User {
 	return u
 }
 
-// immich returns the user's Immich client when they configured one (thumbnails).
-func (s *Server) immich(ctx context.Context, userID int64) *sources.Immich {
-	st, _ := s.store.GetSettings(ctx, userID)
+// immich returns the user's Immich client when they connected it (thumbnails),
+// asking Pocket Core for the key on every call in Pocket Core mode.
+func (s *Server) immich(ctx context.Context, u *store.User) *sources.Immich {
+	st, _ := s.store.GetSettings(ctx, u.ID)
 	src := st.Sources["immich"]
-	if !src.Configured("immich") {
+	c, err := s.serviceConn(ctx, u, "immich", src, connMode("immich", src, s.core.Configured()))
+	if err != nil {
 		return nil
 	}
-	return sources.NewImmich(src.URL, src.Key)
+	return sources.NewImmich(c.URL, c.Key)
 }
 
 // frozen reports whether a day's facts are final: anything before yesterday.
@@ -146,7 +133,8 @@ func (s *Server) pullDayOnly(ctx context.Context, userID int64, date string, for
 			mu.Lock()
 			defer mu.Unlock()
 			if errors.Is(err, pocket.ErrNotConnected) {
-				// the Pocket Core link went off since the states were read: skipped, not failed
+				// the Pocket Core link went off since the states were read (or the
+				// person has no account of their own in the service): skipped, not failed
 				s.log.Debug("fact source not connected", "date", date, "source", name, "err", err)
 				return
 			}
@@ -449,7 +437,7 @@ func (s *Server) handleDayFact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleThumb(w http.ResponseWriter, r *http.Request) {
-	im := s.immich(r.Context(), userFrom(r.Context()).ID)
+	im := s.immich(r.Context(), userFrom(r.Context()))
 	if im == nil {
 		writeErr(w, http.StatusNotFound, "immich is not configured")
 		return

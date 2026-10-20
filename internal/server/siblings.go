@@ -15,6 +15,9 @@ import (
 
 // ---- Pocket app sources ----
 //
+// (The third-party services, Immich, Maloja, Dawarich…, use the same three
+// modes through Pocket Core service connections; see services.go.)
+//
 // The sources that are Pocket apps (Habits, Bookshelf, Travel, Kitchen,
 // Garage, Invoicing, Split, Inventory and Money) are reached per person in
 // one of three ways, chosen in Settings → Sources:
@@ -76,23 +79,54 @@ const (
 
 func validMode(m string) bool { return m == modeCore || m == modeDirect || m == modeOff }
 
-// connMode is the mode in effect for a Pocket app source: the chosen one;
-// else off when the source was switched off before modes existed, direct
-// when a token is saved (pasted tokens keep working until the person
-// switches), Pocket Core when the box has it, and direct otherwise.
-func connMode(src store.Source, coreOK bool) string {
+// connMode is the mode in effect for a source reached through Pocket Core or
+// directly (a Pocket app or a third-party service): the chosen one; else off
+// when the source was switched off before modes existed, direct when a
+// credential is saved (pasted tokens and keys keep working until the person
+// switches; for keyless Maloja a saved URL counts), Pocket Core when the box
+// has it, and direct otherwise.
+func connMode(name string, src store.Source, coreOK bool) string {
 	if validMode(src.Mode) {
 		return src.Mode
 	}
 	switch {
 	case !src.Enabled:
 		return modeOff
-	case src.Key != "":
+	case hasSavedCred(name, src):
 		return modeDirect
 	case coreOK:
 		return modeCore
 	}
 	return modeDirect
+}
+
+// hasSavedCred reports whether a direct connection was set up for the source.
+func hasSavedCred(name string, src store.Source) bool {
+	if _, ok := serviceSources[name]; ok && !store.NeedsKey(name) {
+		return src.URL != ""
+	}
+	return src.Key != ""
+}
+
+// connTarget is what a connectable source is in Pocket Core: the link's
+// target ("habits", or "service:immich" for a third-party service) and scope.
+type connTarget struct {
+	target  string
+	scope   string
+	app     string // display name
+	service bool
+}
+
+// connectable returns how a source is reached through Pocket Core; false for
+// the sources that never are (weather).
+func connectable(name string) (connTarget, bool) {
+	if ps, ok := pocketSources[name]; ok {
+		return connTarget{target: ps.slug, scope: ps.scope, app: ps.app}, true
+	}
+	if sv, ok := serviceSources[name]; ok {
+		return connTarget{target: servicePrefix + sv.typ, scope: serviceScope, app: sv.app, service: true}, true
+	}
+	return connTarget{}, false
 }
 
 func linkReason(app, reason string) string {
@@ -111,6 +145,8 @@ func linkReason(app, reason string) string {
 		return "you do not have access to " + app + " in Pocket Core"
 	case "unknown_user":
 		return "your email is not a person in Pocket Core"
+	case "no_account":
+		return "you have no account of your own in " + app + " yet; ask the admin or let a connector create one"
 	}
 	return ""
 }
@@ -118,9 +154,13 @@ func linkReason(app, reason string) string {
 // sourceState is how one source stands for a person.
 type sourceState struct {
 	Active bool   // pulled
-	Mode   string // Pocket app sources: the mode in effect
-	Via    string // Pocket app sources: "core" | "direct" | "" (not connected)
-	Detail string // Pocket app sources: why not connected
+	Mode   string // connectable sources: the mode in effect
+	Via    string // connectable sources: "core" | "direct" | "" (not connected)
+	Detail string // connectable sources: why not connected
+	// KeySource is whose key a service comes with through Pocket Core:
+	// "personal" (the person's own) or "box" (the box-wide one, admins only);
+	// "" until Day has asked Core for it once.
+	KeySource string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -139,8 +179,33 @@ func (s *Server) linkStates(ctx context.Context, email string) (map[string]core.
 	return out, nil
 }
 
+// directDetail says what a direct connection still lacks ("" = complete).
+func (s *Server) directDetail(ctx context.Context, name string, src store.Source) string {
+	if ps, ok := pocketSources[name]; ok {
+		switch {
+		case src.Key == "":
+			return "no token yet"
+		case src.URL == "" && s.resolveSibling(ctx, ps.slug) == "":
+			return "no URL yet"
+		}
+		return ""
+	}
+	switch {
+	case src.URL == "":
+		return "no URL yet"
+	case store.NeedsKey(name) && src.Key == "":
+		if name == "nextcloud" {
+			return "no app password yet"
+		}
+		return "no key yet"
+	case name == "nextcloud" && src.Extra == "":
+		return "no user name yet"
+	}
+	return ""
+}
+
 // sourceStates evaluates every source for a person, with at most one call
-// to Pocket Core (only when a Pocket app source is in Pocket Core mode).
+// to Pocket Core (only when a source is in Pocket Core mode).
 func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Settings) map[string]sourceState {
 	out := make(map[string]sourceState, len(store.SourceNames))
 	coreOK := s.core.Configured()
@@ -149,8 +214,8 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 	asked := false
 	for _, n := range store.SourceNames {
 		src := st.Sources[n]
-		ps, isPocket := pocketSources[n]
-		if !isPocket {
+		ct, ok := connectable(n)
+		if !ok {
 			active := src.Configured(n)
 			if n == "weather" {
 				active = src.Enabled && (st.HomeLat != 0 || st.HomeLon != 0)
@@ -158,17 +223,12 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 			out[n] = sourceState{Active: active}
 			continue
 		}
-		ss := sourceState{Mode: connMode(src, coreOK)}
+		ss := sourceState{Mode: connMode(n, src, coreOK)}
 		switch ss.Mode {
 		case modeOff:
 			ss.Detail = "switched off"
 		case modeDirect:
-			switch {
-			case src.Key == "":
-				ss.Detail = "no token yet"
-			case src.URL == "" && s.resolveSibling(ctx, ps.slug) == "":
-				ss.Detail = "no URL yet"
-			default:
+			if ss.Detail = s.directDetail(ctx, n, src); ss.Detail == "" {
 				ss.Via = modeDirect
 			}
 		default:
@@ -184,16 +244,19 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 				ss.Detail = "Pocket Core did not answer: " + linkErr.Error()
 				break
 			}
-			l, ok := links[ps.slug+" "+ps.scope]
+			l, ok := links[ct.target+" "+ct.scope]
 			switch {
 			case ok && l.On:
 				ss.Via = modeCore
+				if ct.service {
+					ss.KeySource = s.seenService(u.ID, n).source
+				}
 			case !ok && len(links) == 0:
 				ss.Detail = "Pocket Core has no Day links for you: your email is not a person there, or this Day version has not registered yet (it does within a minute of starting)"
 			case !ok:
-				ss.Detail = linkReason(ps.app, "not_declared")
+				ss.Detail = linkReason(ct.app, "not_declared")
 			default:
-				ss.Detail = firstNonEmpty(linkReason(ps.app, l.State), l.Detail, l.State)
+				ss.Detail = firstNonEmpty(linkReason(ct.app, l.State), l.Detail, l.State)
 			}
 		}
 		ss.Active = ss.Via != ""
@@ -275,9 +338,9 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 }
 
 // sourceLink is what a browser opens for "open in …" on a day: the public
-// URL set for the source, else where Pocket Core says the app lives, else
-// the source URL when it is not an internal one.
-func (s *Server) sourceLink(ctx context.Context, name string, src store.Source, ss sourceState) string {
+// URL set for the source, else where Pocket Core says the app (or service)
+// lives, else the source URL when it is not an internal one.
+func (s *Server) sourceLink(ctx context.Context, u *store.User, name string, src store.Source, ss sourceState) string {
 	if src.PublicURL != "" {
 		return src.PublicURL
 	}
@@ -295,12 +358,25 @@ func (s *Server) sourceLink(ctx context.Context, name string, src store.Source, 
 		}
 		return ""
 	}
-	u := src.URL
-	if isPocket && ps.prefix != "" {
-		u = strings.TrimSuffix(u, ps.prefix)
+	if _, isService := serviceSources[name]; isService && ss.Via == modeCore {
+		if u == nil {
+			return ""
+		}
+		seen := s.seenService(u.ID, name)
+		if seen.public != "" {
+			return seen.public
+		}
+		if seen.url != "" && !internal(seen.url) {
+			return seen.url
+		}
+		return ""
 	}
-	if u != "" && !internal(u) {
-		return u
+	url := src.URL
+	if isPocket && ps.prefix != "" {
+		url = strings.TrimSuffix(url, ps.prefix)
+	}
+	if url != "" && !internal(url) {
+		return url
 	}
 	return ""
 }

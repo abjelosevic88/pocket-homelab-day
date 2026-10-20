@@ -61,7 +61,7 @@ func (s *Server) buildDay(r *http.Request, date string) (*dayPage, error) {
 			continue
 		}
 		page.Sources = append(page.Sources, n)
-		if l := s.sourceLink(ctx, n, st.Sources[n], states[n]); l != "" {
+		if l := s.sourceLink(ctx, u, n, st.Sources[n], states[n]); l != "" {
 			page.Links[n] = l
 		}
 	}

@@ -25,8 +25,10 @@ func mask(s string) string {
 }
 
 // publicSource is a source with its secret masked and a "configured" flag.
-// Pocket app sources also say how they are reached (mode), whether that
-// works (via: core | direct | "") and why not (detail).
+// Pocket app and third-party service sources also say how they are reached
+// (mode), whether that works (via: core | direct | "") and why not (detail);
+// a service through Pocket Core says whose key it comes with (key_source:
+// personal | box).
 type publicSource struct {
 	URL        string `json:"url"`
 	Key        string `json:"key"`
@@ -36,21 +38,24 @@ type publicSource struct {
 	Configured bool   `json:"configured"`
 	NeedsKey   bool   `json:"needs_key"`
 	Pocket     bool   `json:"pocket"`
+	Service    bool   `json:"service"`
 	App        string `json:"app,omitempty"`
 	Mode       string `json:"mode,omitempty"`
 	Via        string `json:"via"`
 	Detail     string `json:"detail,omitempty"`
+	KeySource  string `json:"key_source,omitempty"`
 }
 
 func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Settings) map[string]any {
 	states := s.sourceStates(ctx, u, st)
+	s.probeKeySources(ctx, u, st, states)
 	srcs := map[string]publicSource{}
 	for _, n := range store.SourceNames {
 		src := st.Sources[n]
 		ss := states[n]
 		ps := publicSource{URL: src.URL, Key: mask(src.Key), PublicURL: src.PublicURL, Extra: src.Extra, Enabled: src.Enabled, Configured: ss.Active, NeedsKey: store.NeedsKey(n)}
-		if p, ok := pocketSources[n]; ok {
-			ps.Pocket, ps.App, ps.Mode, ps.Via, ps.Detail = true, p.app, ss.Mode, ss.Via, ss.Detail
+		if ct, ok := connectable(n); ok {
+			ps.Pocket, ps.Service, ps.App, ps.Mode, ps.Via, ps.Detail, ps.KeySource = !ct.service, ct.service, ct.app, ss.Mode, ss.Via, ss.Detail, ss.KeySource
 		}
 		srcs[n] = ps
 	}
@@ -210,7 +215,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		if p.Enabled != nil {
 			src.Enabled = *p.Enabled
 		}
-		if _, ok := pocketSources[name]; ok && p.Mode != nil && validMode(*p.Mode) {
+		if _, ok := connectable(name); ok && p.Mode != nil && validMode(*p.Mode) {
 			src.Mode = *p.Mode
 			src.Enabled = src.Mode != modeOff
 		}
@@ -261,31 +266,16 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 		extra = saved.Extra
 	}
 	var f sources.Fetcher
+	typed := in.Key != "" && !strings.Contains(in.Key, "••")
 	if _, ok := pocketSources[in.Which]; ok {
-		s.testPocketSource(ctx, w, u, in.Which, saved, url, key, in.Key != "" && !strings.Contains(in.Key, "••"))
+		s.testPocketSource(ctx, w, u, in.Which, saved, url, key, typed)
+		return
+	}
+	if _, ok := serviceSources[in.Which]; ok {
+		s.testServiceSource(ctx, w, u, in.Which, saved, url, key, extra, typed)
 		return
 	}
 	switch in.Which {
-	case "dawarich":
-		f = sources.NewDawarich(url, key)
-	case "immich":
-		f = sources.NewImmich(url, key)
-	case "maloja":
-		f = sources.NewMaloja(url)
-	case "jellystat":
-		f = sources.NewJellystat(url, key, extra)
-	case "pinepods":
-		f = sources.NewPinePods(url, key)
-	case "audiobookshelf":
-		f = sources.NewAudiobookshelf(url, key, extra)
-	case "jellyseerr":
-		f = sources.NewJellyseerr(url, key)
-	case "forgejo":
-		f = sources.NewForgejo(url, key, extra)
-	case "nextcloud":
-		f = sources.NewNextcloud(url, key, extra)
-	case "paperless":
-		f = sources.NewPaperless(url, key, saved.PublicURL)
 	case "weather":
 		f = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
 	case "ai":
@@ -336,7 +326,7 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 // token typed into the form is tried as is; otherwise the saved mode decides
 // (direct with the saved URL and token, Pocket Core with a fresh link token).
 func (s *Server) testPocketSource(ctx context.Context, w http.ResponseWriter, u *store.User, name string, saved store.Source, url, key string, typed bool) {
-	mode := connMode(saved, s.core.Configured())
+	mode := connMode(name, saved, s.core.Configured())
 	if typed {
 		mode = modeDirect
 	}
@@ -354,6 +344,29 @@ func (s *Server) testPocketSource(ctx context.Context, w http.ResponseWriter, u 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg + how})
+}
+
+// testServiceSource checks a third-party service the same way: a key typed
+// into the form is tried directly; otherwise the saved mode decides (direct
+// with what the form shows, falling back to the saved values, or Pocket Core
+// with the address and key Core hands out right now).
+func (s *Server) testServiceSource(ctx context.Context, w http.ResponseWriter, u *store.User, name string, saved store.Source, url, key, extra string, typed bool) {
+	mode := connMode(name, saved, s.core.Configured())
+	if typed {
+		mode = modeDirect
+	}
+	src := saved
+	if mode == modeDirect {
+		src.URL, src.Key, src.Extra = url, key, extra
+	} else {
+		src.Extra = extra // non-credential settings (user filters) as shown in the form
+	}
+	msg, err := s.serviceFetcher(u, name, src, mode).Test(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg})
 }
 
 func (s *Server) handleGeocode(w http.ResponseWriter, r *http.Request) {

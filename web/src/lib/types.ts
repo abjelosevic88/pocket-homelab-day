@@ -4,8 +4,9 @@ export interface Currency { code: string; name: string; decimals: number }
 
 export type ConnMode = 'core' | 'direct' | 'off'
 // pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
-// via says whether that works ('' = not connected) and detail why not.
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string }
+// service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
+// via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box' }
 export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'paperless' | 'invoicing' | 'split' | 'inventory'
 export interface Settings {
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'

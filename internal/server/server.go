@@ -55,6 +55,7 @@ type Server struct {
 	coreOK   bool
 	coreErr  string
 	resolved map[string]resolvedURL
+	svc      serviceMemo // whose key each service came with through Core (never the key)
 }
 
 type resolvedURL struct {
@@ -154,9 +155,10 @@ func (s *Server) seedOwner(ctx context.Context) error {
 		st.HomeLat, st.HomeLon, st.HomePlace = s.cfg.HomeLat, s.cfg.HomeLon, s.cfg.HomePlace
 		changed = true
 	}
-	// A Pocket app source's values are copied once: clearing them in Settings
-	// (Disconnect, to switch over to Pocket Core) must not bring them back at
-	// the next start. A value already there counts as copied.
+	// A connectable source's values (Pocket apps and third-party services) are
+	// copied once: clearing them in Settings (Disconnect, to switch over to
+	// Pocket Core) must not bring them back at the next start. A value
+	// already there counts as copied.
 	once := func(name, field string, dst *string, v string) {
 		key := fmt.Sprintf("seeded:%d:src_%s_%s", owner, name, field)
 		if _, _, done := s.store.CacheGet(ctx, key); done {
@@ -169,7 +171,7 @@ func (s *Server) seedOwner(ctx context.Context) error {
 	}
 	for name, se := range s.cfg.Sources {
 		src := st.Sources[name]
-		if _, ok := pocketSources[name]; ok {
+		if _, ok := connectable(name); ok {
 			once(name, "url", &src.URL, se.URL)
 			once(name, "key", &src.Key, se.Key)
 			once(name, "public", &src.PublicURL, se.PublicURL)
@@ -470,6 +472,8 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		Publishes: []string{"day.entry_written", "day.moment_created", "day.story_created"},
 		// Read the person's own data in the other Pocket apps (see siblings.go).
 		Uses: pocketUses(),
+		// Reach the person's third-party services through Core (see services.go).
+		Services: serviceUses(),
 	}
 	if s.cfg.BaseURL != "" {
 		// ask Core for a relying-party client so "Sign in with Pocket Core" needs no configuration

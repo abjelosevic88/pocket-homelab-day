@@ -70,11 +70,38 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 
 plus `GET /api/v1/auth/me` (and the open `/healthz`) for “Test connection”. A link that is off — or a person Core does not let use the app — means the source is skipped for the day, not recorded as failed; Settings → Sources says why (“you switched the Day → Pocket Garage link off …”). If Core does not answer, sources in Pocket Core mode are skipped for that pull. **Disconnect** (Direct) clears the URL and token; values from the environment are copied into the owner's settings once, so a disconnected token stays gone after a restart.
 
+### Third-party services: Pocket Core, Direct or Off
+
+The other sources (`IMMICH`, `MALOJA`, `DAWARICH`, `JELLYSTAT`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`, `PAPERLESS`) have the same three modes, through Pocket Core **service connections** (Core v0.15+). Day lists them in its manifest under `services`, so Core shows a “Use your Immich” link per service with the admin's switch and each person's:
+
+| Mode | How |
+|---|---|
+| **Pocket Core** | on every pull, test and Immich thumbnail Day asks Core (`POST /api/v1/services/credential`) for the service's address and the person's credential there, and keeps neither. The person's own key (set in Core by hand or by a connector) is used when there is one; the box's key only when the person is an admin. A member with no account of their own gets `no_account`: “not connected”, the source is skipped, nothing fails. |
+| **Direct** | the URL and key in Settings (or from the environment, for the owner), as before. |
+| **Off** | not pulled. |
+
+Not chosen yet: Direct when a key is saved (Maloja, which needs no key: when a URL is saved), Pocket Core on a box with Core, Direct otherwise; switched off before modes existed counts as Off. Settings → Sources says “Connected through Pocket Core (your own key)” or “(the box's key)”, or why not (“you have no account of your own in Immich yet; ask the admin or let a connector create one”). Whether a service is on comes from `GET /api/v1/links/status` (`service:<type>`, scope `account`); whose key it is, from the last credential Day was handed (the Settings page asks once when it does not know yet).
+
+| Source | Core type | Credential from Core | How Day sends it |
+|---|---|---|---|
+| Immich | `immich` | `API_KEY` | `x-api-key` header (also for thumbnails) |
+| Maloja | `maloja` | — (address only) | none, the read API is open |
+| Dawarich | `dawarich` | `API_KEY` | `api_key` query parameter |
+| Jellystat | `jellystat` | `API_KEY` | `x-api-token` header |
+| PinePods | `pinepods` | `API_KEY` | `Api-Key` header |
+| Audiobookshelf | `audiobookshelf` | `TOKEN` | `Authorization: Bearer`; with the person's own key Day reads `/api/me/listening-sessions` (their sessions), with the box's admin key `/api/sessions` and the users filter |
+| Jellyseerr | `jellyseerr` | `API_KEY` | `X-Api-Key` header |
+| Forgejo | `forgejo` | `TOKEN` | `Authorization: token …` |
+| Nextcloud | `nextcloud` | `USERNAME` + `APP_PASSWORD` | basic auth (CalDAV); the user name typed in Settings is the fallback |
+| Paperless-ngx | `paperless` | `TOKEN` | `Authorization: Token …`; document links use the Public URL set here, else Core's public URL |
+
+`_EXTRA` values that are not credentials (the Jellyfin user for Jellystat, the Audiobookshelf users, the Forgejo user name) and `_PUBLIC_URL` apply in every mode. **Disconnect** clears the URL and key (and the Nextcloud user name); environment values are copied once, like the Pocket apps'.
+
 Inside Docker, reach sibling containers by service name or `http://host.docker.internal:PORT` with `extra_hosts: ["host.docker.internal:host-gateway"]`.
 
 ## How facts are pulled
 
-- Every 30 minutes the server pulls **today and yesterday** from every connected source (for a Pocket app in Pocket Core mode: while its link is on), in parallel, with a 90-second budget per source.
+- Every 30 minutes the server pulls **today and yesterday** from every connected source (for a source in Pocket Core mode: while its link is on, and for a service while the person has an account there), in parallel, with a 90-second budget per source.
 - Days before yesterday are **frozen**: once a source has answered for a day it is not asked again. “↻ Pull again” on a day, or a forced backfill, re-fetches.
 - A failed fetch keeps the earlier payload and marks the card *stale*.
 - The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS` for every account with their own sources, one day every 1.5 s, skipping days that already have every source.
