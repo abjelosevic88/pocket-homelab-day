@@ -88,6 +88,9 @@ func mustLoad() (*config.Config, *slog.Logger, *store.Store) {
 		os.Exit(1)
 	}
 	log := newLogger(cfg)
+	for _, w := range cfg.Warnings {
+		log.Warn(w)
+	}
 	st, err := store.Open(cfg.DBPath, log)
 	if err != nil {
 		log.Error("open database", "path", cfg.DBPath, "err", err)

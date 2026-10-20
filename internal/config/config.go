@@ -71,6 +71,9 @@ type Config struct {
 	CoreAppURL          string // how Core reaches this app; defaults to BASE_URL
 
 	DemoData bool
+
+	// Warnings are logged once the logger exists (settings that are ignored).
+	Warnings []string
 }
 
 // SourceEnv is one integration seeded from the environment.
@@ -82,7 +85,7 @@ type SourceEnv struct {
 }
 
 // SourceNames lists every data source, in display order.
-var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "bookshelf", "travel", "kitchen", "garage", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "paperless", "invoicing", "split", "inventory", "weather"}
+var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "bookshelf", "travel", "kitchen", "garage", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "documents", "invoicing", "split", "inventory", "weather"}
 
 func env(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
@@ -198,6 +201,10 @@ func Load() (*Config, error) {
 		if se.URL != "" || se.Key != "" || se.PublicURL != "" || se.Extra != "" {
 			c.Sources[name] = se
 		}
+	}
+	// Paperless-ngx was replaced by Pocket Documents (the "documents" source).
+	if env("PAPERLESS_URL", "") != "" {
+		c.Warnings = append(c.Warnings, "PAPERLESS_URL is set but ignored: Pocket Day reads documents from Pocket Documents now (Settings → Sources, through Pocket Core or DOCUMENTS_URL + DOCUMENTS_TOKEN); remove the PAPERLESS_* variables")
 	}
 	switch c.AuthMode {
 	case "local", "proxy", "none":

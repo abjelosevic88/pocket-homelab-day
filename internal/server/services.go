@@ -17,7 +17,7 @@ import (
 // ---- third-party service sources ----
 //
 // The sources that are not Pocket apps (Immich, Maloja, Dawarich, Jellystat,
-// PinePods, Audiobookshelf, Jellyseerr, Forgejo, Nextcloud, Paperless) have
+// PinePods, Audiobookshelf, Jellyseerr, Forgejo, Nextcloud) have
 // the same three modes as the Pocket ones (see siblings.go):
 //
 //   - core: Day asks Pocket Core for the service's address and the person's
@@ -49,7 +49,7 @@ type serviceSource struct {
 }
 
 // serviceSourceOrder is the order the services are declared in.
-var serviceSourceOrder = []string{"immich", "maloja", "dawarich", "jellystat", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "paperless"}
+var serviceSourceOrder = []string{"immich", "maloja", "dawarich", "jellystat", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud"}
 
 var serviceSources = map[string]serviceSource{
 	"immich":         {typ: "immich", app: "Immich", reason: "Photos and videos of the day", keyField: "API_KEY"},
@@ -61,7 +61,6 @@ var serviceSources = map[string]serviceSource{
 	"jellyseerr":     {typ: "jellyseerr", app: "Jellyseerr", reason: "Films and series you requested", keyField: "API_KEY"},
 	"forgejo":        {typ: "forgejo", app: "Forgejo", reason: "What you pushed", keyField: "TOKEN"},
 	"nextcloud":      {typ: "nextcloud", app: "Nextcloud", reason: "Tasks done, events and birthdays", keyField: "APP_PASSWORD"},
-	"paperless":      {typ: "paperless", app: "Paperless-ngx", reason: "Documents added", keyField: "TOKEN"},
 }
 
 // serviceUses is the manifest's "services": one per service source.
@@ -200,8 +199,6 @@ func serviceClient(name string, c *serviceCred, src store.Source) sources.Fetche
 		return sources.NewForgejo(c.URL, c.Key, src.Extra)
 	case "nextcloud":
 		return sources.NewNextcloud(c.URL, c.Key, c.User)
-	case "paperless":
-		return sources.NewPaperless(c.URL, c.Key, c.PublicURL)
 	}
 	return nil
 }

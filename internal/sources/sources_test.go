@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/abjelosevic88/pocket-homelab-day/internal/pocket"
 )
 
 func TestMalojaKeepsOnlyTheLocalDay(t *testing.T) {
@@ -89,5 +92,72 @@ func TestActivityMoneyPerCurrency(t *testing.T) {
 	a.Finish()
 	if a.Cur != "EUR" || a.Amount != 17600 {
 		t.Fatalf("got %s %.2f, want EUR 17600", a.Cur, a.Amount)
+	}
+}
+
+// Pocket Documents: the list filtered by added date (whole UTC dates), only
+// the local day kept, imports from Paperless left out, links relative.
+func TestDocumentsAddedOnTheLocalDay(t *testing.T) {
+	loc, _ := time.LoadLocation("Europe/Berlin")
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer pd_test" {
+			w.WriteHeader(401)
+			return
+		}
+		if r.URL.Path != "/api/v1/documents" {
+			w.WriteHeader(404)
+			return
+		}
+		query = r.URL.RawQuery
+		q := r.URL.Query()
+		all := []map[string]any{
+			{"id": 1, "title": "Day before", "added_at": "2026-10-16T21:30:00Z", "source": "web"},
+			{"id": 2, "title": "Water bill", "added_at": "2026-10-16T22:30:00.123456Z", "source": "mail", "correspondent_name": "ViK", "document_type_name": "Invoice", "tags": []int{3}},
+			{"id": 3, "title": "", "original_name": "scan-0042.pdf", "added_at": "2026-10-17T09:15:00Z", "source": "consume"},
+			{"id": 4, "title": "Old lease", "added_at": "2026-10-17T10:00:00Z", "source": "paperless", "document_type_name": "Contract"},
+			{"id": 5, "title": "Payslip", "added_at": "2026-10-17T15:00:00Z", "source": "web", "document_type_name": "Invoice"},
+			{"id": 6, "title": "Next day", "added_at": "2026-10-17T22:00:00Z", "source": "web"},
+		}
+		out := []map[string]any{}
+		for _, d := range all { // the API's filter: added_at between whole UTC dates
+			at := d["added_at"].(string)
+			if at >= q.Get("added_from") && at <= q.Get("added_to")+"T23:59:59.999Z" {
+				out = append(out, d)
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": out, "count": len(out)})
+	}))
+	defer srv.Close()
+	res, err := NewDocuments(pocket.Fixed(srv.URL, "pd_test", 5*time.Second)).Fetch(context.Background(), "2026-10-17", loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"added_from=2026-10-16", "added_to=2026-10-17", "sort=added", "no_facets=1", "limit=500"} {
+		if !strings.Contains(query, want) {
+			t.Errorf("query %q lacks %s", query, want)
+		}
+	}
+	a := res.Payload.(Activity)
+	if a.Count != 3 || len(a.Items) != 3 {
+		t.Fatalf("activity = %+v", a)
+	}
+	first := a.Items[0]
+	if first.Title != "Water bill" || first.Time != "00:30" || first.Sub != "ViK · Invoice" || first.Group != "Invoice" || first.Ref != "2" || first.URL != "/documents/2" {
+		t.Errorf("first = %+v", first)
+	}
+	if a.Items[1].Title != "scan-0042.pdf" || a.Items[1].Time != "11:15" || a.Items[2].Title != "Payslip" {
+		t.Errorf("items = %+v", a.Items)
+	}
+	if len(a.Top) != 1 || a.Top[0].Name != "Invoice" || a.Top[0].Count != 2 {
+		t.Errorf("top = %+v", a.Top)
+	}
+	if res.Headline != 3 || res.Summary != "3 documents · Water bill" {
+		t.Errorf("headline %v summary %q", res.Headline, res.Summary)
+	}
+
+	// a rejected token is an error, not an empty day
+	if _, err := NewDocuments(pocket.Fixed(srv.URL, "pd_wrong", 5*time.Second)).Fetch(context.Background(), "2026-10-17", loc); err == nil {
+		t.Error("a rejected token gave no error")
 	}
 }

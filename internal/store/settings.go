@@ -14,7 +14,7 @@ const DefaultTitle = "Pocket Day"
 const DefaultPrompt = "What made today today?"
 
 // SourceNames lists every data source, in display order.
-var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "bookshelf", "travel", "kitchen", "garage", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "paperless", "invoicing", "split", "inventory", "weather"}
+var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "bookshelf", "travel", "kitchen", "garage", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "documents", "invoicing", "split", "inventory", "weather"}
 
 func defaultSettings() Settings {
 	st := Settings{Title: DefaultTitle, DateFormat: "auto", TimeFormat: "auto", WeekStart: "mon", HomeCurrency: "EUR", DistanceUnit: "km", Prompt: DefaultPrompt, BackfillDays: 90,

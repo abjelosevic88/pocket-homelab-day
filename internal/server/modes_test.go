@@ -12,9 +12,9 @@ import (
 
 // modeTargets is every target Day reports, in Core's names: the Pocket apps
 // (the money source as "money") and the services.
-var modeTargets = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "money",
+var modeTargets = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "money",
 	"service:immich", "service:maloja", "service:dawarich", "service:jellystat", "service:pinepods", "service:audiobookshelf",
-	"service:jellyseerr", "service:forgejo", "service:nextcloud", "service:paperless"}
+	"service:jellyseerr", "service:forgejo", "service:nextcloud"}
 
 // expModes is "user target mode" for every target: def, except the given ones.
 func expModes(user, def string, except map[string]string) []string {

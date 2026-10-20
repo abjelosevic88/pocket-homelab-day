@@ -248,3 +248,55 @@ func TestFactsAndSettingsArePerUser(t *testing.T) {
 		t.Fatalf("owner = %d", st.OwnerID(ctx))
 	}
 }
+
+// TestDocumentsMigrationKeepsPaperlessDays: 0005 moves the facts and pins
+// frozen while Day read Paperless-ngx to the "documents" source, per person,
+// payload untouched; a day that already has documents facts keeps both.
+func TestDocumentsMigrationKeepsPaperlessDays(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	st, err := Open(path, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	a, b := &User{Email: "a@x", Role: "admin"}, &User{Email: "b@x", Role: "member"}
+	_ = st.CreateUser(ctx, a)
+	_ = st.CreateUser(ctx, b)
+	old := `{"count":1,"items":[{"time":"18:00","title":"Electricity bill","sub":"EDP · Invoice","ref":"12","url":"https://paperless.example/documents/12/details"}]}`
+	_ = st.PutFact(ctx, a.ID, &Fact{Date: "2026-09-01", Source: "paperless", Payload: []byte(old), Headline: 1, Summary: "1 document · Electricity bill"})
+	_ = st.PutFact(ctx, b.ID, &Fact{Date: "2026-09-01", Source: "paperless", Payload: []byte(`{"count":2,"items":[]}`), Headline: 2})
+	_ = st.PutFact(ctx, a.ID, &Fact{Date: "2026-09-02", Source: "paperless", Payload: []byte(`{"count":3,"items":[]}`), Headline: 3})
+	_ = st.PutFact(ctx, a.ID, &Fact{Date: "2026-09-02", Source: "documents", Payload: []byte(`{"count":4,"items":[]}`), Headline: 4})
+	_ = st.CreatePin(ctx, &Pin{UserID: a.ID, Date: "2026-09-01", Source: "paperless", Ref: "paperless:12", Title: "Electricity bill"})
+	if _, err := st.DB.Exec(`DELETE FROM schema_migrations WHERE name = '0005_documents_source.sql'`); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+
+	st, err = Open(path, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	fa, _ := st.FactsForDay(ctx, a.ID, "2026-09-01")
+	if f, ok := fa["documents"]; !ok || string(f.Payload) != old || f.Headline != 1 || f.Summary != "1 document · Electricity bill" {
+		t.Errorf("owner's Paperless day: %+v", fa)
+	}
+	if _, ok := fa["paperless"]; ok {
+		t.Error("paperless fact left next to the renamed one")
+	}
+	if fb, _ := st.FactsForDay(ctx, b.ID, "2026-09-01"); fb["documents"].Headline != 2 || len(fb) != 1 {
+		t.Errorf("member's Paperless day: %+v", fb)
+	}
+	if f2, _ := st.FactsForDay(ctx, a.ID, "2026-09-02"); f2["documents"].Headline != 4 || f2["paperless"].Headline != 3 {
+		t.Errorf("a day with both: %+v", f2)
+	}
+	if have := st.FactSources(ctx, a.ID, "2026-09-01"); !have["documents"] {
+		t.Error("the renamed day would be pulled again")
+	}
+	pins, _ := st.ListPins(ctx, a.ID, "2026-09-01", "2026-09-01")
+	if len(pins) != 1 || pins[0].Source != "documents" || pins[0].Ref != "documents:12" {
+		t.Errorf("pins: %+v", pins)
+	}
+}

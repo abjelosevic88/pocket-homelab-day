@@ -239,7 +239,7 @@ func demoActivities(rng *rand.Rand, date string, daysAgo int) map[string]sources
 	if daysAgo%7 == 3 {
 		a := sources.Activity{Items: []sources.ActivityItem{{Time: clock(18), Title: "Electricity bill", Sub: "EDP · Invoice", Group: "Invoice"}}}
 		a.Finish()
-		out["paperless"] = a
+		out["documents"] = a
 	}
 	return out
 }

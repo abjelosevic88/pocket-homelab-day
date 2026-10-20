@@ -19,7 +19,7 @@ import (
 // modes through Pocket Core service connections; see services.go.)
 //
 // The sources that are Pocket apps (Habits, Bookshelf, Travel, Kitchen,
-// Garage, Invoicing, Split, Inventory and Money) are reached per person in
+// Garage, Invoicing, Split, Inventory, Documents and Money) are reached per person in
 // one of three ways, chosen in Settings → Sources:
 //
 //   - core: Day acts for the person through a Pocket Core app link. Every
@@ -43,7 +43,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "firefly"}
+var pocketSourceOrder = []string{"habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"habits":    {slug: "habits", app: "Pocket Habits", scope: "habits:read", reason: "Your habits in the journal"},
@@ -54,6 +54,8 @@ var pocketSources = map[string]pocketSource{
 	"invoicing": {slug: "invoicing", app: "Pocket Invoicing", scope: "invoices:read", reason: "Invoices and payments"},
 	"split":     {slug: "split", app: "Pocket Split", scope: "groups:read", reason: "Shared expenses"},
 	"inventory": {slug: "inventory", app: "Pocket Inventory", scope: "activity:read", reason: "Inventory activity"},
+	// Pocket Documents replaced Paperless-ngx (a service source until then).
+	"documents": {slug: "documents", app: "Pocket Documents", scope: "documents:read", reason: "Documents you added on a day, in your journal"},
 	// The money source keeps its old id so the days frozen while it read
 	// Firefly III stay as they are; it now reads Pocket Money's
 	// Firefly-compatible API.
@@ -331,6 +333,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewSplit(conn)
 	case "inventory":
 		return sources.NewInventory(conn)
+	case "documents":
+		return sources.NewDocuments(conn)
 	case "firefly":
 		return sources.NewFirefly(conn)
 	}

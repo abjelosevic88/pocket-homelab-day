@@ -5,18 +5,18 @@ import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
 import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
 
-const ACT_ORDER = ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'jellyseerr', 'paperless', 'invoicing', 'split', 'inventory']
+const ACT_ORDER = ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'jellyseerr', 'documents', 'invoicing', 'split', 'inventory']
 import { Card, Empty, Loading, useAsync } from '../components/ui'
 import { StoryCard, useAI } from '../components/ai'
 import { Ring } from './Calendar'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'jellyseerr' | 'paperless'
+type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'jellyseerr' | 'documents'
 const METRICS: { id: Metric; label: string; icon: string }[] = [
   { id: 'immich', label: 'Photos', icon: '📷' }, { id: 'dawarich', label: 'Distance', icon: '🗺' }, { id: 'maloja', label: 'Music', icon: '🎧' },
   { id: 'pinepods', label: 'Podcasts', icon: '🎙' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: '📖' },
   { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' }, { id: 'forgejo', label: 'Code', icon: '⌨️' }, { id: 'nextcloud', label: 'Tasks', icon: '☑️' },
-  { id: 'jellyseerr', label: 'Requests', icon: '🎬' }, { id: 'paperless', label: 'Documents', icon: '🗂' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'written', label: 'Written', icon: '✎' },
+  { id: 'jellyseerr', label: 'Requests', icon: '🎬' }, { id: 'documents', label: 'Documents', icon: '🗂' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'written', label: 'Written', icon: '✎' },
 ]
 const compact = (n: number) => n >= 10000 ? new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n) : Math.round(n).toLocaleString()
 function money(v: number, cur: string, short = true) {

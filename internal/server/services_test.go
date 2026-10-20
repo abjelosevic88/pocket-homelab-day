@@ -25,7 +25,6 @@ var wantServiceAuth = map[string]string{
 	"jellyseerr":     "auth=box-jellyseerr", // X-Api-Key
 	"forgejo":        "auth=token box-forgejo",
 	"nextcloud":      "auth=basic owner-nc:box-nextcloud", // USERNAME + APP_PASSWORD
-	"paperless":      "auth=Token box-paperless",
 }
 
 func (e *linkEnv) askedFor(typ string) int {
@@ -65,7 +64,7 @@ func TestManifestDeclaresServices(t *testing.T) {
 		got = append(got, sv.Type)
 	}
 	sort.Strings(got)
-	want := "audiobookshelf dawarich forgejo immich jellyseerr jellystat maloja nextcloud paperless pinepods"
+	want := "audiobookshelf dawarich forgejo immich jellyseerr jellystat maloja nextcloud pinepods"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("services\n got %s\nwant %s", strings.Join(got, " "), want)
 	}
@@ -245,9 +244,9 @@ func TestServiceModes(t *testing.T) {
 		t.Errorf("forgejo after disconnect: %+v", f)
 	}
 	// direct says what is missing
-	e.do(e.ownerTok, "PUT", "/settings", map[string]any{"sources": map[string]any{"paperless": map[string]any{"mode": "direct"}}})
-	if p := e.settings(e.ownerTok).Sources["paperless"]; p.Via != "" || p.Detail != "no URL yet" {
-		t.Errorf("paperless direct with nothing: %+v", p)
+	e.do(e.ownerTok, "PUT", "/settings", map[string]any{"sources": map[string]any{"jellyseerr": map[string]any{"mode": "direct"}}})
+	if p := e.settings(e.ownerTok).Sources["jellyseerr"]; p.Via != "" || p.Detail != "no URL yet" {
+		t.Errorf("jellyseerr direct with nothing: %+v", p)
 	}
 }
 

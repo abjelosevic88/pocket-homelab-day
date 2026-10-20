@@ -100,7 +100,7 @@ var Activities = map[string]ActivityMeta{
 	"jellyseerr":     {Label: "Requests", One: "request", Many: "requests", Unit: "count", Verb: "with a film or show requested", Group: "kinds"},
 	"forgejo":        {Label: "Code", One: "repository", Many: "repositories", Unit: "qty", QtyOne: "commit", QtyMany: "commits", Verb: "with commits pushed", Group: "repositories"},
 	"nextcloud":      {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with tasks done", Group: "lists"},
-	"paperless":      {Label: "Documents", One: "document", Many: "documents", Unit: "count", Verb: "with documents filed", Group: "types"},
+	"documents":      {Label: "Documents", One: "document", Many: "documents", Unit: "count", Verb: "with documents filed", Group: "types"},
 	"invoicing":      {Label: "Invoices", One: "item", Many: "items", Unit: "amount", Verb: "with invoicing", Group: "clients"},
 	"split":          {Label: "Shared costs", One: "expense", Many: "expenses", Unit: "amount", Verb: "with shared costs", Group: "groups"},
 	"inventory":      {Label: "Inventory", One: "change", Many: "changes", Unit: "count", Verb: "with inventory changes", Group: "items"},

@@ -206,7 +206,7 @@ function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'k
 function Preview({ date, onClose }: { date: string; onClose: () => void }) {
   const { data, loading } = useAsync(() => api.get<DayPage>(`${V1}/days/${date}`), [date])
   const photos = (data?.facts?.immich?.payload as Photos | null)?.items?.filter(p => p.type === 'IMAGE').slice(0, 6) || []
-  const order = ['travel', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'forgejo', 'firefly', 'split', 'invoicing', 'paperless', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
+  const order = ['travel', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
   return (
     <aside className="cal2-panel">
       <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button></div>

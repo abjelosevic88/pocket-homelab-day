@@ -21,14 +21,16 @@ import (
 
 // The routes each target allows a pcx_ token, exactly as the targets offer them.
 var fakeLinkRoutes = map[string][]*regexp.Regexp{
-	"habits:read":       {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
-	"books:read":        {regexp.MustCompile(`^/api/v1/books(/\d+)?$`)},
-	"trips:read":        {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
-	"cooklog:read":      {regexp.MustCompile(`^/api/v1/cooklog$`)},
-	"vehicles:read":     {regexp.MustCompile(`^/api/v1/vehicles(/\d+(/fuel|/records)?)?$`)},
-	"invoices:read":     {regexp.MustCompile(`^/api/v1/invoices(/\d+)?$`), regexp.MustCompile(`^/api/v1/payments$`)},
-	"groups:read":       {regexp.MustCompile(`^/api/v1/groups(/\d+(/expenses)?)?$`), regexp.MustCompile(`^/api/v1/categories$`)},
-	"activity:read":     {regexp.MustCompile(`^/api/v1/activity$`)},
+	"habits:read":   {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
+	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`)},
+	"trips:read":    {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
+	"cooklog:read":  {regexp.MustCompile(`^/api/v1/cooklog$`)},
+	"vehicles:read": {regexp.MustCompile(`^/api/v1/vehicles(/\d+(/fuel|/records)?)?$`)},
+	"invoices:read": {regexp.MustCompile(`^/api/v1/invoices(/\d+)?$`), regexp.MustCompile(`^/api/v1/payments$`)},
+	"groups:read":   {regexp.MustCompile(`^/api/v1/groups(/\d+(/expenses)?)?$`), regexp.MustCompile(`^/api/v1/categories$`)},
+	"activity:read": {regexp.MustCompile(`^/api/v1/activity$`)},
+	"documents:read": {regexp.MustCompile(`^/api/v1/(documents|dashboard|statistics|tags|correspondents|document_types|storage_paths|custom_fields|taxonomy|saved_views|changes)$`),
+		regexp.MustCompile(`^/api/v1/documents/\d+(/download|/preview|/thumb|/text|/notes|/history|/similar|/suggestions|/pages/\d+(\.jpg)?)?$`), regexp.MustCompile(`^/api/v1/documents/next_asn$`)},
 	"transactions:read": {regexp.MustCompile(`^/api/v1/transactions`), regexp.MustCompile(`^/firefly/api/v1/(about|about/user|accounts|categories|tags|tags/[^/]+|tags/[^/]+/transactions|transactions|transactions/\d+|currencies)$`)},
 }
 
@@ -148,7 +150,7 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 		case "nextcloud":
 			fields["USERNAME"] = strings.SplitN(in.User, "@", 2)[0] + "-nc"
 			fields["APP_PASSWORD"] = key
-		case "audiobookshelf", "forgejo", "paperless":
+		case "audiobookshelf", "forgejo":
 			fields["TOKEN"] = key
 		default:
 			fields["API_KEY"] = key
@@ -261,8 +263,6 @@ func (w *linkWorld) service(typ string) http.Handler {
 		case strings.HasPrefix(p, "/remote.php/dav/calendars/"):
 			rw.WriteHeader(207)
 			write(`<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"></d:multistatus>`)
-		case p == "/api/documents/":
-			write(`{"count":7}`)
 		default:
 			rw.WriteHeader(http.StatusNotFound)
 		}
@@ -350,6 +350,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`[{"id":1,"title":"Groceries","amount":2000,"currency":"EUR","date":"` + d + `","paid_by":1}]`)
 		case p == "/api/v1/activity":
 			write(`[{"item_name":"Milk","delta":-1,"created_at":"` + d + `T10:00:00Z"}]`)
+		case p == "/api/v1/documents":
+			write(`{"results":[{"id":12,"title":"Water bill","added_at":"` + d + `T12:00:00Z","source":"mail","correspondent_name":"ViK","document_type_name":"Invoice"}],"count":1}`)
 		case p == "/firefly/api/v1/about":
 			write(`{"data":{"version":"6.7.9","php_version":"pocket-money 0.4.0"}}`)
 		case p == "/firefly/api/v1/transactions":
@@ -487,7 +489,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "bookshelf=books:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read travel=trips:read"
+	want := "bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}

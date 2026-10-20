@@ -38,13 +38,15 @@ Everything is an environment variable with a sensible default. Sources, the AI k
 
 ## Sources
 
-Each source takes `<NAME>_URL`, a secret as `<NAME>_TOKEN` / `<NAME>_API_KEY` / `<NAME>_KEY`, an optional `<NAME>_PUBLIC_URL` (what the browser opens for ↗ links) and `<NAME>_EXTRA`. Names: `DAWARICH`, `IMMICH`, `MALOJA`, `JELLYSTAT`, `FIREFLY`, `HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`, `PAPERLESS`, `INVOICING`, `SPLIT`, `INVENTORY`. `_EXTRA` is: the Jellyfin user for Jellystat, the users to keep for Audiobookshelf (comma separated), the user name for Forgejo and Nextcloud. `JELLYSTAT_USER` (= `JELLYSTAT_EXTRA`) keeps only one Jellyfin user's plays.
+Each source takes `<NAME>_URL`, a secret as `<NAME>_TOKEN` / `<NAME>_API_KEY` / `<NAME>_KEY`, an optional `<NAME>_PUBLIC_URL` (what the browser opens for ↗ links) and `<NAME>_EXTRA`. Names: `DAWARICH`, `IMMICH`, `MALOJA`, `JELLYSTAT`, `FIREFLY`, `HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`, `DOCUMENTS`, `INVOICING`, `SPLIT`, `INVENTORY`. `_EXTRA` is: the Jellyfin user for Jellystat, the users to keep for Audiobookshelf (comma separated), the user name for Forgejo and Nextcloud. `JELLYSTAT_USER` (= `JELLYSTAT_EXTRA`) keeps only one Jellyfin user's plays.
+
+`DOCUMENTS_*` is **Pocket Documents** (a URL like `http://…:8183` and a `pd_…` API token from Pocket Documents → Settings → API tokens; on a box with Pocket Core neither is needed). It replaced Paperless-ngx: `PAPERLESS_*` is ignored (a warning is logged at start), and migration 0005 renamed the facts and pins frozen while Day read Paperless to the `documents` source, so those days show as before and are not pulled again. Documents that came over from Paperless or from an export (`source` `paperless` / `import`) are not counted as added on the day of the import. The day's documents link to `<Pocket Documents public URL>/documents/{id}`.
 
 `FIREFLY_*` is the money source, shown as **Pocket Money**: any Firefly III-compatible API — Pocket Money's `http://…:8178/firefly` with a Money API token, or a real Firefly III with a personal access token. The internal name stays `firefly`, so days already frozen from Firefly III keep their facts and are not pulled again.
 
 ### Pocket apps: Pocket Core, Direct or Off
 
-The Pocket app sources (`HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `INVOICING`, `SPLIT`, `INVENTORY`, `FIREFLY` = Pocket Money) are reached per person in one of three ways, chosen in Settings → Sources:
+The Pocket app sources (`HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `INVOICING`, `SPLIT`, `INVENTORY`, `DOCUMENTS` = Pocket Documents, `FIREFLY` = Pocket Money) are reached per person in one of three ways, chosen in Settings → Sources:
 
 | Mode | How |
 |---|---|
@@ -66,13 +68,14 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 | invoicing | `invoices:read` | `GET /api/v1/invoices`, `/payments` |
 | split | `groups:read` | `GET /api/v1/groups`, `/groups/{id}`, `/groups/{id}/expenses` |
 | inventory | `activity:read` | `GET /api/v1/activity` |
+| documents | `documents:read` | `GET /api/v1/documents?added_from=&added_to=&sort=added&limit=500&no_facets=1` |
 | money | `transactions:read` | `GET /firefly/api/v1/about`, `/firefly/api/v1/transactions` |
 
 plus `GET /api/v1/auth/me` (and the open `/healthz`) for “Test connection”. A link that is off — or a person Core does not let use the app — means the source is skipped for the day, not recorded as failed; Settings → Sources says why (“you switched the Day → Pocket Garage link off …”). If Core does not answer, sources in Pocket Core mode are skipped for that pull. **Disconnect** (Direct) clears the URL and token; values from the environment are copied into the owner's settings once, so a disconnected token stays gone after a restart.
 
 ### Third-party services: Pocket Core, Direct or Off
 
-The other sources (`IMMICH`, `MALOJA`, `DAWARICH`, `JELLYSTAT`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`, `PAPERLESS`) have the same three modes, through Pocket Core **service connections** (Core v0.15+). Day lists them in its manifest under `services`, so Core shows a “Use your Immich” link per service with the admin's switch and each person's:
+The other sources (`IMMICH`, `MALOJA`, `DAWARICH`, `JELLYSTAT`, `PINEPODS`, `AUDIOBOOKSHELF`, `JELLYSEERR`, `FORGEJO`, `NEXTCLOUD`) have the same three modes, through Pocket Core **service connections** (Core v0.15+). Day lists them in its manifest under `services`, so Core shows a “Use your Immich” link per service with the admin's switch and each person's:
 
 | Mode | How |
 |---|---|
@@ -84,7 +87,7 @@ Not chosen yet: Direct when a key is saved (Maloja, which needs no key: when a U
 
 ### Direct connections on Core's map
 
-Core cannot see a URL and key pasted into Day, so Day reports every person's mode in effect per source (what Settings → Sources shows, defaults included) with `PUT /api/v1/links/modes`: targets `habits`, `bookshelf`, `travel`, `kitchen`, `garage`, `invoicing`, `split`, `inventory`, `money` (the money source) and `service:<type>` for the services, mode `core` / `direct` / `off`. One call for everybody after each registration (on start and every 30 minutes) and right after a person's modes change (a mode picked, Disconnect, a key pasted or cleared). Report only; failures are logged.
+Core cannot see a URL and key pasted into Day, so Day reports every person's mode in effect per source (what Settings → Sources shows, defaults included) with `PUT /api/v1/links/modes`: targets `habits`, `bookshelf`, `travel`, `kitchen`, `garage`, `invoicing`, `split`, `inventory`, `documents`, `money` (the money source) and `service:<type>` for the services, mode `core` / `direct` / `off`. One call for everybody after each registration (on start and every 30 minutes) and right after a person's modes change (a mode picked, Disconnect, a key pasted or cleared). Report only; failures are logged.
 
 In Settings → Sources on a box with Core the switch shows **Pocket Core | Off**; Direct is behind “Advanced: connect directly with a URL and key” (shown at once to anyone already on Direct). Without Core, Direct is shown as before.
 
@@ -99,7 +102,6 @@ In Settings → Sources on a box with Core the switch shows **Pocket Core | Off*
 | Jellyseerr | `jellyseerr` | `API_KEY` | `X-Api-Key` header |
 | Forgejo | `forgejo` | `TOKEN` | `Authorization: token …` |
 | Nextcloud | `nextcloud` | `USERNAME` + `APP_PASSWORD` | basic auth (CalDAV); the user name typed in Settings is the fallback |
-| Paperless-ngx | `paperless` | `TOKEN` | `Authorization: Token …`; document links use the Public URL set here, else Core's public URL |
 
 `_EXTRA` values that are not credentials (the Jellyfin user for Jellystat, the Audiobookshelf users, the Forgejo user name) and `_PUBLIC_URL` apply in every mode. **Disconnect** clears the URL and key (and the Nextcloud user name); environment values are copied once, like the Pocket apps'.
 

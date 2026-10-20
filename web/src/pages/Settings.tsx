@@ -116,7 +116,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   jellyseerr: { what: 'Films and series requested, and requested titles that became available.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
   forgejo: { what: 'Your pushes per repository: commits, the latest message, new repositories, tags and pull requests.', key: 'A read-only access token (Settings → Applications, scopes read:user + read:repository)', url: 'http://host.docker.internal:3000', extra: 'User name (empty = the token’s owner)' },
   nextcloud: { what: 'Tasks completed (every task list), events and contact birthdays, over CalDAV.', key: 'An app password (Personal settings → Security)', url: 'http://host.docker.internal:8080', extra: 'Nextcloud user name' },
-  paperless: { what: 'Documents added that day, with correspondent and type.', key: 'API token from Paperless → My profile', url: 'http://host.docker.internal:8000' },
+  documents: { what: 'Documents added that day, with correspondent and type, each linking to the document in Pocket Documents.', key: 'Token from Pocket Documents → Settings → API tokens', url: 'http://host.docker.internal:8183' },
   invoicing: { what: 'Invoices issued and payments received, with amounts.', key: 'Token from Pocket Invoicing → Settings → API', url: 'http://host.docker.internal:8168' },
   split: { what: 'Shared expenses dated that day, across every group.', key: 'Token from Pocket Split → Settings → API', url: 'http://host.docker.internal:8172' },
   inventory: { what: 'Things added, used up or restocked.', key: 'Token from Pocket Inventory → Settings → API tokens', url: 'http://host.docker.internal:8170' },
@@ -490,7 +490,7 @@ function About() {
   return (
     <Card title="About">
       <p><b>Pocket Day</b> is a journal that writes itself: one page per day with your own words on top and, underneath, what the other apps on the server already know about it — where you were, the photos, what played, what you watched, read, cooked and spent. One binary, one SQLite file, one volume.</p>
-      <p className="muted small">Open source (MIT) — <a href="https://github.com/abjelosevic88/pocket-homelab-day" target="_blank" rel="noreferrer">github.com/abjelosevic88/pocket-homelab-day</a>. Sibling projects: Pocket Habits, Pocket Inventory, Pocket Bookshelf, Pocket Split, Pocket Clips, Pocket Travel, Pocket Garage, Pocket Kitchen.</p>
+      <p className="muted small">Open source (MIT) — <a href="https://github.com/abjelosevic88/pocket-homelab-day" target="_blank" rel="noreferrer">github.com/abjelosevic88/pocket-homelab-day</a>. Sibling projects: Pocket Habits, Pocket Documents, Pocket Inventory, Pocket Bookshelf, Pocket Split, Pocket Clips, Pocket Travel, Pocket Garage, Pocket Kitchen.</p>
       {data && (
         <table className="table compact mt">
           <tbody>
