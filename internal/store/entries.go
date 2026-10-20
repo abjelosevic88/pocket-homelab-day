@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	core "github.com/abjelosevic88/pocket-homelab-core/sdk"
 	"strings"
 )
 
@@ -30,28 +31,36 @@ func (s *Store) GetEntry(ctx context.Context, userID int64, date string) (*Entry
 }
 
 // UpsertEntry writes the entry for (user, date). An entry with nothing in it is deleted.
-func (s *Store) UpsertEntry(ctx context.Context, e *Entry) error {
-	if strings.TrimSpace(e.Highlight) == "" && strings.TrimSpace(e.Text) == "" && e.Mood == 0 && strings.TrimSpace(e.Tags) == "" && !e.Pinned {
-		_, err := s.DB.ExecContext(ctx, `DELETE FROM entries WHERE user_id = ? AND date = ?`, e.UserID, e.Date)
-		e.ID = 0
+func (s *Store) UpsertEntry(ctx context.Context, e *Entry, after ...core.CommitHook) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
 		return err
+	}
+	defer tx.Rollback()
+	if strings.TrimSpace(e.Highlight) == "" && strings.TrimSpace(e.Text) == "" && e.Mood == 0 && strings.TrimSpace(e.Tags) == "" && !e.Pinned {
+		_, err = tx.ExecContext(ctx, `DELETE FROM entries WHERE user_id = ? AND date = ?`, e.UserID, e.Date)
+		e.ID = 0
+		if err != nil {
+			return err
+		}
+		return tx.Commit()
 	}
 	e.Tags = NormalizeTags(e.Tags)
 	if e.Origin == "" {
 		e.Origin = "user"
 	}
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO entries (user_id, date, highlight, text, mood, tags, pinned, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	_, err = tx.ExecContext(ctx, `INSERT INTO entries (user_id, date, highlight, text, mood, tags, pinned, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, date) DO UPDATE SET highlight = excluded.highlight, text = excluded.text, mood = excluded.mood, tags = excluded.tags, pinned = excluded.pinned, origin = excluded.origin, updated_at = excluded.updated_at`,
 		e.UserID, e.Date, strings.TrimSpace(e.Highlight), strings.TrimRight(e.Text, " \n\t"), e.Mood, e.Tags, boolInt(e.Pinned), e.Origin, Now())
 	if err != nil {
 		return err
 	}
-	got, err := s.GetEntry(ctx, e.UserID, e.Date)
+	got, err := scanEntry(tx.QueryRowContext(ctx, `SELECT `+entryCols+` FROM entries WHERE user_id=? AND date=?`, e.UserID, e.Date))
 	if err != nil {
 		return err
 	}
 	*e = *got
-	return nil
+	return core.Commit(tx, after...)
 }
 
 // NormalizeTags lower-cases, trims and de-duplicates a comma list.
@@ -331,21 +340,26 @@ func scanMoment(row interface{ Scan(...any) error }) (*Moment, error) {
 }
 
 // CreateMoment inserts a moment.
-func (s *Store) CreateMoment(ctx context.Context, m *Moment) error {
+func (s *Store) CreateMoment(ctx context.Context, m *Moment, after ...core.CommitHook) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	if !ValidKind(m.Kind) {
 		m.Kind = "note"
 	}
-	res, err := s.DB.ExecContext(ctx, `INSERT INTO moments (user_id, date, time, text, kind) VALUES (?, ?, ?, ?, ?)`, m.UserID, m.Date, m.Time, strings.TrimSpace(m.Text), m.Kind)
+	res, err := tx.ExecContext(ctx, `INSERT INTO moments (user_id, date, time, text, kind) VALUES (?, ?, ?, ?, ?)`, m.UserID, m.Date, m.Time, strings.TrimSpace(m.Text), m.Kind)
 	if err != nil {
 		return err
 	}
 	m.ID, _ = res.LastInsertId()
-	got, err := s.GetMoment(ctx, m.UserID, m.ID)
+	got, err := scanMoment(tx.QueryRowContext(ctx, `SELECT `+momentCols+` FROM moments WHERE id=? AND user_id=?`, m.ID, m.UserID))
 	if err != nil {
 		return err
 	}
 	*m = *got
-	return nil
+	return core.Commit(tx, after...)
 }
 
 // GetMoment returns one moment.

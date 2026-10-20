@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	core "github.com/abjelosevic88/pocket-homelab-core/sdk"
 )
 
 // Story is an AI-written recap of a period.
@@ -28,12 +29,20 @@ func (s *Store) GetStory(ctx context.Context, userID int64, kind, period string)
 }
 
 // PutStory stores (or replaces) a story.
-func (s *Store) PutStory(ctx context.Context, st *Story) error {
+func (s *Store) PutStory(ctx context.Context, st *Story, after ...core.CommitHook) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	st.CreatedAt = Now()
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO ai_stories (user_id, kind, period, title, text, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+	_, err = tx.ExecContext(ctx, `INSERT INTO ai_stories (user_id, kind, period, title, text, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, kind, period) DO UPDATE SET title = excluded.title, text = excluded.text, model = excluded.model, created_at = excluded.created_at`,
 		st.UserID, st.Kind, st.Period, st.Title, st.Text, st.Model, st.CreatedAt)
-	return err
+	if err != nil {
+		return err
+	}
+	return core.Commit(tx, after...)
 }
 
 // ListStories lists a user's stories, newest first.

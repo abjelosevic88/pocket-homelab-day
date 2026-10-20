@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strings"
@@ -137,7 +138,11 @@ func (s *Server) handlePutEntry(w http.ResponseWriter, r *http.Request) {
 	if keys["pinned"] {
 		cur.Pinned = in.Pinned
 	}
-	if err := s.store.UpsertEntry(r.Context(), cur); err != nil {
+	if err := s.store.UpsertEntry(r.Context(), cur, func(tx *sql.Tx) error {
+		return s.queueEvent(r.Context(), tx, "day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
+			"entry_id": cur.ID, "user_id": u.ID, "user_email": u.Email, "date": date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
+		})
+	}); err != nil {
 		s.fail(w, err, "save entry")
 		return
 	}
@@ -148,9 +153,7 @@ func (s *Server) handlePutEntry(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"entry": nil, "date": date})
 		return
 	}
-	s.publish("day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
-		"entry_id": cur.ID, "user_id": u.ID, "user_email": u.Email, "date": date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
-	})
+
 	writeJSON(w, http.StatusOK, map[string]any{"entry": cur, "date": date})
 }
 
@@ -222,13 +225,15 @@ func (s *Server) handleQuickEntry(w http.ResponseWriter, r *http.Request) {
 	if in.Pinned != nil {
 		cur.Pinned = *in.Pinned
 	}
-	if err := s.store.UpsertEntry(r.Context(), cur); err != nil {
+	if err := s.store.UpsertEntry(r.Context(), cur, func(tx *sql.Tx) error {
+		return s.queueEvent(r.Context(), tx, "day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
+			"entry_id": cur.ID, "user_id": u.ID, "user_email": u.Email, "date": cur.Date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
+		})
+	}); err != nil {
 		s.fail(w, err, "save entry")
 		return
 	}
-	s.publish("day.entry_written", fmt.Sprintf("entry:%d", cur.ID), map[string]any{
-		"entry_id": cur.ID, "user_id": u.ID, "user_email": u.Email, "date": cur.Date, "highlight": cur.Highlight, "mood": cur.Mood, "tags": cur.Tags, "words": len(strings.Fields(cur.Text)),
-	})
+
 	writeJSON(w, http.StatusOK, cur)
 }
 
@@ -452,13 +457,15 @@ func (s *Server) handleCreateMoment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.UserID = u.ID
-	if err := s.store.CreateMoment(r.Context(), &in); err != nil {
+	if err := s.store.CreateMoment(r.Context(), &in, func(tx *sql.Tx) error {
+		return s.queueEvent(r.Context(), tx, "day.moment_created", fmt.Sprintf("moment:%d", in.ID), map[string]any{
+			"moment_id": in.ID, "user_id": u.ID, "user_email": u.Email, "date": in.Date, "time": in.Time, "kind": in.Kind, "text": in.Text,
+		})
+	}); err != nil {
 		s.fail(w, err, "create moment")
 		return
 	}
-	s.publish("day.moment_created", fmt.Sprintf("moment:%d", in.ID), map[string]any{
-		"moment_id": in.ID, "user_id": u.ID, "user_email": u.Email, "date": in.Date, "time": in.Time, "kind": in.Kind, "text": in.Text,
-	})
+
 	writeJSON(w, http.StatusCreated, in)
 }
 

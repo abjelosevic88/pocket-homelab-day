@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -419,12 +420,14 @@ Reply as JSON: {"title": "...", "text": "..."}`
 		return nil, err
 	}
 	story := &store.Story{UserID: u.ID, Kind: kind, Period: period, Title: strings.TrimSpace(out.Title), Text: strings.TrimSpace(out.Text), Model: usage.Model}
-	if err := s.store.PutStory(ctx, story); err != nil {
+	if err := s.store.PutStory(ctx, story, func(tx *sql.Tx) error {
+		return s.queueEvent(ctx, tx, "day.story_created", "story:"+kind+":"+period, map[string]any{
+			"user_id": u.ID, "user_email": u.Email, "kind": kind, "period": period, "label": label, "from": from, "to": to, "title": story.Title,
+		})
+	}); err != nil {
 		return nil, err
 	}
-	s.publish("day.story_created", "story:"+kind+":"+period, map[string]any{
-		"user_id": u.ID, "user_email": u.Email, "kind": kind, "period": period, "label": label, "from": from, "to": to, "title": story.Title,
-	})
+
 	return story, nil
 }
 
