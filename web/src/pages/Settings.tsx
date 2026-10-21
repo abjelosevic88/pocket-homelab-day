@@ -1,36 +1,107 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import type { APIToken, BackfillStatus, ConnMode, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
-import { SOURCE_APP, SOURCE_ICON, SOURCE_LABEL } from '../lib/types'
+import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
-import { Card, Confirm, Field, Loading, Modal, PageHeader, Segmented, Tabs, useAsync, useToast } from '../components/ui'
+import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
+import { Icon, SourceIcon } from '../components/icons'
 import { Select } from '../components/Select'
-import { Avatar } from '../components/people'
+import { LAST_PAGE_KEY } from '../components/Layout'
 
-type Tab = 'general' | 'sources' | 'notify' | 'ai' | 'users' | 'profile' | 'api' | 'data' | 'about'
+type TabId = 'general' | 'sources' | 'notifications' | 'ai' | 'profile' | 'people' | 'tokens' | 'data' | 'about'
+
+const TABS: { id: TabId; label: string; icon: string; sub: string }[] = [
+  { id: 'general', label: 'General', icon: 'settings', sub: 'The question on every day, date and time formats, units, home and how far back to pull.' },
+  { id: 'sources', label: 'Sources', icon: 'layers', sub: 'The apps a day is written from — through Pocket Core, with your own URL and key, or off.' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell', sub: 'The evening “How was today?” and the morning “On this day”.' },
+  { id: 'ai', label: 'AI', icon: 'sparkles', sub: 'An OpenAI key for drafts, tonight’s question, stories, dictation and Ask.' },
+  { id: 'profile', label: 'Profile', icon: 'user', sub: 'Your name, email and password.' },
+  { id: 'people', label: 'People', icon: 'users', sub: 'Everyone who has an account on this box.' },
+  { id: 'tokens', label: 'API & apps', icon: 'key', sub: 'Personal tokens for phone shortcuts, Raycast and a Homepage widget.' },
+  { id: 'data', label: 'Backup & data', icon: 'database', sub: 'Download the database, export or import your journal.' },
+  { id: 'about', label: 'About', icon: 'info', sub: 'Version, numbers and the server.' },
+]
+// the old ?tab= names
+const ALIAS: Record<string, TabId> = { notify: 'notifications', users: 'people', api: 'tokens' }
 
 export default function Settings() {
-  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get('tab') as Tab) || 'general')
+  const { tab: raw } = useParams()
+  const navigate = useNavigate()
+  const mobile = useIsMobile()
+  const legacy = new URLSearchParams(window.location.search).get('tab') || ''
+  const want = raw || legacy
+  const tab: TabId = (TABS.find(t => t.id === (ALIAS[want] || want))?.id) || 'general'
+  const current = TABS.find(t => t.id === tab)!
+  const go = (id: TabId) => navigate(`/settings/${id}`, { replace: true })
+  const back = () => { const last = sessionStorage.getItem(LAST_PAGE_KEY); navigate(last && !last.startsWith('/settings') ? last : '/') }
+
+  // old links (/settings?tab=sources, ?tab=notify …) land on /settings/<tab>
+  useEffect(() => { if (!raw && legacy) navigate(`/settings/${tab}`, { replace: true }) }, [raw, legacy, tab, navigate])
+  useEffect(() => { document.querySelector('.set-content')?.scrollTo({ top: 0 }) }, [tab])
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.modal-backdrop, .menu, .sel-pop, .palette-backdrop')) back() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <>
-      <PageHeader title="Settings" />
-      <Tabs tabs={[{ id: 'general', label: 'General' }, { id: 'sources', label: 'Sources' }, { id: 'notify', label: 'Notifications' }, { id: 'ai', label: 'AI' }, { id: 'users', label: 'Users' }, { id: 'profile', label: 'Profile' }, { id: 'api', label: 'API & apps' }, { id: 'data', label: 'Backup & data' }, { id: 'about', label: 'About' }]} value={tab} onChange={setTab} />
-      <div className="mt">
-        {tab === 'general' && <General />}
-        {tab === 'sources' && <Sources />}
-        {tab === 'notify' && <Notify />}
-        {tab === 'ai' && <AISettings />}
-        {tab === 'users' && <Users />}
-        {tab === 'profile' && <Profile />}
-        {tab === 'api' && <Tokens />}
-        {tab === 'data' && <Data />}
-        {tab === 'about' && <About />}
+    <div className="set-page">
+      <header className="set-header">
+        <button type="button" className="btn ghost icon-only" aria-label="Back to the journal" title="Back to the journal (esc)" onClick={back}><Icon name="chevron-left" size={18} /></button>
+        <img src="/favicon.svg" alt="" width={24} height={24} className="set-logo" />
+        <h1>Settings</h1>
+      </header>
+      {mobile && <div className="set-tabs-mobile"><Tabs tabs={TABS.map(t => ({ id: t.id, label: t.label, icon: t.icon }))} value={tab} onChange={go} /></div>}
+      <div className="set-body">
+        {!mobile && (
+          <nav className="set-nav" aria-label="Settings sections">
+            {TABS.map(t => (
+              <button key={t.id} type="button" className={`set-nav-item ${t.id === tab ? 'active' : ''}`} aria-current={t.id === tab ? 'page' : undefined} onClick={() => go(t.id)}>
+                <Icon name={t.icon} size={16} />{t.label}
+              </button>
+            ))}
+          </nav>
+        )}
+        <main className="set-content">
+          <div className="set-inner" key={tab}>
+            <div className="set-title">
+              <h2>{current.label}</h2>
+              <p>{current.sub}</p>
+            </div>
+            {tab === 'general' && <General />}
+            {tab === 'sources' && <Sources />}
+            {tab === 'notifications' && <Notify />}
+            {tab === 'ai' && <AISettings />}
+            {tab === 'profile' && <Profile />}
+            {tab === 'people' && <Users />}
+            {tab === 'tokens' && <Tokens />}
+            {tab === 'data' && <Data />}
+            {tab === 'about' && <About />}
+          </div>
+        </main>
       </div>
-    </>
+    </div>
   )
 }
+
+/** A settings card: title, explanation, actions on the right — Pocket Calendar's section. */
+function Section({ title, sub, icon, source, actions, children }: { title: React.ReactNode; sub?: React.ReactNode; icon?: string; source?: string; actions?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <section className="set-section">
+      <div className="set-section-head">
+        {source ? <SourceIcon source={source} size={32} /> : icon && <span className="set-app-ico"><Icon name={icon} size={17} /></span>}
+        <div className="grow"><h3>{title}</h3>{sub && <p>{sub}</p>}</div>
+        {actions && <div className="row">{actions}</div>}
+      </div>
+      {children && <div className="set-section-body">{children}</div>}
+    </section>
+  )
+}
+
+/** "✓ ok" / "✕ failed" test results. */
+const TestResult = ({ text }: { text?: string }) => text ? <span className={`small ${text.startsWith('✓') ? 'ok' : text.startsWith('✕') ? 'bad' : 'muted'}`}>{text}</span> : null
 
 // withoutModes drops the per-source modes so saving the form never pins a
 // default (a mode is only stored when chosen in a Connection).
@@ -61,40 +132,39 @@ function General() {
   }, [q])
   if (!f) return <Loading />
   return (
-    <div className="two-col">
-      <Card title="Preferences">
-        <div className="grid" style={{ gap: 14 }}>
-          <Field label="App title"><input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} maxLength={40} disabled={!isAdmin} title={isAdmin ? undefined : "Only an admin can rename the app"} /></Field>
-          <Field label="The question above the text box" help="Shown on every day page and in the evening push."><input value={f.prompt} onChange={e => setF({ ...f, prompt: e.target.value })} maxLength={120} /></Field>
-          <div className="two-col tight">
-            <Field label="Date format"><Select value={f.date_format} onChange={v => setF({ ...f, date_format: v as DateFormat })} options={DATE_FORMATS.map(d => ({ value: d.id, label: d.label }))} /></Field>
-            <Field label="Time format"><Select value={f.time_format} onChange={v => setF({ ...f, time_format: v as TimeFormat })} options={TIME_FORMATS.map(d => ({ value: d.id, label: d.label }))} /></Field>
+    <div className="stack loose">
+      <Section title="Writing" sub="Yours alone — everyone on the box keeps their own.">
+        <SettingRow title="The question above the text box" help="Shown on every day page and in the evening push." stack><input value={f.prompt} onChange={e => setF({ ...f, prompt: e.target.value })} maxLength={120} /></SettingRow>
+      </Section>
+      <Section title="Date, time & units">
+        <SettingRow title="Date format"><Select value={f.date_format} onChange={v => setF({ ...f, date_format: v as DateFormat })} options={DATE_FORMATS.map(d => ({ value: d.id, label: d.label }))} /></SettingRow>
+        <SettingRow title="Time format"><Select value={f.time_format} onChange={v => setF({ ...f, time_format: v as TimeFormat })} options={TIME_FORMATS.map(d => ({ value: d.id, label: d.label }))} /></SettingRow>
+        <SettingRow title="Week starts on"><Segmented value={f.week_start} onChange={v => setF({ ...f, week_start: v as 'mon' | 'sun' })} options={[{ value: 'mon', label: 'Monday' }, { value: 'sun', label: 'Sunday' }]} size="sm" /></SettingRow>
+        <SettingRow title="Distances"><Segmented value={f.distance_unit} onChange={v => setF({ ...f, distance_unit: v as 'km' | 'mi' })} options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'miles' }]} size="sm" /></SettingRow>
+      </Section>
+      <Section title="Home & weather">
+        <SettingRow title="Home location" help="Weather for days spent near home; days Dawarich places far away get the weather there." stack>
+          <div>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={f.home_place ? `${f.home_place} (${f.home_lat.toFixed(3)}, ${f.home_lon.toFixed(3)}) — type to change` : 'Search a town…'} aria-label="Search a town" />
+            {hits.length > 0 && <div className="geo-hits">{hits.map((h, i) => <button type="button" key={i} className="geo-hit" onClick={() => { setF({ ...f, home_place: h.name, home_lat: h.lat, home_lon: h.lon }); setQ(''); setHits([]) }}><Icon name="pin" size={15} className="muted" /><span className="grow">{h.name}</span><span className="muted small">{h.region}</span></button>)}</div>}
           </div>
-          <div className="two-col tight">
-            <Field group label="Week starts on"><Segmented value={f.week_start} onChange={v => setF({ ...f, week_start: v as 'mon' | 'sun' })} options={[{ value: 'mon', label: 'Monday' }, { value: 'sun', label: 'Sunday' }]} size="sm" /></Field>
-            <Field group label="Distances"><Segmented value={f.distance_unit} onChange={v => setF({ ...f, distance_unit: v as 'km' | 'mi' })} options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'miles' }]} size="sm" /></Field>
-          </div>
-          <Field label="Home location" help="Weather for days spent near home; days Dawarich places far away get the weather there.">
-            <div className="grid" style={{ gap: 6 }}>
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder={f.home_place ? `${f.home_place} (${f.home_lat.toFixed(3)}, ${f.home_lon.toFixed(3)}) — type to change` : 'Search a town…'} />
-              {hits.length > 0 && <div className="result-list" style={{ maxHeight: 200 }}>{hits.map((h, i) => <button key={i} className="sl-item" onClick={() => { setF({ ...f, home_place: h.name, home_lat: h.lat, home_lon: h.lon }); setQ(''); setHits([]) }}><span className="grow">{h.name}</span><span className="muted small">{h.region}</span></button>)}</div>}
-            </div>
-          </Field>
-          <Field label="Backfill" help="How many days back to pull facts for on first start and when a new source is connected."><input type="number" min={0} max={3650} value={f.backfill_days} onChange={e => setF({ ...f, backfill_days: Number(e.target.value) })} style={{ maxWidth: 140 }} /></Field>
-          <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div>
-          <p className="muted small">These are your own settings{isAdmin ? '; the app title is the same for everyone' : ''}.</p>
-        </div>
-      </Card>
-      <Card title="How it fits together">
-        <table className="table compact"><tbody>
-          <tr><th>Your words</th><td className="muted">One line, a longer note, a mood and tags per day. Moments are short timestamped lines through the day; a phone shortcut can post them.</td></tr>
-          <tr><th>Facts</th><td className="muted">Everything the other apps know about the day, pulled in and frozen once the day is over. The journal still reads when a source is gone.</td></tr>
-          <tr><th>Pins</th><td className="muted">Star a photo, a song, a place or a transaction to keep it at the top of the day.</td></tr>
-          <tr><th>Memories</th><td className="muted">The same date in earlier years shows on the day page and in the morning push.</td></tr>
-          <tr><th>Year</th><td className="muted">Month by month, moods, most played, most watched, books, places, trips and the days you starred.</td></tr>
-          <tr><th>Keys</th><td className="muted"><kbd className="kbd">←</kbd> <kbd className="kbd">→</kbd> move a day, <kbd className="kbd">t</kbd> today, <kbd className="kbd">⌘K</kbd> search.</td></tr>
-        </tbody></table>
-      </Card>
+        </SettingRow>
+        <SettingRow title="Backfill" help="How many days back to pull facts for on first start and when a new source is connected."><input type="number" min={0} max={3650} value={f.backfill_days} onChange={e => setF({ ...f, backfill_days: Number(e.target.value) })} style={{ width: 110 }} aria-label="Days to backfill" /></SettingRow>
+      </Section>
+      <Section title="This box" sub={isAdmin ? 'The app title is the same for everyone on this box.' : 'Set by an admin for everyone.'}>
+        <SettingRow title="App title" help="Shown in the sidebar and the browser tab."><input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} maxLength={40} disabled={!isAdmin} title={isAdmin ? undefined : 'Only an admin can rename the app'} style={{ width: 220 }} /></SettingRow>
+      </Section>
+      <div className="row"><button type="button" className="btn primary" onClick={() => save()} disabled={busy}>Save changes</button></div>
+      <Section title="How it fits together">
+        <dl className="set-dl">
+          <div><dt>Your words</dt><dd className="muted">One line, a longer note, a mood and tags per day. Moments are short timestamped lines through the day; a phone shortcut can post them.</dd></div>
+          <div><dt>Facts</dt><dd className="muted">Everything the other apps know about the day, pulled in and frozen once the day is over. The journal still reads when a source is gone.</dd></div>
+          <div><dt>Pins</dt><dd className="muted">Star a photo, a song, a place or a transaction to keep it at the top of the day.</dd></div>
+          <div><dt>Memories</dt><dd className="muted">The same date in earlier years shows on the day page and in the morning push.</dd></div>
+          <div><dt>Year</dt><dd className="muted">Month by month, moods, most played, most watched, books, places, trips and the days you starred.</dd></div>
+          <div><dt>Keys</dt><dd className="muted"><kbd>←</kbd> <kbd>→</kbd> move a day, <kbd>t</kbd> today, <kbd>n</kbd> write, <kbd>m</kbd> a moment, <kbd>⌘K</kbd> search, <kbd>?</kbd> all of them.</dd></div>
+        </dl>
+      </Section>
     </div>
   )
 }
@@ -134,66 +204,69 @@ function Sources() {
     setTest(t => ({ ...t, [which]: 'testing…' }))
     try { const r = await api.post<{ ok: boolean; message?: string; error?: string }>(`${V1}/integrations/test`, { which, url: src.url, key: src.key, extra: src.extra }); setTest(t => ({ ...t, [which]: r.ok ? `✓ ${r.message}` : `✕ ${r.error}` })) } catch (e) { setTest(t => ({ ...t, [which]: `✕ ${(e as Error).message}` })) }
   }
-  const stat = (which: string) => <span className={`small ${test[which]?.startsWith('✓') ? 'ok' : test[which]?.startsWith('✕') ? 'bad' : 'muted'}`}>{test[which]}</span>
+  const stat = (which: string) => <TestResult text={test[which]} />
   const upd = (name: SourceName, patch: Partial<Source>) => setF({ ...f, sources: { ...f.sources, [name]: { ...f.sources[name], ...patch } } })
   const saveSource = (name: SourceName, patch: Partial<Source>) => save({ sources: { ...withoutModes(f.sources), [name]: { ...f.sources[name], mode: undefined, ...patch } } })
   const backfill = async (force: boolean) => {
     try { const r = await api.post<{ ok: boolean; error?: string }>(`${V1}/facts/backfill`, { force }); toast(r.ok ? 'Backfill started' : r.error || 'failed', r.ok ? 'ok' : 'err'); reload() } catch (e) { toast((e as Error).message, 'err') }
   }
   const bf = status?.backfill
-  const title = (name: SourceName) => <span className="row" style={{ gap: 8 }}><span>{SOURCE_ICON[name]}</span>{SOURCE_APP[name]} <span className="muted" style={{ fontWeight: 400 }}>— {SOURCE_LABEL[name].toLowerCase()}</span></span>
+  const title = (name: SourceName) => <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
+  const testBtn = (name: SourceName, src: Source) => <><button type="button" className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>
   return (
-    <div className="grid" style={{ gap: 16 }}>
-      <Card title="Pulling the days" actions={bf?.running ? <span className="badge cat">running</span> : undefined}>
-        <p className="muted small">Today and yesterday are pulled every 30 minutes. Older days are frozen once fetched. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</p>
-        {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
-        <p className="muted small">The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste; so can the other services (Immich, Maloja, Dawarich…), with your own account there from Pocket Core.</p>
-        <div className="row mt-sm"><button className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}>Backfill missing days ({f.backfill_days} back)</button><button className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts">Re-pull everything</button></div>
-      </Card>
+    <div className="stack loose">
+      <Section title="Pulling the days" icon="refresh" actions={bf?.running ? <span className="badge cat">running</span> : undefined}
+        sub={<>Today and yesterday are pulled every 30 minutes. Older days are frozen once fetched. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</>}>
+        <div className="set-backfill">
+          {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
+          <p className="muted small" style={{ margin: 0 }}>The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste; so can the other services (Immich, Maloja, Dawarich…), with your own account there from Pocket Core.</p>
+          <div className="row wrap"><button type="button" className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}><Icon name="download" size={14} />Backfill missing days ({f.backfill_days} back)</button><button type="button" className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts"><Icon name="refresh" size={14} />Re-pull everything</button></div>
+        </div>
+      </Section>
       {f.source_names.map(name => {
         const src = f.sources[name]
         const help = SOURCE_HELP[name]
-        if (src.pocket) return <Card key={name} title={title(name)} actions={connBadge(src.mode || 'off', src.via)}>
-          <p className="muted small">{help.what}</p>
+        if (src.pocket) return <Section key={name} source={name} title={title(name)} sub={help.what} actions={connBadge(src.mode || 'off', src.via)}>
           <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={f.core_configured} hasToken={!!src.key || !!src.url}
             onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '' })}
-            test={<><button className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>}
+            test={testBtn(name, src)}
             direct={<>
               <div className="two-col tight">
                 <Field label="URL" help={name === 'firefly' ? 'Pocket Money’s URL followed by /firefly. Inside Docker use http://host.docker.internal:PORT.' : 'Inside Docker use http://host.docker.internal:PORT or the service name.'}><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
                 <Field label="API token" help={help.key}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>
               </div>
-              <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
+              <Field label="Public URL (optional)" help="What the browser opens for the open-in-app links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
             </>} />
-        </Card>
+        </Section>
         if (src.service) {
           // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
           const credExtra = name === 'nextcloud'
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
-          return <Card key={name} title={title(name)} actions={connBadge(src.mode || 'off', src.via)}>
-            <p className="muted small">{help.what}</p>
+          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={connBadge(src.mode || 'off', src.via)}>
             <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={f.core_configured} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
-              extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
-              test={<><button className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>}
+              extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
+              test={testBtn(name, src)}
               direct={<>
                 <div className={credExtra ? 'three-col tight' : 'two-col tight'}>
                   <Field label="URL" help="Inside Docker use http://host.docker.internal:PORT or the service name."><input value={src.url} onChange={e => upd(name, { url: e.target.value })} placeholder={help.url} /></Field>
                   {src.needs_key && <Field label={name === 'nextcloud' ? 'App password' : 'API key / token'} help={help.key}><input value={src.key} onChange={e => upd(name, { key: e.target.value })} autoComplete="off" /></Field>}
                   {credExtra && <Field label={help.extra || 'User name'}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field>}
                 </div>
-                <Field label="Public URL (optional)" help="What the browser opens for the ↗ links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
+                <Field label="Public URL (optional)" help="What the browser opens for the open-in-app links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
               </>} />
-          </Card>
+          </Section>
         }
-        return <Card key={name} title={title(name)}
-          actions={<><span className={`badge ${src.configured ? 'cat' : ''}`}>{src.configured ? 'connected' : 'set a home location'}</span><label className="row small"><input type="checkbox" checked={src.enabled} onChange={e => upd(name, { enabled: e.target.checked })} style={{ width: 'auto' }} /> on</label></>}>
-          <p className="muted small">{help.what}</p>
-          <div className="row"><button className="btn sm" onClick={() => run(name, src)} disabled={!f.home_lat && !f.home_lon}>Test</button>{stat(name)}{!f.home_lat && !f.home_lon && <span className="muted small">Set the home location under General first.</span>}</div>
-        </Card>
+        return <Section key={name} source={name} title={title(name)} sub={help.what}
+          actions={<span className={`badge ${src.configured ? 'ok' : ''}`}>{src.configured ? 'connected' : 'set a home location'}</span>}>
+          <SettingRow title="Pull the weather" help={!f.home_lat && !f.home_lon ? 'Set the home location under General first.' : 'Saved with “Save sources” below.'}>
+            <Switch checked={src.enabled} onChange={v => upd(name, { enabled: v })} label="Pull the weather" />
+          </SettingRow>
+          <div className="row"><button type="button" className="btn sm" onClick={() => run(name, src)} disabled={!f.home_lat && !f.home_lon}>Test</button>{stat(name)}</div>
+        </Section>
       })}
-      <div className="row"><button className="btn primary" onClick={() => save()} disabled={busy}>Save sources</button><span className="muted small">A newly connected source is pulled for today on the next tick; use Backfill for the past.</span></div>
+      <div className="row wrap"><button type="button" className="btn primary" onClick={() => save()} disabled={busy}>Save sources</button><span className="muted small">A newly connected source is pulled for today on the next tick; use Backfill for the past.</span></div>
     </div>
   )
 }
@@ -234,7 +307,7 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
       <div className={`conn-status ${mode === 'off' ? '' : ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
       {mode === 'direct' && <>
         {direct}
-        <div className="row wrap">{test}{hasToken && <button className="btn sm ghost danger-text" onClick={onDisconnect} title="Remove the saved URL and token">Disconnect</button>}</div>
+        <div className="row wrap">{test}{hasToken && <button type="button" className="btn sm ghost danger-text" onClick={onDisconnect} title="Remove the saved URL and token">Disconnect</button>}</div>
       </>}
       {mode === 'core' && <div className="row wrap">{test}</div>}
       {mode !== 'off' && extra}
@@ -243,7 +316,7 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
 }
 
 const connBadge = (mode: ConnMode, via: string) => mode === 'off' ? <span className="badge">off</span>
-  : via ? <span className="badge cat">{via === 'core' ? 'Pocket Core' : 'direct'}</span>
+  : via ? <span className="badge ok">{via === 'core' ? 'Pocket Core' : 'direct'}</span>
   : <span className="badge warn">not connected</span>
 
 function Notify() {
@@ -258,23 +331,25 @@ function Notify() {
   const send = async (which: 'evening' | 'morning' | 'weekly') => { try { const r = await api.post<{ ok: boolean; sent: number; error?: string }>(`${V1}/notify/run`, { which }); toast(r.ok ? (r.sent ? 'Sent' : 'Nothing to send') : r.error || 'failed', r.ok ? 'ok' : 'err') } catch (e) { toast((e as Error).message, 'err') } }
   const hours = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))
   return (
-    <div className="two-col">
-      <Card title="🔔 Where to send" actions={<span className={`badge ${f.notify_configured ? 'cat' : ''}`}>{f.notify_configured ? 'connected' : 'not set'}</span>}>
-        <div className="grid" style={{ gap: 12 }}>
-          <Field label="URL" help="Apprise gateway (…/notify/<key>), an ntfy topic URL, or any webhook that takes JSON."><input value={f.notify_url} onChange={e => setF({ ...f, notify_url: e.target.value })} placeholder="http://apprise:8000/notify/day" /></Field>
-          <Field group label="Format"><Segmented value={f.notify_format} onChange={v => setF({ ...f, notify_format: v })} options={[{ value: 'apprise', label: 'Apprise' }, { value: 'ntfy', label: 'ntfy' }, { value: 'json', label: 'JSON' }]} size="sm" /></Field>
-          <div className="row"><button className="btn sm" onClick={run} disabled={!f.notify_url}>Send a test</button><span className={`small ${test.startsWith('✓') ? 'ok' : test.startsWith('✕') ? 'bad' : 'muted'}`}>{test}</span></div>
-        </div>
-      </Card>
-      <Card title="When">
-        <div className="grid" style={{ gap: 12 }}>
-          <label className="row"><input type="checkbox" checked={f.notify_evening} onChange={e => setF({ ...f, notify_evening: e.target.checked })} style={{ width: 'auto' }} /> Evening: “{f.prompt}” with the day's numbers, unless the day is already written</label>
-          <Field label="Evening hour"><Select value={String(f.evening_hour)} onChange={v => setF({ ...f, evening_hour: Number(v) })} options={hours} /></Field>
-          <label className="row"><input type="checkbox" checked={f.notify_morning} onChange={e => setF({ ...f, notify_morning: e.target.checked })} style={{ width: 'auto' }} /> Morning: yesterday in one line and “on this day” from earlier years</label>
-          <Field label="Morning hour"><Select value={String(f.morning_hour)} onChange={v => setF({ ...f, morning_hour: Number(v) })} options={hours} /></Field>
-          <div className="row wrap"><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button><button className="btn sm" onClick={() => send('evening')} disabled={!f.notify_configured}>Send evening now</button><button className="btn sm" onClick={() => send('morning')} disabled={!f.notify_configured}>Send morning now</button>{f.ai_configured && <button className="btn sm" onClick={() => send('weekly')} disabled={!f.notify_configured}>Send week story now</button>}</div>
-        </div>
-      </Card>
+    <div className="stack loose">
+      <Section title="Where to send" icon="bell" actions={<span className={`badge ${f.notify_configured ? 'ok' : ''}`}>{f.notify_configured ? 'connected' : 'not set'}</span>}
+        sub={<>Apprise gateway (<code>…/notify/&lt;key&gt;</code>), an ntfy topic URL, or any webhook that takes JSON.</>}>
+        <SettingRow title="URL" stack><input value={f.notify_url} onChange={e => setF({ ...f, notify_url: e.target.value })} placeholder="http://apprise:8000/notify/day" /></SettingRow>
+        <SettingRow title="Format"><Segmented value={f.notify_format} onChange={v => setF({ ...f, notify_format: v })} options={[{ value: 'apprise', label: 'Apprise' }, { value: 'ntfy', label: 'ntfy' }, { value: 'json', label: 'JSON' }]} size="sm" /></SettingRow>
+        <SettingRow title="Check it" help="Sends a test message to the URL above (before saving)."><button type="button" className="btn sm" onClick={run} disabled={!f.notify_url}><Icon name="mail" size={14} />Send a test</button><TestResult text={test} /></SettingRow>
+      </Section>
+      <Section title="When" icon="clock">
+        <SettingRow title="Evening" help={<>“{f.prompt}” with the day's numbers, unless the day is already written.</>}><Switch checked={f.notify_evening} onChange={v => setF({ ...f, notify_evening: v })} label="Evening push" /></SettingRow>
+        <SettingRow title="Evening hour"><Select value={String(f.evening_hour)} onChange={v => setF({ ...f, evening_hour: Number(v) })} options={hours} /></SettingRow>
+        <SettingRow title="Morning" help="Yesterday in one line and “on this day” from earlier years."><Switch checked={f.notify_morning} onChange={v => setF({ ...f, notify_morning: v })} label="Morning push" /></SettingRow>
+        <SettingRow title="Morning hour"><Select value={String(f.morning_hour)} onChange={v => setF({ ...f, morning_hour: Number(v) })} options={hours} /></SettingRow>
+      </Section>
+      <div className="row wrap">
+        <button type="button" className="btn primary" onClick={() => save()} disabled={busy}>Save changes</button>
+        <button type="button" className="btn" onClick={() => send('evening')} disabled={!f.notify_configured}><Icon name="moon" size={15} />Send evening now</button>
+        <button type="button" className="btn" onClick={() => send('morning')} disabled={!f.notify_configured}><Icon name="sun" size={15} />Send morning now</button>
+        {f.ai_configured && <button type="button" className="btn" onClick={() => send('weekly')} disabled={!f.notify_configured}><Icon name="book" size={15} />Send week story now</button>}
+      </div>
     </div>
   )
 }
@@ -294,53 +369,47 @@ function AISettings() {
   const tot = (rows: UsageRow[] = []) => rows.reduce((a, r) => ({ calls: a.calls + r.calls, p: a.p + r.prompt_tokens, c: a.c + r.completion_tokens }), { calls: 0, p: 0, c: 0 })
   const m30 = tot(usage?.last_30_days), all = tot(usage?.all_time)
   return (
-    <div className="grid" style={{ gap: 16 }}>
-      <div className="two-col">
-        <Card title="✨ OpenAI" actions={<span className={`badge ${f.ai_configured ? 'cat' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}>
-          <div className="grid" style={{ gap: 12 }}>
-            <Field label="API key" help="platform.openai.com → API keys. Any OpenAI-compatible endpoint works with the base URL below."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
-            <div className="two-col tight">
-              <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
-              <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
-            </div>
-            <div className="two-col tight">
-              <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" /></Field>
-              <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
-            </div>
-            <div className="row"><button className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><span className={`small ${test.startsWith('✓') ? 'ok' : test.startsWith('✕') ? 'bad' : 'muted'}`}>{test}</span></div>
+    <div className="stack loose">
+      <Section title="OpenAI" icon="sparkles" actions={<span className={`badge ${f.ai_configured ? 'ok' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}
+        sub="Without a key every AI button stays hidden. Any OpenAI-compatible endpoint works with the base URL.">
+        <div className="stack">
+          <Field label="API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
+          <div className="two-col tight">
+            <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
+            <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
           </div>
-        </Card>
-        <Card title="What it does">
-          <table className="table compact"><tbody>
-            <tr><th>Draft my day</th><td className="muted">A first-person draft from the facts, moments and pins — or only what your text is missing. You edit it.</td></tr>
-            <tr><th>Tonight's question</th><td className="muted">One specific question about the day replaces the generic prompt, here and in the evening push.</td></tr>
-            <tr><th>Suggest</th><td className="muted">A highlight, tags (from your own vocabulary) and a mood from what you wrote.</td></tr>
-            <tr><th>Dictation</th><td className="muted">🎙 Speak the entry or a moment; it is transcribed and added.</td></tr>
-            <tr><th>Stories</th><td className="muted">Week, month and year written up as a story — on the Calendar, the Year page and under Stories. A Sunday push with the week.</td></tr>
-            <tr><th>Ask</th><td className="muted">“When was I last at the lake?” — answered from your days, with links to them.</td></tr>
-          </tbody></table>
-        </Card>
-      </div>
-      <div className="two-col">
-        <Card title="Options">
-          <div className="grid" style={{ gap: 12 }}>
-            <label className="row"><input type="checkbox" checked={f.ai_question} onChange={e => setF({ ...f, ai_question: e.target.checked })} style={{ width: 'auto' }} /> Tonight's question on the day page and in the evening push</label>
-            <label className="row"><input type="checkbox" checked={f.ai_weekly_story} onChange={e => setF({ ...f, ai_weekly_story: e.target.checked })} style={{ width: 'auto' }} /> Write the week's story every Sunday at the evening hour and push it</label>
-            <label className="row"><input type="checkbox" checked={f.ai_send_text} onChange={e => setF({ ...f, ai_send_text: e.target.checked })} style={{ width: 'auto' }} /> Send what I wrote (highlights, text, moments), not only the app data</label>
-            <p className="muted small" style={{ margin: 0 }}>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos, audio is sent only while dictating. OpenAI does not train on API data by default.</p>
-            <div><button className="btn primary" onClick={() => save()} disabled={busy}>Save</button></div>
+          <div className="two-col tight">
+            <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" /></Field>
+            <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
           </div>
-        </Card>
-        <Card title="Usage">
-          {usage && (usage.all_time.length > 0 ? <>
-            <table className="table compact">
-              <thead><tr><th>Feature</th><th className="right">Calls</th><th className="right">Tokens in</th><th className="right">Tokens out</th></tr></thead>
-              <tbody>{usage.last_30_days.map(r => <tr key={r.feature + r.model}><td>{FEATURE_LABEL[r.feature] || r.feature} <span className="muted small">{r.model}</span></td><td className="right">{r.calls}</td><td className="right">{r.prompt_tokens.toLocaleString()}</td><td className="right">{r.completion_tokens.toLocaleString()}</td></tr>)}</tbody>
-            </table>
-            <p className="muted small mt-sm">Last 30 days: {m30.calls} calls, {(m30.p + m30.c).toLocaleString()} tokens. All time: {all.calls} calls, {(all.p + all.c).toLocaleString()} tokens.</p>
-          </> : <p className="muted">Nothing used yet.</p>)}
-        </Card>
-      </div>
+          <div className="row"><button type="button" className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><TestResult text={test} /></div>
+        </div>
+      </Section>
+      <Section title="Options" sub={<>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos; audio is sent only while dictating. OpenAI does not train on API data by default.</>}>
+        <SettingRow title="Tonight's question" help="On the day page and in the evening push."><Switch checked={f.ai_question} onChange={v => setF({ ...f, ai_question: v })} label="Tonight's question" /></SettingRow>
+        <SettingRow title="Week story on Sunday" help="Written at the evening hour every Sunday and pushed."><Switch checked={f.ai_weekly_story} onChange={v => setF({ ...f, ai_weekly_story: v })} label="Week story on Sunday" /></SettingRow>
+        <SettingRow title="Send what I wrote" help="Highlights, text and moments, not only the app data."><Switch checked={f.ai_send_text} onChange={v => setF({ ...f, ai_send_text: v })} label="Send what I wrote" /></SettingRow>
+      </Section>
+      <div className="row"><button type="button" className="btn primary" onClick={() => save()} disabled={busy}>Save changes</button></div>
+      <Section title="What it does">
+        <dl className="set-dl">
+          <div><dt>Draft my day</dt><dd className="muted">A first-person draft from the facts, moments and pins — or only what your text is missing. You edit it.</dd></div>
+          <div><dt>Tonight's question</dt><dd className="muted">One specific question about the day replaces the generic prompt, here and in the evening push.</dd></div>
+          <div><dt>Suggest</dt><dd className="muted">A highlight, tags (from your own vocabulary) and a mood from what you wrote.</dd></div>
+          <div><dt>Dictation</dt><dd className="muted">Speak the entry or a moment; it is transcribed and added.</dd></div>
+          <div><dt>Stories</dt><dd className="muted">Week, month and year written up as a story — on the Calendar, the Year page and under Stories. A Sunday push with the week.</dd></div>
+          <div><dt>Ask</dt><dd className="muted">“When was I last at the lake?” — answered from your days, with links to them.</dd></div>
+        </dl>
+      </Section>
+      <Section title="Usage" icon="activity">
+        {usage && (usage.all_time.length > 0 ? <>
+          <table className="table compact">
+            <thead><tr><th>Feature</th><th className="right">Calls</th><th className="right">Tokens in</th><th className="right">Tokens out</th></tr></thead>
+            <tbody>{usage.last_30_days.map(r => <tr key={r.feature + r.model}><td>{FEATURE_LABEL[r.feature] || r.feature} <span className="muted small">{r.model}</span></td><td className="right">{r.calls}</td><td className="right">{r.prompt_tokens.toLocaleString()}</td><td className="right">{r.completion_tokens.toLocaleString()}</td></tr>)}</tbody>
+          </table>
+          <p className="muted small mt-sm" style={{ margin: '8px 0 0' }}>Last 30 days: {m30.calls} calls, {(m30.p + m30.c).toLocaleString()} tokens. All time: {all.calls} calls, {(all.p + all.c).toLocaleString()} tokens.</p>
+        </> : <p className="muted" style={{ margin: 0 }}>Nothing used yet.</p>)}
+      </Section>
     </div>
   )
 }
@@ -353,26 +422,24 @@ function Users() {
   const isAdmin = user?.role === 'admin'
   const run = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); await reloadMeta(); toast(msg) } catch (e) { toast((e as Error).message, 'err') } }
   return (
-    <Card title="Users" actions={isAdmin && <button className="btn primary sm" onClick={() => setEdit({ role: 'member' })}>+ Add user</button>}>
-      <p className="muted">Everything is per person: entries, moments, pins, stories, questions, the facts the connected apps know and the sources, AI key and notifications. Nobody, admins included, sees another account's journal. Admins manage users and the app title.</p>
-      <table className="table compact">
-        <thead><tr><th /><th>Name</th><th>Email</th><th>Role</th><th /></tr></thead>
-        <tbody>
-          {users.map(u => (
-            <tr key={u.id}>
-              <td style={{ width: 32 }}><Avatar user={u} /></td>
-              <td>{u.name || <span className="muted">—</span>}{u.id === user?.id && <span className="badge" style={{ marginLeft: 6 }}>you</span>}</td>
-              <td className="muted">{u.email}</td>
-              <td><span className={`badge ${u.role === 'admin' ? 'cat' : ''}`}>{u.role}</span></td>
-              <td className="right">{isAdmin && <span className="row" style={{ justifyContent: 'flex-end' }}><button className="btn ghost sm" onClick={() => setEdit(u)}>Edit</button>{u.id !== user?.id && <button className="btn ghost sm danger-text" onClick={() => setDel(u)}>Remove</button>}</span>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <Section title="People on this box" actions={isAdmin && <button type="button" className="btn primary sm" onClick={() => setEdit({ role: 'member' })}><Icon name="plus" size={14} />Add person</button>}
+      sub="Everything is per person: entries, moments, pins, stories, questions, the facts the connected apps know and the sources, AI key and notifications. Nobody, admins included, sees another account's journal. Admins manage accounts and the app title.">
+      <div className="set-people">
+        {users.map(u => (
+          <div key={u.id} className="set-person">
+            <Avatar name={u.name} email={u.email} size={34} />
+            <div className="grow">
+              <div className="set-person-name">{u.name || <span className="muted">—</span>}{u.id === user?.id && <span className="badge">you</span>}{u.role === 'admin' && <span className="badge accent">admin</span>}</div>
+              <div className="muted small ellipsis">{u.email}</div>
+            </div>
+            {isAdmin && <span className="row" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn ghost sm" onClick={() => setEdit(u)}>Edit</button>{u.id !== user?.id && <button type="button" className="btn ghost sm danger-text" onClick={() => setDel(u)}>Remove</button>}</span>}
+          </div>
+        ))}
+      </div>
       {status?.auth_mode !== 'local' && <p className="muted small mt">Auth mode is <code>{status?.auth_mode}</code>: users are created automatically on first visit; passwords are not used here.</p>}
       {edit && <UserModal user={edit} local={status?.auth_mode === 'local'} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); reloadMeta() }} />}
-      {del && <Confirm title={`Remove ${del.name || del.email}?`} message="Their account and their journal are deleted." onCancel={() => setDel(null)} onConfirm={() => { const d = del; setDel(null); run(() => api.del(`${V1}/users/${d.id}`), 'User removed') }} />}
-    </Card>
+      {del && <Confirm confirmLabel="Remove" title={`Remove ${del.name || del.email}?`} message="Their account and their journal are deleted." onCancel={() => setDel(null)} onConfirm={() => { const d = del; setDel(null); run(() => api.del(`${V1}/users/${d.id}`), 'User removed') }} />}
+    </Section>
   )
 }
 
@@ -385,13 +452,13 @@ function UserModal({ user, local, onClose, onSaved }: { user: Partial<User>; loc
     try { if (user.id) await api.put(`${V1}/users/${user.id}`, f); else await api.post(`${V1}/users`, f); toast(user.id ? 'User saved' : 'User added'); onSaved() } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
   }
   return (
-    <Modal title={user.id ? 'Edit user' : 'Add user'} onClose={onClose}>
-      <form onSubmit={save} className="grid" style={{ gap: 14 }}>
+    <Modal title={user.id ? 'Edit person' : 'Add a person'} onClose={onClose} size="sm">
+      <form onSubmit={save} className="stack">
         <Field label="Name"><input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} autoFocus required maxLength={60} /></Field>
         <Field label="Email" help="Used to sign in."><input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} required /></Field>
         {local && <Field label={user.id ? 'New password (leave empty to keep)' : 'Password'} help="At least 8 characters."><input type="password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} minLength={user.id ? 0 : 8} required={!user.id} autoComplete="new-password" /></Field>}
         <Field group label="Role"><Segmented value={f.role} onChange={v => setF({ ...f, role: v })} options={[{ value: 'member', label: 'Member' }, { value: 'admin', label: 'Admin' }]} /></Field>
-        <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>{user.id ? 'Save' : 'Add user'}</button></div>
+        <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button type="submit" className="btn primary" disabled={busy}>{user.id ? 'Save' : 'Add person'}</button></div>
       </form>
     </Modal>
   )
@@ -407,18 +474,23 @@ function Profile() {
     try { setUser(await api.put(`${V1}/auth/me`, f)); setF(x => ({ ...x, current_password: '', new_password: '' })); toast('Profile saved') } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
   }
   return (
-    <Card title="Profile">
-      <form onSubmit={save} className="grid" style={{ gap: 14, maxWidth: 480 }}>
-        <Field label="Name"><input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="Email"><input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /></Field>
-        {status?.auth_mode === 'local' && <>
-          <hr />
-          <Field label="Current password"><input type="password" value={f.current_password} onChange={e => setF({ ...f, current_password: e.target.value })} autoComplete="current-password" /></Field>
-          <Field label="New password" help="At least 8 characters. Leave empty to keep the current one."><input type="password" value={f.new_password} onChange={e => setF({ ...f, new_password: e.target.value })} autoComplete="new-password" /></Field>
-        </>}
-        <div><button className="btn primary" disabled={busy}>Save</button></div>
-      </form>
-    </Card>
+    <form onSubmit={save} className="stack loose">
+      <div className="set-profile">
+        <Avatar name={user?.name} email={user?.email} size={56} />
+        <div className="grow"><h3>{user?.name || user?.email}</h3><p className="muted small">{user?.email} · {user?.role}</p></div>
+      </div>
+      <Section title="You">
+        <div className="stack">
+          <Field label="Name"><input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
+          <Field label="Email"><input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /></Field>
+        </div>
+      </Section>
+      {status?.auth_mode === 'local' && <Section title="Password" sub="Leave empty to keep the current one."><div className="stack">
+        <Field label="Current password"><input type="password" value={f.current_password} onChange={e => setF({ ...f, current_password: e.target.value })} autoComplete="current-password" /></Field>
+        <Field label="New password" help="At least 8 characters."><input type="password" value={f.new_password} onChange={e => setF({ ...f, new_password: e.target.value })} autoComplete="new-password" /></Field>
+      </div></Section>}
+      <div className="row"><button type="submit" className="btn primary" disabled={busy}>Save changes</button></div>
+    </form>
   )
 }
 
@@ -435,30 +507,28 @@ function Tokens() {
   }
   const base = settings?.base_url || window.location.origin
   return (
-    <div className="two-col">
-      <Card title="API tokens">
-        <p className="muted">Use as <code>Authorization: Bearer &lt;token&gt;</code>. A token acts as you: it can read and write your journal, feed a Homepage widget (<code>GET /api/v1/dashboard</code>) or drive a phone shortcut. See <code>docs/api.md</code>.</p>
-        <form onSubmit={create} className="row mb"><input value={name} onChange={e => setName(e.target.value)} placeholder="Token name (e.g. iPhone shortcut)" /><button className="btn primary">Create</button></form>
-        {fresh && <div className="callout success mb"><b>Copy it now — it is shown once.</b><pre className="mono" style={{ margin: '8px 0 0' }}>{fresh}</pre></div>}
+    <div className="stack loose">
+      <Section title="Personal tokens" icon="key" sub={<>Use as <code>Authorization: Bearer &lt;token&gt;</code>. A token acts as you: it can read and write your journal, feed a Homepage widget (<code>GET /api/v1/dashboard</code>) or drive a phone shortcut. See <code>docs/api.md</code>.</>}>
+        <form onSubmit={create} className="row mb"><input value={name} onChange={e => setName(e.target.value)} placeholder="Token name (e.g. iPhone shortcut)" /><button type="submit" className="btn primary"><Icon name="plus" size={15} />Create</button></form>
+        {fresh && <div className="set-fresh mb"><div className="row"><Icon name="check-circle" size={16} /><b>Copy it now — it is shown once.</b></div><pre className="mono">{fresh}</pre></div>}
         {data && data.length > 0 ? (
           <table className="table compact">
             <thead><tr><th>Name</th><th>Prefix</th><th>Last used</th><th>Created</th><th /></tr></thead>
-            <tbody>{data.map(t => <tr key={t.id}><td>{t.name}</td><td className="mono">{t.prefix}…</td><td className="muted">{t.last_used_at ? fmtDateTime(t.last_used_at) : 'never'}</td><td className="muted">{fmtDateTime(t.created_at)}</td><td className="right"><button className="btn ghost sm danger-text" onClick={() => setDel(t)}>Revoke</button></td></tr>)}</tbody>
+            <tbody>{data.map(t => <tr key={t.id}><td>{t.name}</td><td className="mono">{t.prefix}…</td><td className="muted">{t.last_used_at ? fmtDateTime(t.last_used_at) : 'never'}</td><td className="muted">{fmtDateTime(t.created_at)}</td><td className="right"><button type="button" className="btn ghost sm danger-text" onClick={() => setDel(t)}>Revoke</button></td></tr>)}</tbody>
           </table>
-        ) : <p className="muted">No tokens yet.</p>}
-        {del && <Confirm title={`Revoke “${del.name}”?`} message="Anything using this token stops working immediately." onCancel={() => setDel(null)} onConfirm={async () => { await api.del(`${V1}/tokens/${del.id}`); setDel(null); reload() }} />}
-      </Card>
-      <Card title="Shortcuts & widgets">
-        <p className="muted">Handy endpoints at <code>{base}/api/v1</code>:</p>
-        <table className="table compact"><tbody>
-          <tr><td className="mono">POST /moments</td><td className="muted"><code>{'{"text":"coffee with A.","kind":"note"}'}</code> — a Siri Shortcut or Raycast “add a moment”; time defaults to now</td></tr>
-          <tr><td className="mono">POST /entries</td><td className="muted"><code>{'{"highlight":"…","text":"…","mood":4,"tags":"walk"}'}</code> — appends to today; <code>date</code> optional</td></tr>
-          <tr><td className="mono">GET /today</td><td className="muted">today's page: your words, moments, pins and every fact</td></tr>
-          <tr><td className="mono">GET /dashboard</td><td className="muted">streak, written today, photos / km / listens today — for Homepage</td></tr>
-          <tr><td className="mono">GET /memories</td><td className="muted">this date in earlier years</td></tr>
-          <tr><td className="mono">GET /export.md</td><td className="muted">the whole journal as Markdown</td></tr>
-        </tbody></table>
-      </Card>
+        ) : <p className="muted" style={{ margin: 0 }}>No tokens yet.</p>}
+        {del && <Confirm confirmLabel="Revoke" title={`Revoke “${del.name}”?`} message="Anything using this token stops working immediately." onCancel={() => setDel(null)} onConfirm={async () => { await api.del(`${V1}/tokens/${del.id}`); setDel(null); reload() }} />}
+      </Section>
+      <Section title="Shortcuts & widgets" icon="smartphone" sub={<>Handy endpoints at <code>{base}/api/v1</code>:</>}>
+        <dl className="set-dl">
+          <div><dt><code>POST /moments</code></dt><dd className="muted"><code>{'{"text":"coffee with A.","kind":"note"}'}</code> — a Siri Shortcut or Raycast “add a moment”; time defaults to now</dd></div>
+          <div><dt><code>POST /entries</code></dt><dd className="muted"><code>{'{"highlight":"…","text":"…","mood":4,"tags":"walk"}'}</code> — appends to today; <code>date</code> optional</dd></div>
+          <div><dt><code>GET /today</code></dt><dd className="muted">today's page: your words, moments, pins and every fact</dd></div>
+          <div><dt><code>GET /dashboard</code></dt><dd className="muted">streak, written today, photos / km / listens today — for Homepage</dd></div>
+          <div><dt><code>GET /memories</code></dt><dd className="muted">this date in earlier years</dd></div>
+          <div><dt><code>GET /export.md</code></dt><dd className="muted">the whole journal as Markdown</dd></div>
+        </dl>
+      </Section>
     </div>
   )
 }
@@ -472,40 +542,62 @@ function Data() {
     try { const r = await api.post<Record<string, number>>(`${V1}/import`, JSON.parse(await file.text())); toast('Imported: ' + (Object.entries(r).map(([k, v]) => `${v} ${k}`).join(', ') || 'nothing new')) } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
   }
   return (
-    <div className="two-col">
-      {user?.role === 'admin' && <Card title="Backup">
+    <div className="stack loose">
+      {user?.role === 'admin' && <Section title="Database backup" icon="database" sub="Admins only.">
         <p className="muted">A consistent copy of the SQLite database (<code>VACUUM INTO</code>): the whole box, every user's journal and facts. Restore by stopping the app and replacing <code>pocket-day.db</code> in the data directory. For your own journal only, use the export.</p>
-        <a className="btn primary" href={`${V1}/backup`}>Download database</a>
-      </Card>}
-      <Card title="Export & import">
-        <p className="muted">Your journal (entries, moments, pins) plus your facts as one JSON file, or the words alone as Markdown. Importing merges: entries by date (nothing is overwritten), moments and pins added when missing, facts only for days that have none.</p>
-        <div className="row wrap"><a className="btn" href={`${V1}/export.json`}>Export JSON</a><a className="btn" href={`${V1}/export.json?nofacts=1`}>JSON without facts</a><a className="btn" href={`${V1}/export.md`}>Markdown</a><label className="btn">{busy ? 'Importing…' : 'Import JSON…'}<input type="file" accept="application/json,.json" hidden onChange={e => e.target.files?.[0] && importJSON(e.target.files[0])} /></label></div>
-      </Card>
+        <a className="btn primary" href={`${V1}/backup`}><Icon name="download" size={15} />Download database</a>
+      </Section>}
+      <Section title="Export & import" icon="archive" sub="Your journal (entries, moments, pins) plus your facts as one JSON file, or the words alone as Markdown. Importing merges: entries by date (nothing is overwritten), moments and pins added when missing, facts only for days that have none.">
+        <div className="row wrap">
+          <a className="btn" href={`${V1}/export.json`}><Icon name="download" size={15} />Export JSON</a>
+          <a className="btn" href={`${V1}/export.json?nofacts=1`}>JSON without facts</a>
+          <a className="btn" href={`${V1}/export.md`}><Icon name="text" size={15} />Markdown</a>
+          <label className="btn"><Icon name="upload" size={15} />{busy ? 'Importing…' : 'Import JSON…'}<input type="file" accept="application/json,.json" hidden onChange={e => e.target.files?.[0] && importJSON(e.target.files[0])} /></label>
+        </div>
+      </Section>
     </div>
   )
 }
 
 function About() {
-  const { data } = useAsync(() => api.get<Record<string, unknown>>(`${V1}/settings/system`), [])
-  const counts = (data?.counts || {}) as Record<string, number>
+  const { data, error } = useAsync(() => api.get<Record<string, unknown>>(`${V1}/settings/system`), [])
+  if (error) return <div className="callout danger"><Icon name="alert" size={15} /><span>{error}</span></div>
+  if (!data) return <Loading />
+  const counts = (data.counts || {}) as Record<string, number>
+  const tiles: [string, number | undefined, string][] = [['Entries', counts.entries, 'book-open'], ['Moments', counts.moments, 'clock'], ['Pins', counts.pins, 'star'], ['Days with facts', Number(data.days_with_facts) || 0, 'layers']]
+  const rows: [string, React.ReactNode][] = [
+    ['Version', <code key="v">{String(data.version)}</code>],
+    ['Uptime', String(data.uptime)],
+    ['Runtime', `${String(data.go)} · ${String(data.os)}/${String(data.arch)}`],
+    ['Time zone', String(data.timezone)],
+    ['Sign-in', String(data.auth_mode)],
+    ['Database', <span key="db"><code>{String(data.db_path)}</code> · {fmtBytes(Number(data.db_bytes))}</span>],
+    ['Rows', `${counts.facts ?? 0} facts${data.first_fact_day ? ` since ${String(data.first_fact_day)}` : ''} · ${counts.users ?? 0} users`],
+  ]
   return (
-    <Card title="About">
-      <p><b>Pocket Day</b> is a journal that writes itself: one page per day with your own words on top and, underneath, what the other apps on the server already know about it — where you were, the photos, what played, what you watched, read, cooked and spent. One binary, one SQLite file, one volume.</p>
-      <p className="muted small">Open source (MIT) — <a href="https://github.com/abjelosevic88/pocket-homelab-day" target="_blank" rel="noreferrer">github.com/abjelosevic88/pocket-homelab-day</a>. Sibling projects: Pocket Habits, Pocket Documents, Pocket Inventory, Pocket Bookshelf, Pocket Split, Pocket Clips, Pocket Travel, Pocket Garage, Pocket Kitchen.</p>
-      {data && (
-        <table className="table compact mt">
-          <tbody>
-            <tr><th>Version</th><td className="mono">{String(data.version)}</td></tr>
-            <tr><th>Runtime</th><td className="mono">{String(data.go)} · {String(data.os)}/{String(data.arch)}</td></tr>
-            <tr><th>Auth mode</th><td className="mono">{String(data.auth_mode)}</td></tr>
-            <tr><th>Database</th><td className="mono">{String(data.db_path)} · {fmtBytes(Number(data.db_bytes))}</td></tr>
-            <tr><th>Timezone</th><td className="mono">{String(data.timezone)}</td></tr>
-            <tr><th>Uptime</th><td className="mono">{String(data.uptime)}</td></tr>
-            <tr><th>Rows</th><td className="mono">{counts.entries} entries · {counts.moments} moments · {counts.pins} pins · {counts.facts} facts ({String(data.days_with_facts)} days{data.first_fact_day ? ` since ${String(data.first_fact_day)}` : ''}) · {counts.users} users</td></tr>
-          </tbody>
-        </table>
-      )}
-      <p className="muted small mt">Looking for a day? <Link to="/journal">Journal</Link> searches your words; <kbd className="kbd">⌘K</kbd> anywhere.</p>
-    </Card>
+    <div className="stack loose">
+      <div className="set-about-hero">
+        <img src="/favicon.svg" alt="" width={48} height={48} />
+        <div>
+          <h3>Pocket Day</h3>
+          <p className="muted small">A journal that writes itself: one page per day with your own words on top and, underneath, what the other apps on the server already know about it — where you were, the photos, what played, what you watched, read, cooked and spent. One binary, one SQLite file, one volume.</p>
+        </div>
+      </div>
+      <div className="set-stats">
+        {tiles.map(([label, n, icon]) => (
+          <div key={label} className="set-stat"><Icon name={icon} size={16} /><span className="set-stat-n tnum">{n ?? 0}</span><span className="set-stat-l">{label}</span></div>
+        ))}
+      </div>
+      <Section title="This server">
+        <dl className="set-dl">
+          {rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+        </dl>
+      </Section>
+      <p className="muted small" style={{ margin: 0 }}>Open source (MIT). Looking for a day? <Link to="/journal">Journal</Link> searches your words; <kbd>⌘K</kbd> anywhere. Sibling projects: Pocket Habits, Pocket Documents, Pocket Inventory, Pocket Bookshelf, Pocket Split, Pocket Clips, Pocket Travel, Pocket Garage, Pocket Kitchen.</p>
+      <div className="row wrap">
+        <button type="button" className="btn" onClick={() => window.dispatchEvent(new CustomEvent('pd:shortcuts'))}><Icon name="keyboard" size={15} />Keyboard shortcuts</button>
+        <a className="btn" href="https://github.com/abjelosevic88/pocket-homelab-day" target="_blank" rel="noreferrer"><Icon name="external" size={15} />Project on GitHub</a>
+      </div>
+    </div>
   )
 }

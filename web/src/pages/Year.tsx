@@ -3,20 +3,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
-import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
+import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
 
 const ACT_ORDER = ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'invoicing', 'split', 'inventory']
 import { Card, Empty, Loading, useAsync } from '../components/ui'
+import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
 import { Ring } from './Calendar'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr' | 'documents'
 const METRICS: { id: Metric; label: string; icon: string }[] = [
-  { id: 'immich', label: 'Photos', icon: '📷' }, { id: 'dawarich', label: 'Distance', icon: '🗺' }, { id: 'maloja', label: 'Music', icon: '🎧' },
-  { id: 'pinepods', label: 'Podcasts', icon: '🎙' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: '📖' },
-  { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' }, { id: 'forgejo', label: 'Code', icon: '⌨️' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: '☑️' }, { id: 'tasks', label: 'Pocket Tasks', icon: '☑️' },
-  { id: 'jellyseerr', label: 'Requests', icon: '🎬' }, { id: 'documents', label: 'Documents', icon: '🗂' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'written', label: 'Written', icon: '✎' },
+  { id: 'immich', label: 'Photos', icon: 'camera' }, { id: 'dawarich', label: 'Distance', icon: 'map' }, { id: 'maloja', label: 'Music', icon: 'music' },
+  { id: 'pinepods', label: 'Podcasts', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
+  { id: 'jellystat', label: 'Watched', icon: 'tv' }, { id: 'firefly', label: 'Spend', icon: 'wallet' }, { id: 'forgejo', label: 'Code', icon: 'code' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: 'check-square' }, { id: 'tasks', label: 'Pocket Tasks', icon: 'check-square' },
+  { id: 'jellyseerr', label: 'Requests', icon: 'film' }, { id: 'documents', label: 'Documents', icon: 'file' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'written', label: 'Written', icon: 'pen' },
 ]
 const compact = (n: number) => n >= 10000 ? new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n) : Math.round(n).toLocaleString()
 function money(v: number, cur: string, short = true) {
@@ -43,7 +44,7 @@ export default function Year() {
   const active = available.find(m => m.id === metric)?.id || available[0]?.id || 'written'
 
   if (loading && !data) return <Loading />
-  if (error) return <div className="callout danger">{error}</div>
+  if (error) return <div className="callout danger"><Icon name="alert" size={15} /><span>{error}</span></div>
   if (!data) return null
   const d = data
   const cur = d.spend_currency || settings?.home_currency || 'EUR'
@@ -62,35 +63,35 @@ export default function Year() {
           <div className="cal2-sub">{empty ? 'Nothing recorded yet.' : `${d.days_with_facts} days recorded · ${d.entries} written${d.longest_streak > 1 ? ` · longest streak ${d.longest_streak} days` : ''}`}</div>
         </div>
         <div className="cal2-nav">
-          <button className="btn icon" onClick={() => navigate(`/year/${year - 1}`)} title={String(year - 1)}>‹</button>
+          <button type="button" className="btn icon-only" onClick={() => navigate(`/year/${year - 1}`)} title={String(year - 1)} aria-label={String(year - 1)}><Icon name="chevron-left" size={18} /></button>
           {yearList.length > 1 ? yearList.slice().sort().map(y => <Link key={y} className={`btn ${y === year ? 'primary' : ''}`} to={`/year/${y}`}>{y}</Link>) : <span className="btn primary">{year}</span>}
-          <button className="btn icon" onClick={() => navigate(`/year/${year + 1}`)} disabled={year >= thisYear} title={String(year + 1)}>›</button>
+          <button type="button" className="btn icon-only" onClick={() => navigate(`/year/${year + 1}`)} disabled={year >= thisYear} title={String(year + 1)} aria-label={String(year + 1)}><Icon name="chevron-right" size={18} /></button>
         </div>
       </div>
 
-      {empty ? <Card><Empty title="An empty year">Write a day or connect a source and come back.</Empty></Card> : <>
+      {empty ? <Card><Empty icon="chart" title="An empty year">Write a day or connect a source and come back.</Empty></Card> : <>
         <div className="cal2-stats">
           <div className="tile ring-tile"><Ring value={lived ? d.days_with_facts / lived : 0} /><div><b>{d.days_with_facts}<span>/{lived}</span></b><small>days recorded</small></div></div>
-          <div className="tile"><span className="ti">✎</span><div><b>{d.entries}</b><small>{d.entries === 1 ? 'day' : 'days'} written{d.words ? ` · ${compact(d.words)} words` : ''}</small></div></div>
+          <div className="tile"><span className="ti"><Icon name="pen" size={18} /></span><div><b>{d.entries}</b><small>{d.entries === 1 ? 'day' : 'days'} written{d.words ? ` · ${compact(d.words)} words` : ''}</small></div></div>
           {d.mood > 0 && <div className="tile"><span className="ti">{MOOD_ICON[Math.round(d.mood)]}</span><div><b>{d.mood.toFixed(1)}</b><small>average mood</small></div></div>}
-          {d.photos > 0 && <div className="tile"><span className="ti">📷</span><div><b>{compact(d.photos)}</b><small>photos{d.videos ? ` · ${d.videos} videos` : ''}</small></div></div>}
-          {d.km > 0 && <div className="tile"><span className="ti">🗺</span><div><b>{compact(unit === 'mi' ? d.km / 1.609344 : d.km)} {unit}</b><small>{Object.entries(d.modes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([m, v]) => `${m} ${compact(v)}`).join(' · ') || 'travelled'}</small></div></div>}
-          {d.listens > 0 && <div className="tile"><span className="ti">🎧</span><div><b>{compact(d.listens)}</b><small>songs played</small></div></div>}
-          {d.watch_min > 0 && <div className="tile"><span className="ti">📺</span><div><b>{Math.round(d.watch_min / 60)} h</b><small>{d.shows.length} shows · {d.movies} films</small></div></div>}
-          {spendMain > 0 && <div className="tile" title={[money(spendMain, cur, false), ...others.map(([c, v]) => money(v, c, false))].join(' + ')}><span className="ti">💸</span><div><b>{money(spendMain, cur)}</b><small>spent{others.length ? ` (+ ${others.map(([c, v]) => money(v, c)).join(', ')})` : ''}</small></div></div>}
+          {d.photos > 0 && <div className="tile"><SourceIcon source="immich" size={36} /><div><b>{compact(d.photos)}</b><small>photos{d.videos ? ` · ${d.videos} videos` : ''}</small></div></div>}
+          {d.km > 0 && <div className="tile"><SourceIcon source="dawarich" size={36} /><div><b>{compact(unit === 'mi' ? d.km / 1.609344 : d.km)} {unit}</b><small>{Object.entries(d.modes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([m, v]) => `${m} ${compact(v)}`).join(' · ') || 'travelled'}</small></div></div>}
+          {d.listens > 0 && <div className="tile"><SourceIcon source="maloja" size={36} /><div><b>{compact(d.listens)}</b><small>songs played</small></div></div>}
+          {d.watch_min > 0 && <div className="tile"><SourceIcon source="jellystat" size={36} /><div><b>{Math.round(d.watch_min / 60)} h</b><small>{d.shows.length} shows · {d.movies} films</small></div></div>}
+          {spendMain > 0 && <div className="tile" title={[money(spendMain, cur, false), ...others.map(([c, v]) => money(v, c, false))].join(' + ')}><SourceIcon source="firefly" size={36} /><div><b>{money(spendMain, cur)}</b><small>spent{others.length ? ` (+ ${others.map(([c, v]) => money(v, c)).join(', ')})` : ''}</small></div></div>}
           {Object.entries(d.activity || {}).filter(([src]) => isActivity(src)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
             const m = ACTIVITY[src]
             const big = m.unit === 'min' ? `${Math.round(ay.minutes / 60)} h` : m.unit === 'qty' ? compact(ay.qty) : m.unit === 'amount' ? money(ay.amount, ay.currency || cur) : compact(ay.count)
             const small = m.unit === 'min' ? `${SOURCE_LABEL[src].toLowerCase()} · ${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}` : m.unit === 'qty' ? `${m.qtyMany} · ${ay.days} days` : m.unit === 'amount' ? `${SOURCE_LABEL[src].toLowerCase()}` : `${ay.count === 1 ? m.one : m.many}${src === 'nextcloud' ? ' done' : ''}`
-            return <div key={src} className="tile"><span className="ti">{SOURCE_ICON[src]}</span><div><b>{big}</b><small>{small}</small></div></div>
+            return <div key={src} className="tile"><SourceIcon source={src} size={36} /><div><b>{big}</b><small>{small}</small></div></div>
           })}
-          {d.books.length > 0 && <div className="tile"><span className="ti">📚</span><div><b>{d.books.length}</b><small>books finished</small></div></div>}
-          {d.cooked > 0 && <div className="tile"><span className="ti">🍳</span><div><b>{d.cooked}</b><small>dishes cooked</small></div></div>}
+          {d.books.length > 0 && <div className="tile"><SourceIcon source="bookshelf" size={36} /><div><b>{d.books.length}</b><small>books finished</small></div></div>}
+          {d.cooked > 0 && <div className="tile"><SourceIcon source="kitchen" size={36} /><div><b>{d.cooked}</b><small>dishes cooked</small></div></div>}
         </div>
 
         {aiOn && <StoryCard key={year} kind="year" period={String(year)} label={String(year)} />}
 
-        <Card className="mb" title="Every day of the year" actions={<div className="layer-switch">{available.map(m => <button key={m.id} className={active === m.id ? 'on' : ''} onClick={() => setMetric(m.id)}><span>{m.icon}</span>{m.label}</button>)}</div>}>
+        <Card className="mb" title={<><Icon name="grid" size={16} />Every day of the year</>} actions={<div className="layer-switch">{available.map(m => <button type="button" key={m.id} className={active === m.id ? 'on' : ''} onClick={() => setMetric(m.id)}><Icon name={m.icon} size={14} />{m.label}</button>)}</div>}>
           {cal ? <>
             <Heatmap year={year} days={days} metric={active} today={today} unit={unit} cur={cur} onOpen={iso => navigate(`/day/${iso}`)} />
             <MonthBars year={year} days={days} metric={active} today={today} unit={unit} cur={cur} onOpen={m => navigate(`/calendar/${m}`)} />
@@ -98,43 +99,43 @@ export default function Year() {
         </Card>
 
         <div className="insights">
-          {d.artists.length > 0 && <Card title="🎧 Most played">
+          {d.artists.length > 0 && <Card title={<><SourceIcon source="maloja" size={22} />Most played</>}>
             <Ranked items={d.artists.slice(0, 8)} />
             {d.tracks.length > 0 && <><div className="sub-head">Songs</div><Ranked items={d.tracks.slice(0, 5).map(t => { const [a, ...rest] = t.name.split(' – '); return { ...t, name: rest.join(' – ') || t.name, sub: rest.length ? a : '' } })} /></>}
           </Card>}
-          {(patterns?.length || 0) > 0 && <Card title="🙂 What goes with a good day">
+          {(patterns?.length || 0) > 0 && <Card title={<><Icon name="smile" size={16} />What goes with a good day</>}>
             <p className="muted small">Average mood with versus without. Small samples — hints, not rules.</p>
             {patterns!.map(p => <div key={p.label} className="pattern"><span>Days {p.label}</span><span className="cmp"><b className={p.with > p.without ? 'up' : 'down'}>{p.with.toFixed(1)}</b><span className="muted">vs {p.without.toFixed(1)}</span></span></div>)}
           </Card>}
-          {moodsTotal > 0 && <Card title="Moods">
+          {moodsTotal > 0 && <Card title={<><Icon name="activity" size={16} />Moods</>}>
             <div className="mood-bars">{[5, 4, 3, 2, 1].map(m => <div key={m} className="mb-row"><span>{MOOD_ICON[m]} {cap(MOODS[m])}</span><div className="bar-h"><div style={{ width: `${d.moods[m] / moodsTotal * 100}%`, background: MOOD_COLOR[m] }} /></div><span className="muted small">{d.moods[m]}</span></div>)}</div>
             {moodsTotal >= 7 && <div className="wd-mood">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w, i) => { const v = d.weekday_mood[i + 1]; return <div key={w} title={v ? v.toFixed(1) : 'no data'}><i style={{ height: `${v ? v / 5 * 100 : 0}%`, background: v ? MOOD_COLOR[Math.round(v)] : undefined }} /><span>{w[0]}</span></div> })}</div>}
           </Card>}
-          {d.shows.length > 0 && <Card title="📺 Most watched"><Ranked items={d.shows} unitLabel="ep" />{d.movies > 0 && <p className="muted small mt-sm" style={{ margin: '8px 0 0' }}>Plus {d.movies} film{d.movies === 1 ? '' : 's'} · {fmtMinutes(d.watch_min)} on screen in total.</p>}</Card>}
-          {d.category_spend?.length > 0 && <Card title="💸 Where the money went">
+          {d.shows.length > 0 && <Card title={<><SourceIcon source="jellystat" size={22} />Most watched</>}><Ranked items={d.shows} unitLabel="ep" />{d.movies > 0 && <p className="muted small mt-sm" style={{ margin: '8px 0 0' }}>Plus {d.movies} film{d.movies === 1 ? '' : 's'} · {fmtMinutes(d.watch_min)} on screen in total.</p>}</Card>}
+          {d.category_spend?.length > 0 && <Card title={<><SourceIcon source="firefly" size={22} />Where the money went</>}>
             <Ranked items={d.category_spend.map(c => ({ name: c.name, count: c.amount, label: money(c.amount, cur), sub: `${c.count}×` }))} />
             <p className="muted small" style={{ margin: '8px 0 0' }}>{money(spendMain, cur, false)} in total{others.length ? `, plus ${others.map(([c, v]) => money(v, c, false)).join(', ')}` : ''}.</p>
           </Card>}
-          {d.books.length > 0 && <Card title="📚 Books finished"><div className="inline-list">{d.books.map((b, i) => <div key={i} className="li"><span className="grow"><b>{b.title}</b>{b.authors && <span className="muted"> · {b.authors}</span>}</span>{b.rating ? <span className="stars">{'★'.repeat(Math.round(b.rating))}</span> : null}<span className="muted small nowrap">{b.finished_on ? fmtDate(b.finished_on, false) : ''}</span></div>)}</div></Card>}
-          {(d.visits.length > 0 || d.places.length > 0) && <Card title="📍 Places">
+          {d.books.length > 0 && <Card title={<><SourceIcon source="bookshelf" size={22} />Books finished</>}><div className="inline-list">{d.books.map((b, i) => <div key={i} className="li"><span className="grow"><b>{b.title}</b>{b.authors && <span className="muted"> · {b.authors}</span>}</span>{b.rating ? <span className="stars">{'★'.repeat(Math.round(b.rating))}</span> : null}<span className="muted small nowrap">{b.finished_on ? fmtDate(b.finished_on, false) : ''}</span></div>)}</div></Card>}
+          {(d.visits.length > 0 || d.places.length > 0) && <Card title={<><SourceIcon source="dawarich" size={22} />Places</>}>
             {d.visits.length > 0 && <Ranked items={d.visits.slice(0, 8)} unitLabel="×" />}
             {d.places.length > 0 && <>{d.visits.length > 0 && <div className="sub-head">Where the photos were taken</div>}<div className="chips">{d.places.map(p => <span key={p.name} className="chip">{p.name} <span className="muted">{p.count}</span></span>)}</div></>}
           </Card>}
-          {d.trips.length > 0 && <Card title="✈️ Trips"><div className="inline-list">{d.trips.map(t => <Link key={t.id} className="li" to={`/day/${t.start_date}`} style={{ color: 'inherit' }}><span className="swatch" style={{ background: t.color || 'var(--accent)' }} /><span className="grow"><b>{t.name}</b>{t.destination && <span className="muted"> · {t.destination}</span>}</span><span className="muted small nowrap">{fmtDate(t.start_date, false)} – {fmtDate(t.end_date, false)}</span></Link>)}</div></Card>}
-          {d.conditions.length > 0 && <Card title="⛅ Weather"><WeatherBar items={d.conditions} /></Card>}
-          {d.dishes.length > 0 && <Card title="🍳 Cooked most"><Ranked items={d.dishes} unitLabel="×" /></Card>}
+          {d.trips.length > 0 && <Card title={<><SourceIcon source="travel" size={22} />Trips</>}><div className="inline-list">{d.trips.map(t => <Link key={t.id} className="li" to={`/day/${t.start_date}`} style={{ color: 'inherit' }}><span className="swatch" style={{ background: t.color || 'var(--accent)' }} /><span className="grow"><b>{t.name}</b>{t.destination && <span className="muted"> · {t.destination}</span>}</span><span className="muted small nowrap">{fmtDate(t.start_date, false)} – {fmtDate(t.end_date, false)}</span></Link>)}</div></Card>}
+          {d.conditions.length > 0 && <Card title={<><SourceIcon source="weather" size={22} />Weather</>}><WeatherBar items={d.conditions} /></Card>}
+          {d.dishes.length > 0 && <Card title={<><SourceIcon source="kitchen" size={22} />Cooked most</>}><Ranked items={d.dishes} unitLabel="×" /></Card>}
           {Object.entries(d.activity || {}).filter(([src, ay]) => isActivity(src) && (ay.top?.length || ay.titles?.length)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
             const m = ACTIVITY[src]
             const repeated = ['pinepods', 'audiobookshelf', 'nextcloud'].includes(src) ? (ay.titles || []).filter(t => t.count > 1) : []
-            return <Card key={src} title={`${SOURCE_ICON[src]} ${SOURCE_LABEL[src]}`}>
+            return <Card key={src} title={<><SourceIcon source={src} size={22} />{SOURCE_LABEL[src]}</>}>
               <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', m.unit === 'qty' ? `${compact(ay.qty)} ${m.qtyMany}` : m.unit === 'amount' ? money(ay.amount, ay.currency || cur, false) : '', m.unit === 'qty' ? '' : `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
               {ay.top?.length > 0 && <Ranked items={ay.top.slice(0, 6)} />}
               {repeated.length > 0 && <><div className="sub-head">Most often</div><Ranked items={repeated.slice(0, 4)} unitLabel="×" /></>}
             </Card>
           })}
-          {d.pinned.length > 0 && <Card title="★ Kept days"><DayList items={d.pinned} /></Card>}
-          {d.best.length > 0 && <Card title="😄 Great days"><DayList items={d.best} /></Card>}
-          {d.tags.length > 0 && <Card title="# Tags"><div className="chips">{d.tags.map(t => <Link key={t.tag} className="chip" to={`/journal?tag=${encodeURIComponent(t.tag)}`}>#{t.tag} <span className="muted">{t.count}</span></Link>)}</div></Card>}
+          {d.pinned.length > 0 && <Card title={<><Icon name="star" size={16} />Kept days</>}><DayList items={d.pinned} /></Card>}
+          {d.best.length > 0 && <Card title={<><Icon name="sun" size={16} />Great days</>}><DayList items={d.best} /></Card>}
+          {d.tags.length > 0 && <Card title={<><Icon name="tag" size={16} />Tags</>}><div className="chips">{d.tags.map(t => <Link key={t.tag} className="chip" to={`/journal?tag=${encodeURIComponent(t.tag)}`}>#{t.tag} <span className="muted">{t.count}</span></Link>)}</div></Card>}
         </div>
       </>}
     </div>
@@ -195,7 +196,7 @@ function Heatmap({ year, days, metric, today, unit, cur, onOpen }: { year: numbe
             const d = byDate.get(iso)
             const v = metricValue(d, metric)
             const future = iso > today
-            return <button key={iso} className={`hm-c ${future ? 'future' : ''} ${iso === today ? 'today' : ''} ${d?.pinned ? 'kept' : ''}`} style={{ background: future ? undefined : cellColor(v, metric, max) }} disabled={future}
+            return <button type="button" key={iso} className={`hm-c ${future ? 'future' : ''} ${iso === today ? 'today' : ''} ${d?.pinned ? 'kept' : ''}`} style={{ background: future ? undefined : cellColor(v, metric, max) }} disabled={future}
               title={`${fmtDate(iso)} · ${fmtMetric(v, metric, unit, cur)}${d?.highlight ? ` · ${d.highlight}` : ''}`} onClick={() => onOpen(iso)} />
           })}
         </Fragment>)}
@@ -227,7 +228,7 @@ function MonthBars({ year, days, metric, today, unit, cur, onOpen }: { year: num
     <div className="mbars">
       {vals.map((x, i) => {
         const future = x.key > today.slice(0, 7)
-        return <button key={x.key} className={`mbar ${future ? 'future' : ''} ${x.key === today.slice(0, 7) ? 'now' : ''}`} onClick={() => !future && onOpen(x.key)} disabled={future} title={`${MON[i]} · ${label(x.v) || 'nothing'}`}>
+        return <button type="button" key={x.key} className={`mbar ${future ? 'future' : ''} ${x.key === today.slice(0, 7) ? 'now' : ''}`} onClick={() => !future && onOpen(x.key)} disabled={future} title={`${MON[i]} · ${label(x.v) || 'nothing'}`}>
           <span className="mb-v">{label(x.v)}</span>
           <span className="mb-track"><i style={{ height: `${x.v / max * 100}%`, background: metric === 'mood' && x.v ? MOOD_COLOR[Math.round(x.v)] : undefined }} /></span>
           <span className="mb-m">{MON[i]}</span>

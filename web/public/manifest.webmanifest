@@ -3,7 +3,7 @@
   "short_name": "Day",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f6f8",
+  "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "icons": [
     {

@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { V1 } from '../lib/api'
 import { Card } from './ui'
+import { Icon, SourceIcon } from './icons'
 import {
-  SOURCE_APP, SOURCE_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
+  SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
   type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where,
 } from '../lib/types'
 
@@ -13,10 +14,10 @@ interface Props { source: string; fact?: Fact; link?: string; unit: 'km' | 'mi';
 
 /** One source's card on the day page. */
 export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date }: Props) {
-  const title = <span className="row" style={{ gap: 8 }}><span>{SOURCE_ICON[source]}</span>{SOURCE_LABEL[source] || cap(source)}</span>
+  const title = <><SourceIcon source={source} size={22} />{SOURCE_LABEL[source] || cap(source)}</>
   const actions = <>
     {fact?.error && <span className="badge warn" title={fact.error}>stale</span>}
-    {link && <a className="btn ghost sm" href={link} target="_blank" rel="noreferrer" title={`Open ${SOURCE_APP[source] || source}`}>↗</a>}
+    {link && <a className="btn ghost icon-only sm" href={link} target="_blank" rel="noreferrer" title={`Open ${SOURCE_APP[source] || source}`} aria-label={`Open ${SOURCE_APP[source] || source}`}><Icon name="external" size={14} /></a>}
   </>
   const empty = (msg: string) => <p className="muted small" style={{ margin: 0 }}>{msg}</p>
   if (!fact || fact.payload === null || fact.payload === undefined) {
@@ -25,7 +26,7 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
   const pinned = (ref: string) => pins.find(p => p.source === source && p.ref === ref)
   const PinBtn = ({ ref_, title, subtitle, image }: PinBtnProps) => {
     const p = pinned(ref_)
-    return <button className={`pin-btn ${p ? 'on' : ''}`} title={p ? 'Unpin from this day' : 'Keep on this day'} onClick={() => p ? onUnpin(p.id) : onPin({ source, ref: ref_, title, subtitle: subtitle || '', image: image || '' })}>{p ? '★' : '☆'}</button>
+    return <button type="button" className={`pin-btn ${p ? 'on' : ''}`} title={p ? 'Unpin from this day' : 'Keep on this day'} aria-label={p ? 'Unpin from this day' : 'Keep on this day'} aria-pressed={!!p} onClick={() => p ? onUnpin(p.id) : onPin({ source, ref: ref_, title, subtitle: subtitle || '', image: image || '' })}><Icon name="star" size={13} strokeWidth={2} /></button>
   }
   let body: React.ReactNode = null
   switch (source) {
@@ -36,7 +37,7 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       const visits = (w.entries || []).filter(e => e.kind === 'visit')
       body = <>
         <div className="fact-head"><b>{fmtKm(w.distance_km, unit)}</b>{w.moving_minutes > 0 && <span className="muted"> · {fmtMinutes(w.moving_minutes)} moving</span>}{w.first_move && <span className="muted"> · {w.first_move}–{w.last_move}</span>}</div>
-        {modes.length > 0 && <div className="chips">{modes.map(([m, v]) => <span key={m} className="chip">{modeIcon(m)} {fmtKm(v, unit)}</span>)}</div>}
+        {modes.length > 0 && <div className="chips">{modes.map(([m, v]) => <span key={m} className="chip" title={m}><Icon name={modeIcon(m)} size={14} />{fmtKm(v, unit)}</span>)}</div>}
         {visits.length > 0 && <div className="inline-list mt-sm">{visits.map((v, i) => <div key={i} className="li"><span className="muted mono small">{v.start}</span><span className="grow">{v.name || 'Somewhere'}</span><span className="muted small">{fmtMinutes(v.minutes)}</span><PinBtn ref_={`visit:${v.start}:${v.name}`} title={v.name || 'Somewhere'} subtitle={`${v.start}–${v.end}`} /></div>)}</div>}
       </>
       break
@@ -95,19 +96,19 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
     case 'travel': {
       const t = fact.payload as Trips
       if (!t.trips?.length) { body = empty('Not travelling.'); break }
-      body = <div className="inline-list">{t.trips.map(tr => <div key={tr.id} className="li"><span className="swatch" style={{ background: tr.color || 'var(--accent)' }} /><span className="grow"><b>{tr.name}</b>{tr.destination && <span className="muted"> · {tr.destination}</span>}</span><span className="badge">day {tr.day_no} of {tr.days}</span>{link && <a className="btn ghost sm" href={`${link}/trips/${tr.id}`} target="_blank" rel="noreferrer">↗</a>}</div>)}</div>
+      body = <div className="inline-list">{t.trips.map(tr => <div key={tr.id} className="li"><span className="swatch" style={{ background: tr.color || 'var(--accent)' }} /><span className="grow"><b>{tr.name}</b>{tr.destination && <span className="muted"> · {tr.destination}</span>}</span><span className="badge">day {tr.day_no} of {tr.days}</span>{link && <a className="btn ghost icon-only sm" href={`${link}/trips/${tr.id}`} target="_blank" rel="noreferrer" title="Open the trip" aria-label="Open the trip"><Icon name="external" size={14} /></a>}</div>)}</div>
       break
     }
     case 'kitchen': {
       const c = fact.payload as Cooked
       if (!c.cooks?.length) { body = empty('Nothing cooked.'); break }
-      body = <div className="inline-list">{c.cooks.map(ck => <div key={ck.id} className="li"><span>🍳</span><span className="grow"><b>{ck.title}</b>{ck.servings ? <span className="muted"> · {ck.servings} servings</span> : null}{ck.by && <span className="muted small"> · {ck.by}</span>}</span>{ck.rating > 0 && <span className="stars">{'★'.repeat(ck.rating)}</span>}<PinBtn ref_={`cook:${ck.id}`} title={ck.title} subtitle="cooked" /></div>)}</div>
+      body = <div className="inline-list">{c.cooks.map(ck => <div key={ck.id} className="li"><Icon name="utensils" size={15} className="muted" /><span className="grow"><b>{ck.title}</b>{ck.servings ? <span className="muted"> · {ck.servings} servings</span> : null}{ck.by && <span className="muted small"> · {ck.by}</span>}</span>{ck.rating > 0 && <span className="stars">{'★'.repeat(ck.rating)}</span>}<PinBtn ref_={`cook:${ck.id}`} title={ck.title} subtitle="cooked" /></div>)}</div>
       break
     }
     case 'garage': {
       const c = fact.payload as Car
       if (!c.items?.length) { body = empty('Nothing in the garage.'); break }
-      body = <div className="inline-list">{c.items.map((it, i) => <div key={i} className="li"><span>{it.kind === 'fuel' ? '⛽' : '🔧'}</span><span className="grow"><b>{it.vehicle}</b> <span className="muted">{it.kind === 'fuel' ? it.title : `${it.kind} · ${it.title}`}{it.station ? ` · ${it.station}` : ''}</span></span>{it.cost ? <span className="money">{fmtAmount(it.cost / 100, it.currency)}</span> : null}</div>)}</div>
+      body = <div className="inline-list">{c.items.map((it, i) => <div key={i} className="li"><Icon name={it.kind === 'fuel' ? 'fuel' : 'wrench'} size={15} className="muted" /><span className="grow"><b>{it.vehicle}</b> <span className="muted">{it.kind === 'fuel' ? it.title : `${it.kind} · ${it.title}`}{it.station ? ` · ${it.station}` : ''}</span></span>{it.cost ? <span className="money">{fmtAmount(it.cost / 100, it.currency)}</span> : null}</div>)}</div>
       break
     }
     case 'weather': {
@@ -129,20 +130,19 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
 
 function modeIcon(m: string) {
   switch (m) {
-    case 'walking': return '🚶'
-    case 'running': return '🏃'
-    case 'cycling': return '🚴'
-    case 'driving': return '🚗'
-    case 'train': return '🚆'
-    case 'flying': case 'plane': return '✈️'
-    case 'boat': return '⛵'
+    case 'walking': case 'running': return 'walk'
+    case 'cycling': return 'bike'
+    case 'driving': return 'car'
+    case 'train': return 'train'
+    case 'flying': case 'plane': return 'plane'
+    case 'boat': return 'boat'
   }
-  return '•'
+  return 'route'
 }
 
 export function Expandable({ label, children, open: init = false }: { label: string; children: React.ReactNode; open?: boolean }) {
   const [open, setOpen] = useState(init)
-  return <div className="mt-sm"><button className="btn ghost sm" onClick={() => setOpen(o => !o)}>{open ? '▾' : '▸'} {label}</button>{open && children}</div>
+  return <div className="mt-sm"><button type="button" className="btn ghost sm" onClick={() => setOpen(o => !o)} aria-expanded={open}><Icon name={open ? 'chevron-down' : 'chevron-right'} size={14} />{label}</button>{open && children}</div>
 }
 
 function PhotoGrid({ p, date, link, PinBtn }: { p: Photos; date: string; link?: string; PinBtn: (props: PinBtnProps) => React.ReactNode }) {
@@ -151,14 +151,14 @@ function PhotoGrid({ p, date, link, PinBtn }: { p: Photos; date: string; link?: 
   const items = all ? p.items : p.items.slice(0, 12)
   const isDemo = p.items[0]?.id?.startsWith('demo-')
   return <>
-    <div className="fact-head"><b>{p.count - p.videos} photo{p.count - p.videos === 1 ? '' : 's'}</b>{p.videos > 0 && <span className="muted"> · {p.videos} video{p.videos === 1 ? '' : 's'}</span>}{p.favorites > 0 && <span className="muted"> · {p.favorites} ★</span>}{p.places?.length > 0 && <span className="muted"> · {p.places.join(', ')}</span>}{p.first && <span className="muted"> · {p.first}–{p.last}</span>}</div>
+    <div className="fact-head"><b>{p.count - p.videos} photo{p.count - p.videos === 1 ? '' : 's'}</b>{p.videos > 0 && <span className="muted"> · {p.videos} video{p.videos === 1 ? '' : 's'}</span>}{p.favorites > 0 && <span className="muted"> · {p.favorites} favourite{p.favorites === 1 ? '' : 's'}</span>}{p.places?.length > 0 && <span className="muted"> · {p.places.join(', ')}</span>}{p.first && <span className="muted"> · {p.first}–{p.last}</span>}</div>
     <div className="photo-grid">{items.map(ph => <div key={ph.id} className="ph">
       {isDemo ? <div className="ph-img demo" /> : <img className="ph-img" src={`${V1}/photos/${ph.id}/thumb`} alt={ph.file_name || ''} loading="lazy" onClick={() => setBig(ph.id)} />}
       <span className="ph-time">{ph.time}{ph.type === 'VIDEO' ? ' ▶' : ''}</span>
       <span className="ph-pin"><PinBtn ref_={`asset:${ph.id}`} title={ph.file_name || `Photo at ${ph.time}`} subtitle={[ph.time, ph.city].filter(Boolean).join(' · ')} image={isDemo ? '' : `${V1}/photos/${ph.id}/thumb`} /></span>
     </div>)}</div>
-    <div className="row mt-sm">{p.items.length > 12 && <button className="btn ghost sm" onClick={() => setAll(a => !a)}>{all ? 'Show fewer' : `All ${p.items.length}`}</button>}{link && <a className="btn ghost sm" href={`${link}/photos?at=${date}`} target="_blank" rel="noreferrer">Open in Immich ↗</a>}</div>
-    {big && <div className="modal-backdrop" onMouseDown={() => setBig(null)}><img className="lightbox" src={`${V1}/photos/${big}/thumb?size=preview`} alt="" /></div>}
+    <div className="row mt-sm">{p.items.length > 12 && <button type="button" className="btn ghost sm" onClick={() => setAll(a => !a)}>{all ? 'Show fewer' : `All ${p.items.length}`}</button>}{link && <a className="btn ghost sm" href={`${link}/photos?at=${date}`} target="_blank" rel="noreferrer">Open in Immich<Icon name="external" size={13} /></a>}</div>
+    {big && <div className="modal-backdrop lightbox-backdrop" onMouseDown={() => setBig(null)}><img className="lightbox" src={`${V1}/photos/${big}/thumb?size=preview`} alt="" /></div>}
   </>
 }
 
@@ -236,7 +236,7 @@ function HabitsBody({ c }: { c: Checkin }) {
       <div className="habit-list">{ordered.map(h => <div key={h.id} className={`habit-row s${h.status}`}>
         <span className="hmark">{h.status === 1 ? '✓' : h.status === -1 ? '✕' : ''}</span>
         <span className="hname">{h.name}</span>
-        {h.streak > 1 && <span className="hstreak" title={`${h.streak} days in a row`}>🔥{h.streak}</span>}
+        {h.streak > 1 && <span className="hstreak row" style={{ gap: 2 }} title={`${h.streak} days in a row`}><Icon name="flame" size={12} strokeWidth={2} />{h.streak}</span>}
       </div>)}</div>
     </>}
     {trackers.length > 0 && <>
@@ -274,6 +274,6 @@ function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity
         <PinBtn ref_={`${source}:${it.ref || it.title}`} title={it.title} subtitle={it.sub} image={it.image} />
       </div>
     })}</div>
-    {a.items.length > 8 && <button className="btn ghost sm mt-sm" onClick={() => setAll(x => !x)}>{all ? 'Show fewer' : `All ${a.items.length}`}</button>}
+    {a.items.length > 8 && <button type="button" className="btn ghost sm mt-sm" onClick={() => setAll(x => !x)}>{all ? 'Show fewer' : `All ${a.items.length}`}</button>}
   </>
 }

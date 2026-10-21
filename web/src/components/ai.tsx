@@ -5,6 +5,7 @@ import { useApp } from '../lib/app-context'
 import { fmtDate, fmtDateTime } from '../lib/format'
 import type { Story } from '../lib/types'
 import { Card, useToast } from './ui'
+import { Icon } from './icons'
 
 /** True when an OpenAI key is set. */
 export function useAI() {
@@ -82,9 +83,9 @@ export function DictateButton({ onText, label = 'Dictate', small = false }: { on
   }
   const stop = () => rec.current?.state === 'recording' && rec.current.stop()
   const cls = `btn ${small ? 'sm' : 'sm'} ${state === 'rec' ? 'rec' : 'ghost'}`
-  if (state === 'rec') return <button type="button" className={cls} onClick={stop} title="Stop and transcribe">■ {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</button>
+  if (state === 'rec') return <button type="button" className={cls} onClick={stop} title="Stop and transcribe"><Icon name="stop" size={13} strokeWidth={2.2} />{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</button>
   if (state === 'busy') return <button type="button" className={cls} disabled>Transcribing…</button>
-  return <button type="button" className={cls} onClick={start} title="Speak instead of typing">🎙{small ? '' : ` ${label}`}</button>
+  return <button type="button" className={`${cls} ${small ? 'icon-only' : ''}`} onClick={start} title="Speak instead of typing" aria-label={label}><Icon name="mic" size={14} />{small ? '' : label}</button>
 }
 
 /** A stored story for a period, with write / rewrite. */
@@ -99,7 +100,7 @@ export function StoryCard({ kind, period, label, className = 'mb' }: { kind: 'we
   }
   if (story === undefined) return null
   return (
-    <Card className={`${className} story-card`} title={<span>✨ {story?.title || `The story of ${label}`}</span>} actions={<button className="btn ghost sm" onClick={write} disabled={busy}>{busy ? 'Writing…' : story ? '↻ Rewrite' : 'Write it'}</button>}>
+    <Card className={`${className} story-card`} title={<><Icon name="sparkles" size={16} />{story?.title || `The story of ${label}`}</>} actions={<button type="button" className="btn ghost sm" onClick={write} disabled={busy}>{story ? <Icon name="refresh" size={14} /> : <Icon name="pen" size={14} />}{busy ? 'Writing…' : story ? 'Rewrite' : 'Write it'}</button>}>
       {story ? <><div className="story-text"><CitedText text={story.text} /></div><p className="muted small" style={{ margin: 0 }}>Written {fmtDateTime(story.created_at)} · {story.model}</p></>
         : <p className="muted" style={{ margin: 0 }}>{busy ? 'Reading the days…' : `Let the AI read ${label} — your words and what the apps recorded — and write it up as a story.`}</p>}
     </Card>

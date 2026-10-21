@@ -5,6 +5,7 @@ import { addDays, fmtDateTime, todayISO } from '../lib/format'
 import type { Story } from '../lib/types'
 import { Card, Empty, PageHeader, useAsync } from '../components/ui'
 import { StoryCard, useAI } from '../components/ai'
+import { Icon } from '../components/icons'
 
 function isoWeek(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -37,14 +38,14 @@ export default function Stories() {
   const label = choices.find(c => c.kind === kind && c.period === period)?.label || `${KIND_LABEL[kind].toLowerCase()} ${period}`
   const { data: list } = useAsync(() => api.get<Story[]>(`${V1}/ai/stories`), [kind, period])
   const [, force] = useState(0)
-  if (!aiOn) return <><PageHeader title="Stories" /><Card><Empty title="Needs an OpenAI key">Add one under <Link to="/settings?tab=ai">Settings → AI</Link> and every week, month and year can be written up as a story.</Empty></Card></>
+  if (!aiOn) return <><PageHeader title="Stories" /><Card><Empty icon="sparkles" title="Needs an OpenAI key">Add one under <Link to="/settings/ai">Settings → AI</Link> and every week, month and year can be written up as a story.</Empty></Card></>
   return (
     <>
       <PageHeader title="Stories" sub="Your weeks, months and years, written up from your words and what the apps recorded." />
-      <div className="chips mb">{choices.map(c => <button key={c.kind + c.period} className={`chip ${c.kind === kind && c.period === period ? 'active' : ''}`} onClick={() => setSp({ kind: c.kind, period: c.period })}>{c.label[0].toUpperCase() + c.label.slice(1)} <span className="muted">{c.period}</span></button>)}</div>
+      <div className="chips mb">{choices.map(c => <button type="button" key={c.kind + c.period} className={`chip ${c.kind === kind && c.period === period ? 'active' : ''}`} onClick={() => setSp({ kind: c.kind, period: c.period })}>{c.label[0].toUpperCase() + c.label.slice(1)} <span className="muted">{c.period}</span></button>)}</div>
       <StoryCard key={kind + period} kind={kind} period={period} label={label} />
-      {list && list.length > 0 && <Card title="Written so far">
-        <div className="inline-list">{list.map(s => <a key={s.kind + s.period} className="li" href="#" style={{ color: 'inherit' }} onClick={e => { e.preventDefault(); setSp({ kind: s.kind, period: s.period }); force(x => x + 1); window.scrollTo(0, 0) }}>
+      {list && list.length > 0 && <Card title={<><Icon name="book" size={16} />Written so far</>}>
+        <div className="inline-list">{list.map(s => <a key={s.kind + s.period} className="li" href="#" style={{ color: 'inherit' }} onClick={e => { e.preventDefault(); setSp({ kind: s.kind, period: s.period }); force(x => x + 1); document.querySelector('.content')?.scrollTo({ top: 0 }) }}>
           <span className="badge">{KIND_LABEL[s.kind]}</span><span className="grow"><b>{s.title}</b> <span className="muted small">{s.period}</span></span><span className="muted small">{fmtDateTime(s.created_at, false)}</span>
         </a>)}</div>
       </Card>}

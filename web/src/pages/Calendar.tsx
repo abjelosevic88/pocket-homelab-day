@@ -3,16 +3,18 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO, weekday } from '../lib/format'
-import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_ICON, WEATHER_ICON, fmtHeadlineShort, isActivity, fmtAmount, fmtKm, fmtMinutes, type CalendarDay, type DayPage, type Photos, type YearRecap } from '../lib/types'
+import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, fmtHeadlineShort, isActivity, fmtAmount, fmtKm, fmtMinutes, type CalendarDay, type DayPage, type Photos, type YearRecap } from '../lib/types'
 import { Loading, useAsync } from '../components/ui'
+import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr'
+// icon: a stroke icon name; the source layers use their source's glyph
 const LAYERS: { id: Layer; label: string; icon: string }[] = [
-  { id: 'photos', label: 'Photos', icon: '📷' }, { id: 'mood', label: 'Mood', icon: '🙂' }, { id: 'dawarich', label: 'Distance', icon: '🗺' },
-  { id: 'maloja', label: 'Music', icon: '🎧' }, { id: 'pinepods', label: 'Podcasts', icon: '🎙' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: '📖' },
-  { id: 'jellystat', label: 'Watched', icon: '📺' }, { id: 'firefly', label: 'Spend', icon: '💸' }, { id: 'forgejo', label: 'Code', icon: '⌨️' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: '☑️' }, { id: 'tasks', label: 'Pocket Tasks', icon: '☑️' }, { id: 'jellyseerr', label: 'Requests', icon: '🎬' },
+  { id: 'photos', label: 'Photos', icon: 'camera' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'dawarich', label: 'Distance', icon: 'map' },
+  { id: 'maloja', label: 'Music', icon: 'music' }, { id: 'pinepods', label: 'Podcasts', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
+  { id: 'jellystat', label: 'Watched', icon: 'tv' }, { id: 'firefly', label: 'Spend', icon: 'wallet' }, { id: 'forgejo', label: 'Code', icon: 'code' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: 'check-square' }, { id: 'tasks', label: 'Pocket Tasks', icon: 'check-square' }, { id: 'jellyseerr', label: 'Requests', icon: 'film' },
 ]
 const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
 const daysIn = (y: number, m: number) => new Date(y, m, 0).getDate()
@@ -73,9 +75,9 @@ export default function Calendar() {
           <div className="cal2-sub">{past.length ? `${written} of ${past.length} days written` : 'Not started yet'}{isCurrent ? '' : ` · ${daysIn(y, m)} days`}</div>
         </div>
         <div className="cal2-nav">
-          <button className="btn icon" onClick={() => go(-1)} title="Previous month (Shift ←)">‹</button>
+          <button type="button" className="btn icon-only" onClick={() => go(-1)} title="Previous month (Shift ←)" aria-label="Previous month"><Icon name="chevron-left" size={18} /></button>
           <Link className={`btn ${isCurrent ? 'primary' : ''}`} to="/calendar">Today</Link>
-          <button className="btn icon" onClick={() => go(1)} disabled={month >= today.slice(0, 7)} title="Next month (Shift →)">›</button>
+          <button type="button" className="btn icon-only" onClick={() => go(1)} disabled={month >= today.slice(0, 7)} title="Next month (Shift →)" aria-label="Next month"><Icon name="chevron-right" size={18} /></button>
         </div>
       </div>
 
@@ -96,22 +98,22 @@ export default function Calendar() {
       <div className="cal2-stats">
         <div className="tile ring-tile"><Ring value={past.length ? written / past.length : 0} /><div><b>{written}<span>/{past.length}</span></b><small>days written</small></div></div>
         {mood > 0 && <div className="tile"><span className="ti">{MOOD_ICON[Math.round(mood)]}</span><div><b>{mood.toFixed(1)}</b><small>average mood</small></div></div>}
-        {sum('immich') > 0 && <div className="tile"><span className="ti">📷</span><div><b>{Math.round(sum('immich'))}</b><small>photos</small></div></div>}
-        {sum('dawarich') > 0 && <div className="tile"><span className="ti">🗺</span><div><b>{fmtKm(sum('dawarich'), unit).replace(/\.\d /, ' ')}</b><small>travelled</small></div></div>}
-        {sum('maloja') > 0 && <div className="tile"><span className="ti">🎧</span><div><b>{Math.round(sum('maloja'))}</b><small>songs</small></div></div>}
-        {sum('jellystat') > 0 && <div className="tile"><span className="ti">📺</span><div><b>{Math.round(sum('jellystat') / 60)} h</b><small>watched</small></div></div>}
-        {sum('firefly') > 0 && <div className="tile"><span className="ti">💸</span><div><b>{fmtAmount(Math.round(sum('firefly')), cur).replace(/[.,]00$/, '')}</b><small>spent</small></div></div>}
+        {sum('immich') > 0 && <div className="tile"><SourceIcon source="immich" size={36} /><div><b>{Math.round(sum('immich'))}</b><small>photos</small></div></div>}
+        {sum('dawarich') > 0 && <div className="tile"><SourceIcon source="dawarich" size={36} /><div><b>{fmtKm(sum('dawarich'), unit).replace(/\.\d /, ' ')}</b><small>travelled</small></div></div>}
+        {sum('maloja') > 0 && <div className="tile"><SourceIcon source="maloja" size={36} /><div><b>{Math.round(sum('maloja'))}</b><small>songs</small></div></div>}
+        {sum('jellystat') > 0 && <div className="tile"><SourceIcon source="jellystat" size={36} /><div><b>{Math.round(sum('jellystat') / 60)} h</b><small>watched</small></div></div>}
+        {sum('firefly') > 0 && <div className="tile"><SourceIcon source="firefly" size={36} /><div><b>{fmtAmount(Math.round(sum('firefly')), cur).replace(/[.,]00$/, '')}</b><small>spent</small></div></div>}
       </div>
 
       <div className="cal2-toolbar">
         <div className="layer-switch" role="radiogroup" aria-label="Colour the days by">
-          {available.map(l => <button key={l.id} role="radio" aria-checked={active === l.id} className={active === l.id ? 'on' : ''} onClick={() => setLayer(l.id)}><span>{l.icon}</span>{l.label}</button>)}
+          {available.map(l => <button type="button" key={l.id} role="radio" aria-checked={active === l.id} className={active === l.id ? 'on' : ''} onClick={() => setLayer(l.id)}><Icon name={l.icon} size={14} />{l.label}</button>)}
         </div>
         <span className="muted small hide-sm">Click a day to preview · Enter opens it · Shift ← → months</span>
       </div>
 
       {loading && !data && <Loading />}
-      {error && <div className="callout danger">{error}</div>}
+      {error && <div className="callout danger"><Icon name="alert" size={15} /><span>{error}</span></div>}
       {data && <div className={`cal2-body ${wide && sel ? 'with-panel' : ''}`}>
         <div className="cal2-grid-wrap">
           <div className="cal2-wd">{labels.map(l => <div key={l}>{l}</div>)}</div>
@@ -146,7 +148,7 @@ export function Ring({ value }: { value: number }) {
   return <svg className="ring" viewBox="0 0 40 40" width="40" height="40" aria-hidden><circle cx="20" cy="20" r={r} className="ring-bg" /><circle cx="20" cy="20" r={r} className="ring-fg" strokeDasharray={`${c * value} ${c}`} transform="rotate(-90 20 20)" /></svg>
 }
 
-function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string): string {
+function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string, long = false): string {
   const v = d.headlines?.[layer] || 0
   if (!v) return ''
   switch (layer) {
@@ -157,7 +159,8 @@ function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string
   }
   if (isActivity(layer)) {
     const m = ACTIVITY[layer]
-    return m.unit === 'count' || m.unit === 'qty' ? `${Math.round(v)} ${SOURCE_ICON[layer]}` : fmtHeadlineShort(layer, v, cur)
+    if (m.unit === 'count' || m.unit === 'qty') return long ? `${Math.round(v)} ${Math.round(v) === 1 ? (m.unit === 'qty' ? m.qtyOne : m.one) : (m.unit === 'qty' ? m.qtyMany : m.many)}` : String(Math.round(v))
+    return fmtHeadlineShort(layer, v, cur)
   }
   return ''
 }
@@ -185,7 +188,7 @@ function Cell({ d, layer, max, today, selected, unit, cur, onClick }: { d: Calen
         <span className="c2-n">{n}</span>
         {d.entry && <span className="c2-dot" title="Written" />}
         <span className="spacer" />
-        {d.pinned && <span title="Kept">★</span>}
+        {d.pinned && <span title="Kept" style={{ display: 'inline-grid', color: photo ? '#fde68a' : 'var(--star)' }}><Icon name="star" size={12} strokeWidth={2.2} /></span>}
         {d.mood > 0 && <span className="c2-mood" title={MOODS[d.mood]}>{MOOD_ICON[d.mood]}</span>}
         {!future && d.weather && <span className="c2-w" title={d.t_max != null ? `${Math.round(d.t_max)} °C` : d.weather}>{WEATHER_ICON[d.weather]}</span>}
       </span>
@@ -199,7 +202,7 @@ function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'k
   if (layer === 'photos') return <p className="cal2-legend">Each day shows its favourite photo, or one from the middle of the day.</p>
   if (layer === 'mood') return <p className="cal2-legend">{[1, 2, 3, 4, 5].map(i => <span key={i}><i style={{ background: MOOD_COLOR[i] }} />{MOODS[i]}</span>)}</p>
   const fake: CalendarDay = { date: '', entry: false, mood: 0, highlight: '', pinned: false, moments: 0, headlines: { [layer]: max } }
-  return <p className="cal2-legend"><span className="grad" /> less → more, up to {layerValue(fake, layer, unit, cur)} a day</p>
+  return <p className="cal2-legend"><span className="grad" /> less → more, up to {layerValue(fake, layer, unit, cur, true)} a day</p>
 }
 
 /** The selected day at a glance, without leaving the month. */
@@ -209,18 +212,18 @@ function Preview({ date, onClose }: { date: string; onClose: () => void }) {
   const order = ['travel', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'tasks', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
   return (
     <aside className="cal2-panel">
-      <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button></div>
+      <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button type="button" className="btn ghost icon-only" onClick={onClose} aria-label="Close" title="Close"><Icon name="x" size={17} /></button></div>
       {loading && !data && <Loading />}
       {data && <>
         {data.entry ? <div className="pv-entry">
-          <div className="row" style={{ gap: 8 }}>{data.entry.mood > 0 && <span className="pv-mood" style={{ background: `color-mix(in srgb, ${MOOD_COLOR[data.entry.mood]} 25%, transparent)` }}>{MOOD_ICON[data.entry.mood]} {MOODS[data.entry.mood]}</span>}{data.entry.pinned && <span className="badge">★ kept</span>}{data.entry.origin === 'habits' && <span className="badge" title="Taken from the Pocket Habits journal">✅ from Habits</span>}</div>
+          <div className="row" style={{ gap: 8 }}>{data.entry.mood > 0 && <span className="pv-mood" style={{ background: `color-mix(in srgb, ${MOOD_COLOR[data.entry.mood]} 25%, transparent)` }}>{MOOD_ICON[data.entry.mood]} {MOODS[data.entry.mood]}</span>}{data.entry.pinned && <span className="badge"><Icon name="star" size={11} />kept</span>}{data.entry.origin === 'habits' && <span className="badge" title="Taken from the Pocket Habits journal"><Icon name="check-circle" size={11} />from Habits</span>}</div>
           {data.entry.highlight && <h3>{data.entry.highlight}</h3>}
           {data.entry.text && <p className="pv-text">{data.entry.text}</p>}
         </div> : <p className="muted">Nothing written for this day yet.</p>}
         {photos.length > 0 && <div className="pv-photos">{photos.map(p => p.id.startsWith('demo-') ? <span key={p.id} className="pv-ph demo" /> : <img key={p.id} className="pv-ph" src={`${V1}/photos/${p.id}/thumb`} alt="" loading="lazy" />)}</div>}
-        <div className="pv-facts">{order.filter(s => data.facts[s]?.summary).map(s => <div key={s} className="pv-fact"><span>{SOURCE_ICON[s]}</span><span>{data.facts[s].summary}</span></div>)}</div>
+        <div className="pv-facts">{order.filter(s => data.facts[s]?.summary).map(s => <div key={s} className="pv-fact"><SourceIcon source={s} size={22} /><span>{data.facts[s].summary}</span></div>)}</div>
         {data.moments.length > 0 && <div className="pv-moments">{data.moments.slice(0, 4).map(mo => <div key={mo.id}><span className="muted mono small">{mo.time}</span> {mo.text}</div>)}{data.moments.length > 4 && <div className="muted small">+{data.moments.length - 4} more</div>}</div>}
-        <Link className="btn primary block" to={`/day/${date}`}>{data.entry ? 'Open the day →' : 'Write about it →'}</Link>
+        <Link className="btn primary block" to={`/day/${date}`}>{data.entry ? 'Open the day' : 'Write about it'}<Icon name="chevron-right" size={15} /></Link>
       </>}
     </aside>
   )
