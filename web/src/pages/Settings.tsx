@@ -373,7 +373,7 @@ function AISettings() {
   const tot = (rows: UsageRow[] = []) => rows.reduce((a, r) => ({ calls: a.calls + r.calls, p: a.p + r.prompt_tokens, c: a.c + r.completion_tokens }), { calls: 0, p: 0, c: 0 })
   const m30 = tot(usage?.last_30_days), all = tot(usage?.all_time)
   return (
-    <div className="stack loose">
+    <div className="stack loose" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
       <Section title="AI provider" icon="sparkles" actions={<span className={`badge ${f.ai_configured ? 'ok' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}
         sub="Automatic uses Pocket AI when its Core link is enabled. You can also choose your own OpenAI-compatible endpoint.">
         <div className="stack">
@@ -416,10 +416,10 @@ function AISettings() {
       </Section>
       <Section title="Usage" icon="activity">
         {usage && (usage.all_time.length > 0 ? <>
-          <table className="table compact">
+          <div style={{ overflowX: 'auto' }}><table className="table compact">
             <thead><tr><th>Feature</th><th className="right">Calls</th><th className="right">Tokens in</th><th className="right">Tokens out</th></tr></thead>
             <tbody>{usage.last_30_days.map(r => <tr key={r.feature + r.model}><td>{FEATURE_LABEL[r.feature] || r.feature} <span className="muted small">{r.model}</span></td><td className="right">{r.calls}</td><td className="right">{r.prompt_tokens.toLocaleString()}</td><td className="right">{r.completion_tokens.toLocaleString()}</td></tr>)}</tbody>
-          </table>
+          </table></div>
           <p className="muted small mt-sm" style={{ margin: '8px 0 0' }}>Last 30 days: {m30.calls} calls, {(m30.p + m30.c).toLocaleString()} tokens. All time: {all.calls} calls, {(all.p + all.c).toLocaleString()} tokens.</p>
         </> : <p className="muted" style={{ margin: 0 }}>Nothing used yet.</p>)}
       </Section>
