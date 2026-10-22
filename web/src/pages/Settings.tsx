@@ -361,6 +361,7 @@ const AI_MODELS = ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.4-nano', 'gpt-5.5', 'gpt-4.
 const FEATURE_LABEL: Record<string, string> = { draft: 'Draft my day', question: "Tonight's question", suggest: 'Suggest highlight & tags', dictation: 'Dictation', 'story-week': 'Week stories', 'story-month': 'Month stories', 'story-year': 'Year stories', ask: 'Ask (answers)', 'ask-plan': 'Ask (planning)' }
 
 function AISettings() {
+  const [showDictation, setShowDictation] = useState(false)
   const { f, setF, save, busy } = useSettingsForm()
   const [test, setTest] = useState('')
   const { data: usage } = useAsync(() => api.get<{ last_30_days: UsageRow[]; all_time: UsageRow[] }>(`${V1}/ai/usage`), [])
@@ -376,20 +377,26 @@ function AISettings() {
       <Section title="AI provider" icon="sparkles" actions={<span className={`badge ${f.ai_configured ? 'ok' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}
         sub="Automatic uses Pocket AI when its Core link is enabled. You can also choose your own OpenAI-compatible endpoint.">
         <div className="stack">
-          <Field label="Text generation" help="Automatic prefers your enabled Pocket AI connection. Without one, it uses your saved OpenAI settings."><select value={f.ai_provider || 'auto'} onChange={e => setF({ ...f, ai_provider: e.target.value })}><option value="auto">Automatic — prefer Pocket AI</option><option value="pocket">Pocket AI</option><option value="openai">OpenAI / compatible API</option></select></Field>
+          <Field group label="Text generation" help="Automatic prefers your enabled Pocket AI connection. Without one, it uses your saved OpenAI settings."><Select ariaLabel="Text generation provider" value={f.ai_provider || 'auto'} onChange={v => { setF({ ...f, ai_provider: v }); setShowDictation(false) }} options={[{ value: 'auto', label: 'Automatic — prefer Pocket AI' }, { value: 'pocket', label: 'Pocket AI' }, { value: 'openai', label: 'OpenAI / compatible API' }]} /></Field>
           <p className="muted small" role="status">Saved selection: {f.ai_status?.detail}. Pocket AI uses your Claude account and model from Pocket AI settings.</p>
-          <p className="muted small">OpenAI settings below apply when OpenAI is selected and are required separately for dictation. Pocket AI does not transcribe audio.</p>
-          <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
-          <div className="two-col tight">
+          {f.ai_provider === 'openai' && <div className="stack">
+            <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
             <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
-            <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
-          </div>
-          <div className="two-col tight">
-            <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" /></Field>
             <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
-          </div>
-          <div className="row"><button type="button" className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><TestResult text={test} /></div>
+            <div className="row"><button type="button" className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><TestResult text={test} /></div>
+          </div>}
+          <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" /></Field>
         </div>
+      </Section>
+      <Section title="Dictation" icon="mic" sub="Voice transcription uses OpenAI separately from text generation. Pocket AI does not transcribe audio.">
+        <button type="button" className="btn sm" aria-expanded={showDictation} aria-controls="dictation-settings" onClick={() => setShowDictation(v => !v)}>{showDictation ? 'Hide dictation settings' : 'Configure dictation'}</button>
+        {showDictation && <div id="dictation-settings" className="stack mt-sm">
+          {f.ai_provider !== 'openai' && <>
+            <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
+            <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
+          </>}
+          <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
+        </div>}
       </Section>
       <Section title="Options" sub={<>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos; audio is sent to your OpenAI endpoint only while dictating. Text goes to the selected AI provider.</>}>
         <SettingRow title="Tonight's question" help="On the day page and in the evening push."><Switch checked={f.ai_question} onChange={v => setF({ ...f, ai_question: v })} label="Tonight's question" /></SettingRow>
