@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type Moment, type Money, type Music, type Photo, type Photos, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
 import { DictateButton, useAI } from './ai'
@@ -51,6 +51,8 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   }
   const watched = p<Watched>('jellystat')
   for (const w of watched?.items || []) timed.push({ time: w.time, key: `w${w.item_id || w.title}`, icon: src('jellystat'), kind: 'watch', title: w.series || w.title, sub: [w.series ? w.title : '', fmtMinutes(w.minutes)].filter(Boolean).join(' · ') })
+  const reading = p<Reading>('bookshelf')
+  for (const [i, r] of (reading?.sessions || []).entries()) timed.push({ time: r.time, end: r.end !== r.time ? r.end : undefined, key: `r${i}`, icon: src('bookshelf'), kind: 'read', title: `Read ${r.title}`, sub: `${r.pages ? `${r.pages} pages` : `${r.percent || 1}% of the book`} in ${r.estimated ? '~' : ''}${fmtMinutes(r.minutes)}` })
   const money = p<Money>('firefly')
   for (const s of money?.items || []) (s.time ? timed : untimed).push({ time: s.time, key: `t${s.id}`, icon: src('firefly'), kind: 'money', title: s.description, sub: fmtAmount(s.amount, s.currency) })
   for (const source of Object.keys(ACTIVITY)) {

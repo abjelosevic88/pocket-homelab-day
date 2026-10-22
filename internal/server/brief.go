@@ -131,6 +131,13 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		for _, x := range rd.Started {
 			b = append(b, "started “"+x.Title+"”")
 		}
+		for _, x := range rd.Sessions {
+			what := fmt.Sprintf("%d pages", x.Pages)
+			if x.Pages == 0 {
+				what = fmt.Sprintf("%d%% of the book", x.Percent)
+			}
+			b = append(b, fmt.Sprintf("read “%s” %s–%s: %s in %s", x.Title, x.Time, x.End, what, sources.HoursMinutes(x.Minutes)))
+		}
 		if detail {
 			for _, x := range rd.Reading {
 				b = append(b, "reading “"+x.Title+"”")

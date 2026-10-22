@@ -183,6 +183,64 @@ type Reading struct {
 	Reading  []Book `json:"reading"`
 	Started  []Book `json:"started"`
 	Finished []Book `json:"finished"`
+	// Sittings with a book on the e-reader (KOReader / CrossPoint), oldest first.
+	Sessions []ReadingSession `json:"sessions,omitempty"`
+	Pages    int              `json:"pages,omitempty"`   // read in those sessions
+	Minutes  int              `json:"minutes,omitempty"` // spent in them
+}
+
+// ReadingSession is one sitting with a book, as Bookshelf works it out from the e-reader's syncs.
+type ReadingSession struct {
+	BookID    int64  `json:"book_id"`
+	Title     string `json:"title"`
+	Authors   string `json:"authors"`
+	Time      string `json:"time"` // HH:MM
+	End       string `json:"end"`  // HH:MM
+	Minutes   int    `json:"minutes"`
+	Pages     int    `json:"pages"`
+	FromPage  int    `json:"from_page,omitempty"`
+	ToPage    int    `json:"to_page,omitempty"`
+	Percent   int    `json:"percent,omitempty"` // of the book read, when it has no page count
+	Device    string `json:"device,omitempty"`
+	Estimated bool   `json:"estimated,omitempty"` // minutes partly guessed from the pace
+}
+
+// readingSessions asks Bookshelf for the day's e-reader sessions; an older
+// Bookshelf without them answers nothing.
+func readingSessions(ctx context.Context, cl *pocket.Client, date string, loc *time.Location) []ReadingSession {
+	var raw struct {
+		Sessions []struct {
+			BookID    int64   `json:"book_id"`
+			Title     string  `json:"title"`
+			Authors   string  `json:"authors"`
+			Start     string  `json:"start"`
+			End       string  `json:"end"`
+			Minutes   int     `json:"minutes"`
+			Pages     int     `json:"pages"`
+			From      float64 `json:"from"`
+			To        float64 `json:"to"`
+			FromPage  int     `json:"from_page"`
+			ToPage    int     `json:"to_page"`
+			Device    string  `json:"device"`
+			Estimated bool    `json:"estimated"`
+		} `json:"sessions"`
+	}
+	if err := cl.Get(ctx, "/api/v1/reading/sessions", url.Values{"from": {date}, "to": {date}}, &raw); err != nil {
+		return nil
+	}
+	var out []ReadingSession
+	for i := len(raw.Sessions) - 1; i >= 0; i-- { // newest first → oldest first
+		r := raw.Sessions[i]
+		st, _ := time.Parse(time.RFC3339, r.Start)
+		en, _ := time.Parse(time.RFC3339, r.End)
+		rs := ReadingSession{BookID: r.BookID, Title: r.Title, Authors: r.Authors, Time: LocalClock(st, loc), End: LocalClock(en, loc),
+			Minutes: r.Minutes, Pages: r.Pages, FromPage: r.FromPage, ToPage: r.ToPage, Device: r.Device, Estimated: r.Estimated}
+		if r.Pages == 0 && r.To > r.From {
+			rs.Percent = max(1, int((r.To-r.From)*100+0.5))
+		}
+		out = append(out, rs)
+	}
+	return out
 }
 
 type bookRow struct {
@@ -263,14 +321,38 @@ func (b *Bookshelf) Fetch(ctx context.Context, date string, loc *time.Location) 
 			rd.Reading = append(rd.Reading, toBook(r, "reading"))
 		}
 	}
+	rd.Sessions = readingSessions(ctx, cl, date, loc)
+	inList := map[int64]bool{}
+	for _, l := range [][]Book{rd.Reading, rd.Started, rd.Finished} {
+		for _, x := range l {
+			inList[x.ID] = true
+		}
+	}
+	for _, x := range rd.Sessions {
+		rd.Pages += x.Pages
+		rd.Minutes += x.Minutes
+		if !inList[x.BookID] { // read that day, since finished or put down
+			rd.Reading = append(rd.Reading, Book{ID: x.BookID, Title: x.Title, Authors: x.Authors, Status: "reading"})
+			inList[x.BookID] = true
+		}
+	}
 	var parts []string
+	if rd.Minutes > 0 {
+		if rd.Pages > 0 {
+			parts = append(parts, fmt.Sprintf("read %d pages in %s", rd.Pages, HoursMinutes(rd.Minutes)))
+		} else {
+			parts = append(parts, "read for "+HoursMinutes(rd.Minutes))
+		}
+	}
 	if len(rd.Finished) > 0 {
 		parts = append(parts, "finished "+rd.Finished[0].Title)
 	}
 	if len(rd.Started) > 0 {
 		parts = append(parts, "started "+rd.Started[0].Title)
 	}
-	if len(parts) == 0 && len(rd.Reading) > 0 {
+	if len(rd.Sessions) > 0 && len(rd.Finished) == 0 && len(rd.Started) == 0 {
+		parts = append(parts, rd.Sessions[len(rd.Sessions)-1].Title)
+	} else if len(parts) == 0 && len(rd.Reading) > 0 {
 		parts = append(parts, "reading "+rd.Reading[0].Title)
 	}
 	return &Result{Payload: rd, Headline: float64(len(rd.Finished)), Summary: strings.Join(parts, " · ")}, nil

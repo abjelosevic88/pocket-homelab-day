@@ -88,9 +88,13 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
     }
     case 'bookshelf': {
       const r = fact.payload as Reading
-      if (!r.finished?.length && !r.started?.length && !r.reading?.length) { body = empty('Nothing on the go.'); break }
+      if (!r.finished?.length && !r.started?.length && !r.reading?.length && !r.sessions?.length) { body = empty('Nothing on the go.'); break }
       const row = (b: Reading['reading'][number], label: string) => <div key={label + b.id} className="li"><span className="badge cat">{label}</span><span className="grow"><b>{b.title}</b>{b.authors && <span className="muted"> · {b.authors}</span>}</span>{b.percent ? <span className="muted small">{b.percent}%</span> : null}{b.rating ? <span className="stars">{'★'.repeat(Math.round(b.rating))}</span> : null}<PinBtn ref_={`book:${b.id}`} title={b.title} subtitle={b.authors} /></div>
-      body = <div className="inline-list">{(r.finished || []).map(b => row(b, 'finished'))}{(r.started || []).map(b => row(b, 'started'))}{(r.reading || []).map(b => row(b, 'reading'))}</div>
+      const read = (x: NonNullable<Reading['sessions']>[number], i: number) => <div key={'s' + i} className="li"><span className="muted small tnum">{x.time}–{x.end}</span><span className="grow"><b>{x.pages ? `${x.pages} pages` : `${x.percent || 1}%`}</b> in <b>{x.estimated ? '~' : ''}{fmtMinutes(x.minutes)}</b><span className="muted"> · {x.title}</span>{x.to_page ? <span className="muted small"> · p. {x.from_page}–{x.to_page}</span> : null}</span></div>
+      body = <>
+        {r.sessions?.length ? <div className="inline-list" style={{ marginBottom: 8 }}>{r.sessions.map(read)}{r.sessions.length > 1 && <div className="muted small">{r.pages ? `${r.pages} pages in ` : ''}{fmtMinutes(r.minutes || 0)} altogether</div>}</div> : null}
+        <div className="inline-list">{(r.finished || []).map(b => row(b, 'finished'))}{(r.started || []).map(b => row(b, 'started'))}{(r.reading || []).map(b => row(b, 'reading'))}</div>
+      </>
       break
     }
     case 'travel': {
@@ -184,7 +188,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'jellystat': return n('count') > 0
     case 'firefly': return n('count') > 0
     case 'habits': return n('total') > 0 || !!(v as { journal?: string }).journal || len('trackers') > 0
-    case 'bookshelf': return len('reading') + len('started') + len('finished') > 0
+    case 'bookshelf': return len('reading') + len('started') + len('finished') + len('sessions') > 0
     case 'travel': return len('trips') > 0
     case 'kitchen': return len('cooks') > 0
     case 'garage': return len('items') > 0

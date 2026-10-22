@@ -23,7 +23,7 @@ import (
 var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"tasks:read":    {regexp.MustCompile(`^/api/v1/tasks$`)},
 	"habits:read":   {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
-	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`)},
+	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":    {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":  {regexp.MustCompile(`^/api/v1/cooklog$`)},
 	"vehicles:read": {regexp.MustCompile(`^/api/v1/vehicles(/\d+(/fuel|/records)?)?$`)},
@@ -330,6 +330,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 		case strings.HasPrefix(p, "/api/v1/days/"):
 			write(`{"done":2,"total":3,"journal":"good day","habits":[],"trackers":[]}`)
 		case p == "/api/v1/books":
+		case p == "/api/v1/reading/sessions":
+			write(`{"sessions":[{"book_id":1,"title":"Dune","start":"` + d + `T20:00:00Z","end":"` + d + `T20:30:00Z","minutes":30,"pages":25}]}`)
 			write(`[{"id":1,"title":"Dune","status":"finished","finished_on":"` + d + `"}]`)
 		case p == "/api/v1/trips":
 			write(`[{"id":1,"name":"Rome","start_date":"2026-08-30","end_date":"2026-09-03"}]`)

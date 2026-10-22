@@ -52,7 +52,8 @@ export interface HabitRow { id: number; name: string; color: string; status: num
 export interface TrackerRow { id: number; name: string; unit: string; kind: string; value: number | null; min?: number; max?: number; higher_is_better?: boolean; previous?: number; defaulted?: boolean }
 export interface Checkin { done: number; total: number; habits: HabitRow[]; trackers: TrackerRow[]; journal: string; journal_bad?: string; important?: string }
 export interface Book { id: number; title: string; authors: string; pages?: number; page?: number; percent?: number; rating?: number; status: string; cover?: string; finished_on?: string; started_on?: string }
-export interface Reading { reading: Book[]; started: Book[]; finished: Book[] }
+export interface ReadingSession { book_id: number; title: string; authors: string; time: string; end: string; minutes: number; pages: number; from_page?: number; to_page?: number; percent?: number; device?: string; estimated?: boolean }
+export interface Reading { reading: Book[]; started: Book[]; finished: Book[]; sessions?: ReadingSession[]; pages?: number; minutes?: number }
 export interface Trip { id: number; name: string; destination: string; start_date: string; end_date: string; day_no: number; days: number; color: string; status: string }
 export interface Trips { trips: Trip[] }
 export interface Cook { id: number; recipe_id: number | null; title: string; servings: number; rating: number; notes: string; by?: string }
