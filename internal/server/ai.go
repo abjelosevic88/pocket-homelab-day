@@ -19,19 +19,21 @@ import (
 )
 
 // aiClient returns the configured client, or nil.
-func (s *Server) aiClient(st store.Settings) *ai.Client {
-	if strings.TrimSpace(st.AIKey) == "" {
+func (s *Server) aiClient(ctx context.Context, u *store.User, st store.Settings) *ai.Client {
+	c := ai.New(st.AIBaseURL, st.AIKey, st.AIModel, st.AITranscribeModel)
+	c.Pocket, _ = s.inferenceFor(ctx, u.ID, st.AIProvider, st.AIKey != "")
+	if !c.Configured() {
 		return nil
 	}
-	return ai.New(st.AIBaseURL, st.AIKey, st.AIModel, st.AITranscribeModel)
+	return c
 }
 
 // aiOrFail returns settings and a client, or writes 400.
 func (s *Server) aiOrFail(w http.ResponseWriter, r *http.Request) (store.Settings, *ai.Client, bool) {
 	st, _ := s.store.GetSettings(r.Context(), userFrom(r.Context()).ID)
-	c := s.aiClient(st)
+	c := s.aiClient(r.Context(), userFrom(r.Context()), st)
 	if c == nil {
-		writeErr(w, http.StatusBadRequest, "add an OpenAI API key under Settings → AI first")
+		writeErr(w, http.StatusBadRequest, "connect Pocket AI or add an OpenAI key under Settings → AI")
 		return st, nil, false
 	}
 	return st, c, true
@@ -90,7 +92,7 @@ Reply as JSON: {"highlight": "...", "text": "..."}`
 // today and for good on older days.
 func (s *Server) aiQuestion(ctx context.Context, u *store.User, date string, force bool) (string, error) {
 	st, _ := s.store.GetSettings(ctx, u.ID)
-	c := s.aiClient(st)
+	c := s.aiClient(ctx, u, st)
 	if c == nil {
 		return "", errors.New("AI is not configured")
 	}
@@ -206,8 +208,10 @@ Reply as JSON: {"highlight": "...", "tags": ["..."], "mood": 0, "why": "..."}`
 // ---- dictation ----
 
 func (s *Server) handleAITranscribe(w http.ResponseWriter, r *http.Request) {
-	_, c, ok := s.aiOrFail(w, r)
-	if !ok {
+	st, _ := s.store.GetSettings(r.Context(), actorID(r.Context()))
+	c := ai.New(st.AIBaseURL, st.AIKey, st.AIModel, st.AITranscribeModel)
+	if c.Key == "" {
+		writeErr(w, 400, "Dictation requires your OpenAI key in Settings → AI")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 25<<20)
@@ -334,7 +338,7 @@ func (s *Server) makeStory(ctx context.Context, u *store.User, kind, period stri
 		return nil, err
 	}
 	st, _ := s.store.GetSettings(ctx, u.ID)
-	c := s.aiClient(st)
+	c := s.aiClient(ctx, u, st)
 	if c == nil {
 		return nil, errors.New("AI is not configured")
 	}

@@ -192,8 +192,8 @@ function EntryEditor({ date, entry, prompt, isToday, onSaved, onDelete }: { date
       {aiOn && <div className="ai-bar">
         <button type="button" className="btn ghost sm" onClick={() => run('draft')} disabled={!!busy} title="Write a first draft from the facts, moments and pins"><Icon name="sparkles" size={14} />{busy === 'draft' ? 'Drafting…' : f.text.trim() ? 'Fill in the rest' : 'Draft my day'}</button>
         <button type="button" className="btn ghost sm" onClick={() => run('suggest')} disabled={!!busy || !(f.text.trim() || f.highlight.trim())} title="Suggest a highlight, tags and a mood from what you wrote"><Icon name="tag" size={14} />{busy === 'suggest' ? 'Thinking…' : 'Suggest highlight & tags'}</button>
-        <DictateButton onText={append} />
       </div>}
+      <DictateButton onText={append} />
       {draft && <div className="ai-panel">
         {draft.highlight && <div className="row mb-sm"><b className="grow">“{draft.highlight}”</b><button type="button" className="btn sm" onClick={() => change({ highlight: draft.highlight })}>Use as highlight</button></div>}
         {draft.text ? <div className="t">{draft.text}</div> : <p className="muted small">Your text already covers what the apps recorded.</p>}

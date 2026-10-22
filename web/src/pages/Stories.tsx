@@ -38,7 +38,7 @@ export default function Stories() {
   const label = choices.find(c => c.kind === kind && c.period === period)?.label || `${KIND_LABEL[kind].toLowerCase()} ${period}`
   const { data: list } = useAsync(() => api.get<Story[]>(`${V1}/ai/stories`), [kind, period])
   const [, force] = useState(0)
-  if (!aiOn) return <><PageHeader title="Stories" /><Card><Empty icon="sparkles" title="Needs an OpenAI key">Add one under <Link to="/settings/ai">Settings → AI</Link> and every week, month and year can be written up as a story.</Empty></Card></>
+  if (!aiOn) return <><PageHeader title="Stories" /><Card><Empty icon="sparkles" title="Connect an AI provider">Choose Pocket AI or OpenAI under <Link to="/settings/ai">Settings → AI</Link> and every week, month and year can be written up as a story.</Empty></Card></>
   return (
     <>
       <PageHeader title="Stories" sub="Your weeks, months and years, written up from your words and what the apps recorded." />

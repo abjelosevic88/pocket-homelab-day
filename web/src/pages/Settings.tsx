@@ -17,7 +17,7 @@ const TABS: { id: TabId; label: string; icon: string; sub: string }[] = [
   { id: 'general', label: 'General', icon: 'settings', sub: 'The question on every day, date and time formats, units, home and how far back to pull.' },
   { id: 'sources', label: 'Sources', icon: 'layers', sub: 'The apps a day is written from — through Pocket Core, with your own URL and key, or off.' },
   { id: 'notifications', label: 'Notifications', icon: 'bell', sub: 'The evening “How was today?” and the morning “On this day”.' },
-  { id: 'ai', label: 'AI', icon: 'sparkles', sub: 'An OpenAI key for drafts, tonight’s question, stories, dictation and Ask.' },
+  { id: 'ai', label: 'AI', icon: 'sparkles', sub: 'Pocket AI or OpenAI for drafts, stories and Ask; an OpenAI key for dictation.' },
   { id: 'profile', label: 'Profile', icon: 'user', sub: 'Your name, email and password.' },
   { id: 'people', label: 'People', icon: 'users', sub: 'Everyone who has an account on this box.' },
   { id: 'tokens', label: 'API & apps', icon: 'key', sub: 'Personal tokens for phone shortcuts, Raycast and a Homepage widget.' },
@@ -373,10 +373,13 @@ function AISettings() {
   const m30 = tot(usage?.last_30_days), all = tot(usage?.all_time)
   return (
     <div className="stack loose">
-      <Section title="OpenAI" icon="sparkles" actions={<span className={`badge ${f.ai_configured ? 'ok' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}
-        sub="Without a key every AI button stays hidden. Any OpenAI-compatible endpoint works with the base URL.">
+      <Section title="AI provider" icon="sparkles" actions={<span className={`badge ${f.ai_configured ? 'ok' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}
+        sub="Automatic uses Pocket AI when its Core link is enabled. You can also choose your own OpenAI-compatible endpoint.">
         <div className="stack">
-          <Field label="API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
+          <Field label="Text generation" help="Automatic prefers your enabled Pocket AI connection. Without one, it uses your saved OpenAI settings."><select value={f.ai_provider || 'auto'} onChange={e => setF({ ...f, ai_provider: e.target.value })}><option value="auto">Automatic — prefer Pocket AI</option><option value="pocket">Pocket AI</option><option value="openai">OpenAI / compatible API</option></select></Field>
+          <p className="muted small" role="status">Saved selection: {f.ai_status?.detail}. Pocket AI uses your Claude account and model from Pocket AI settings.</p>
+          <p className="muted small">OpenAI settings below apply when OpenAI is selected and are required separately for dictation. Pocket AI does not transcribe audio.</p>
+          <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
           <div className="two-col tight">
             <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>
             <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
@@ -388,7 +391,7 @@ function AISettings() {
           <div className="row"><button type="button" className="btn sm" onClick={run} disabled={!f.ai_key}>Test key & model</button><TestResult text={test} /></div>
         </div>
       </Section>
-      <Section title="Options" sub={<>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos; audio is sent only while dictating. OpenAI does not train on API data by default.</>}>
+      <Section title="Options" sub={<>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos; audio is sent to your OpenAI endpoint only while dictating. Text goes to the selected AI provider.</>}>
         <SettingRow title="Tonight's question" help="On the day page and in the evening push."><Switch checked={f.ai_question} onChange={v => setF({ ...f, ai_question: v })} label="Tonight's question" /></SettingRow>
         <SettingRow title="Week story on Sunday" help="Written at the evening hour every Sunday and pushed."><Switch checked={f.ai_weekly_story} onChange={v => setF({ ...f, ai_weekly_story: v })} label="Week story on Sunday" /></SettingRow>
         <SettingRow title="Send what I wrote" help="Highlights, text and moments, not only the app data."><Switch checked={f.ai_send_text} onChange={v => setF({ ...f, ai_send_text: v })} label="Send what I wrote" /></SettingRow>

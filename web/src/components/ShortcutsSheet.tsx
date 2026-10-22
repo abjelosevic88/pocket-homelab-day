@@ -1,7 +1,7 @@
 import { Modal } from './ui'
 
 const GROUPS: { title: string; keys: [string[], string][] }[] = [
-  { title: 'Go to', keys: [[['t'], 'Today'], [['c'], 'Calendar'], [['j'], 'Journal'], [['y'], 'Year'], [['a'], 'Ask (with an OpenAI key)'], [[','], 'Settings'], [['/'], 'Search & commands'], [['⌘', 'K'], 'Search & commands']] },
+  { title: 'Go to', keys: [[['t'], 'Today'], [['c'], 'Calendar'], [['j'], 'Journal'], [['y'], 'Year'], [['a'], 'Ask (with AI connected)'], [[','], 'Settings'], [['/'], 'Search & commands'], [['⌘', 'K'], 'Search & commands']] },
   { title: 'Write', keys: [[['n'], "Today's entry"], [['m'], 'Add a moment to today']] },
   { title: 'On a day', keys: [[['←'], 'The day before'], [['→'], 'The day after']] },
   { title: 'Calendar', keys: [[['⇧', '←'], 'Previous month'], [['⇧', '→'], 'Next month'], [['←', '→'], 'Move the selected day'], [['↵'], 'Open the selected day']] },

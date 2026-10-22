@@ -478,7 +478,7 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "DAY",
 		Publishes: []string{"day.entry_written", "day.moment_created", "day.story_created"},
 		// Read the person's own data in the other Pocket apps (see siblings.go).
-		Uses: pocketUses(),
+		Uses: append(pocketUses(), core.InferenceUse()),
 		// Reach the person's third-party services through Core (see services.go).
 		Services: serviceUses(),
 	}

@@ -59,13 +59,15 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		}
 		srcs[n] = ps
 	}
+	_, aiStatus := s.inferenceFor(ctx, u.ID, st.AIProvider, st.AIKey != "")
 	return map[string]any{
+		"ai_provider": aiStatus.Provider, "ai_status": aiStatus, "ai_configured": aiStatus.Ready, "ai_transcribe_configured": st.AIKey != "",
 		"title": st.Title, "date_format": st.DateFormat, "time_format": st.TimeFormat, "week_start": st.WeekStart, "home_currency": st.HomeCurrency, "distance_unit": st.DistanceUnit,
 		"home_lat": st.HomeLat, "home_lon": st.HomeLon, "home_place": st.HomePlace, "prompt": st.Prompt, "backfill_days": st.BackfillDays,
 		"notify_url": st.NotifyURL, "notify_format": st.NotifyFormat, "notify_configured": st.NotifyURL != "",
 		"notify_evening": st.NotifyEvening, "evening_hour": st.EveningHour, "notify_morning": st.NotifyMorning, "morning_hour": st.MorningHour,
 		"ai_key": mask(st.AIKey), "ai_model": st.AIModel, "ai_base_url": st.AIBaseURL, "ai_transcribe_model": st.AITranscribeModel, "ai_language": st.AILanguage,
-		"ai_question": st.AIQuestion, "ai_weekly_story": st.AIWeeklyStory, "ai_send_text": st.AISendText, "ai_configured": st.AIKey != "",
+		"ai_question": st.AIQuestion, "ai_weekly_story": st.AIWeeklyStory, "ai_send_text": st.AISendText,
 		"ai_default_model": ai.DefaultModel, "ai_default_transcribe": ai.DefaultTranscribe,
 		"sources": srcs, "source_names": store.SourceNames, "core_configured": s.core.Configured(), "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
 	}
@@ -174,6 +176,13 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if keys["ai_key"] && !strings.Contains(in.AIKey, "••") {
 		cur.AIKey = strings.TrimSpace(in.AIKey)
+	}
+	if keys["ai_provider"] {
+		if !validAIProvider(in.AIProvider) {
+			writeErr(w, 400, "choose automatic, Pocket AI or OpenAI")
+			return
+		}
+		cur.AIProvider = in.AIProvider
 	}
 	if keys["ai_model"] {
 		cur.AIModel = strings.TrimSpace(in.AIModel)

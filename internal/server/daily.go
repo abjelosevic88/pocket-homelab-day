@@ -61,7 +61,7 @@ func (s *Server) maybeNotify(ctx context.Context, u *store.User) {
 	}
 	now := time.Now()
 	day := now.Format("2006-01-02")
-	if st.AIWeeklyStory && s.aiClient(st) != nil && now.Weekday() == time.Sunday && now.Hour() >= st.EveningHour {
+	if st.AIWeeklyStory && s.aiClient(ctx, u, st) != nil && now.Weekday() == time.Sunday && now.Hour() >= st.EveningHour {
 		if s.notifiedDay(ctx, u.ID, "weekly") != day {
 			s.markNotified(ctx, u.ID, "weekly", day)
 			if _, err := s.sendWeeklyStory(ctx, u); err != nil {
@@ -113,7 +113,7 @@ func (s *Server) sendEvening(ctx context.Context, u *store.User, force bool) (in
 		body = "Nothing pulled in yet."
 	}
 	question := st.Prompt
-	if st.AIQuestion && s.aiClient(st) != nil {
+	if st.AIQuestion && s.aiClient(ctx, u, st) != nil {
 		if q, err := s.aiQuestion(ctx, u, today, true); err == nil && q != "" {
 			question = q
 		} else if err != nil {

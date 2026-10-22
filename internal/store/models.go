@@ -129,6 +129,7 @@ func (s Source) Configured(name string) bool {
 
 // Settings are one person's options plus the box-wide title (see BoxSettingKeys).
 type Settings struct {
+	AIProvider    string  `json:"ai_provider"`
 	Title         string  `json:"title"`
 	DateFormat    string  `json:"date_format"`
 	TimeFormat    string  `json:"time_format"`

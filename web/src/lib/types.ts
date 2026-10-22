@@ -9,6 +9,8 @@ export type ConnMode = 'core' | 'direct' | 'off'
 export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box' }
 export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'documents' | 'invoicing' | 'split' | 'inventory' | 'tasks'
 export interface Settings {
+  ai_provider: string; ai_status: { provider: string; selected: string; ready: boolean; detail: string }; ai_transcribe_configured: boolean
+
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
   notify_url: string; notify_format: string; notify_configured: boolean; notify_evening: boolean; evening_hour: number; notify_morning: boolean; morning_hour: number

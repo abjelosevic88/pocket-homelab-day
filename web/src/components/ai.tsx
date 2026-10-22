@@ -7,7 +7,7 @@ import type { Story } from '../lib/types'
 import { Card, useToast } from './ui'
 import { Icon } from './icons'
 
-/** True when an OpenAI key is set. */
+/** True when the selected text provider is configured. */
 export function useAI() {
   const { settings } = useApp()
   return !!settings?.ai_configured
@@ -47,6 +47,7 @@ function pickMime(): { mime: string; ext: string } {
 
 /** Record from the microphone, send to /ai/transcribe, hand the text back. */
 export function DictateButton({ onText, label = 'Dictate', small = false }: { onText: (t: string) => void; label?: string; small?: boolean }) {
+  const { settings } = useApp()
   const { toast } = useToast()
   const [state, setState] = useState<'idle' | 'rec' | 'busy'>('idle')
   const [secs, setSecs] = useState(0)
@@ -83,6 +84,7 @@ export function DictateButton({ onText, label = 'Dictate', small = false }: { on
   }
   const stop = () => rec.current?.state === 'recording' && rec.current.stop()
   const cls = `btn ${small ? 'sm' : 'sm'} ${state === 'rec' ? 'rec' : 'ghost'}`
+  if (!settings?.ai_transcribe_configured) return null
   if (state === 'rec') return <button type="button" className={cls} onClick={stop} title="Stop and transcribe"><Icon name="stop" size={13} strokeWidth={2.2} />{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</button>
   if (state === 'busy') return <button type="button" className={cls} disabled>Transcribing…</button>
   return <button type="button" className={`${cls} ${small ? 'icon-only' : ''}`} onClick={start} title="Speak instead of typing" aria-label={label}><Icon name="mic" size={14} />{small ? '' : label}</button>

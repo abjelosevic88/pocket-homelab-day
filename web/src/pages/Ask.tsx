@@ -29,7 +29,7 @@ export default function Ask() {
     try { const a = await api.post<AskT>(`${V1}/ai/asks`, { question }); setData(d => [a, ...(d || [])]); setQ('') } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
   }
   const del = async (id: number) => { await api.del(`${V1}/ai/asks/${id}`); setData(d => (d || []).filter(a => a.id !== id)) }
-  if (!aiOn) return <><PageHeader title="Ask your journal" /><Card><Empty icon="sparkles" title="Needs an OpenAI key">Add one under <Link to="/settings/ai">Settings → AI</Link> and ask things like “when was I last at the lake?”.</Empty></Card></>
+  if (!aiOn) return <><PageHeader title="Ask your journal" /><Card><Empty icon="sparkles" title="Connect an AI provider">Choose Pocket AI or OpenAI under <Link to="/settings/ai">Settings → AI</Link> and ask things like “when was I last at the lake?”.</Empty></Card></>
   return (
     <>
       <PageHeader title="Ask your journal" sub="Questions about your own days, answered from what you wrote and what the apps recorded." actions={data && data.length > 0 ? <button type="button" className="btn ghost sm" onClick={() => setClear(true)}><Icon name="trash" size={14} />Clear history</button> : undefined} />

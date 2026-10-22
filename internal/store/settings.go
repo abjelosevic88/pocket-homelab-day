@@ -162,6 +162,8 @@ func applySetting(st *Settings, k, v string) {
 		}
 	case "setup_complete":
 		st.SetupComplete = v == "1"
+	case "ai_provider":
+		st.AIProvider = v
 	case "ai_key":
 		st.AIKey = v
 	case "ai_model":
@@ -203,6 +205,7 @@ func settingValues(st Settings) map[string]string {
 		"notify_morning":      b[st.NotifyMorning],
 		"morning_hour":        strconv.Itoa(st.MorningHour),
 		"setup_complete":      b[st.SetupComplete],
+		"ai_provider":         st.AIProvider,
 		"ai_key":              st.AIKey,
 		"ai_model":            st.AIModel,
 		"ai_base_url":         st.AIBaseURL,

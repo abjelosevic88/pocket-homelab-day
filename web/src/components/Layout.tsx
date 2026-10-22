@@ -92,7 +92,7 @@ export default function Layout() {
     ] : []),
     { id: 'settings', label: 'Settings', icon: 'settings', hint: ',', run: () => navigate('/settings') },
     { id: 'sources', label: 'Settings → Sources', icon: 'layers', keywords: 'connect apps immich dawarich backfill', run: () => navigate('/settings/sources') },
-    { id: 'ai', label: 'Settings → AI', icon: 'sparkles', keywords: 'openai key model', run: () => navigate('/settings/ai') },
+    { id: 'ai', label: 'Settings → AI', icon: 'sparkles', keywords: 'pocket ai openai key model provider', run: () => navigate('/settings/ai') },
     { id: 'notify', label: 'Settings → Notifications', icon: 'bell', keywords: 'push evening morning', run: () => navigate('/settings/notifications') },
     { id: 'theme', label: theme === 'dark' ? 'Switch to light' : 'Switch to dark', icon: theme === 'dark' ? 'sun' : 'moon', keywords: 'theme appearance', run: () => setThemeMode(theme === 'dark' ? 'light' : 'dark') },
     { id: 'shortcuts', label: 'Keyboard shortcuts', icon: 'keyboard', hint: '?', run: () => window.dispatchEvent(new CustomEvent('pd:shortcuts')) },

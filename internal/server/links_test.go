@@ -495,7 +495,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
