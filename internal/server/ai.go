@@ -22,6 +22,7 @@ import (
 func (s *Server) aiClient(ctx context.Context, u *store.User, st store.Settings) *ai.Client {
 	c := ai.New(st.AIBaseURL, st.AIKey, st.AIModel, st.AITranscribeModel)
 	c.Pocket, _ = s.inferenceFor(ctx, u.ID, st.AIProvider, st.AIKey != "")
+	c.Pocket = c.Pocket.WithModel(st.AIPocketModel)
 	if !c.Configured() {
 		return nil
 	}

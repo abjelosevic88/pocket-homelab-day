@@ -162,6 +162,8 @@ func applySetting(st *Settings, k, v string) {
 		}
 	case "setup_complete":
 		st.SetupComplete = v == "1"
+	case "ai_pocket_model":
+		st.AIPocketModel = v
 	case "ai_provider":
 		st.AIProvider = v
 	case "ai_key":
@@ -187,25 +189,25 @@ func applySetting(st *Settings, k, v string) {
 func settingValues(st Settings) map[string]string {
 	b := map[bool]string{true: "1", false: "0"}
 	kv := map[string]string{
-		"title":               st.Title,
-		"date_format":         st.DateFormat,
-		"time_format":         st.TimeFormat,
-		"week_start":          st.WeekStart,
-		"home_currency":       st.HomeCurrency,
-		"distance_unit":       st.DistanceUnit,
-		"home_lat":            strconv.FormatFloat(st.HomeLat, 'f', -1, 64),
-		"home_lon":            strconv.FormatFloat(st.HomeLon, 'f', -1, 64),
-		"home_place":          st.HomePlace,
-		"prompt":              st.Prompt,
-		"backfill_days":       strconv.Itoa(st.BackfillDays),
-		"notify_url":          st.NotifyURL,
-		"notify_format":       st.NotifyFormat,
-		"notify_evening":      b[st.NotifyEvening],
-		"evening_hour":        strconv.Itoa(st.EveningHour),
-		"notify_morning":      b[st.NotifyMorning],
-		"morning_hour":        strconv.Itoa(st.MorningHour),
-		"setup_complete":      b[st.SetupComplete],
-		"ai_provider":         st.AIProvider,
+		"title":          st.Title,
+		"date_format":    st.DateFormat,
+		"time_format":    st.TimeFormat,
+		"week_start":     st.WeekStart,
+		"home_currency":  st.HomeCurrency,
+		"distance_unit":  st.DistanceUnit,
+		"home_lat":       strconv.FormatFloat(st.HomeLat, 'f', -1, 64),
+		"home_lon":       strconv.FormatFloat(st.HomeLon, 'f', -1, 64),
+		"home_place":     st.HomePlace,
+		"prompt":         st.Prompt,
+		"backfill_days":  strconv.Itoa(st.BackfillDays),
+		"notify_url":     st.NotifyURL,
+		"notify_format":  st.NotifyFormat,
+		"notify_evening": b[st.NotifyEvening],
+		"evening_hour":   strconv.Itoa(st.EveningHour),
+		"notify_morning": b[st.NotifyMorning],
+		"morning_hour":   strconv.Itoa(st.MorningHour),
+		"setup_complete": b[st.SetupComplete],
+		"ai_provider":    st.AIProvider, "ai_pocket_model": st.AIPocketModel,
 		"ai_key":              st.AIKey,
 		"ai_model":            st.AIModel,
 		"ai_base_url":         st.AIBaseURL,

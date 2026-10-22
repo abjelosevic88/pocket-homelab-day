@@ -305,6 +305,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/facts/backfill", s.handleBackfill)
 			r.Get("/facts/status", s.handleFactsStatus)
 			r.Post("/integrations/test", s.handleIntegrationTest)
+			r.Get("/ai/models", s.handleInferenceModels)
 			r.Get("/geo/search", s.handleGeocode)
 			r.Post("/notify/test", s.handleNotifyTest)
 			r.Post("/notify/run", s.handleNotifyRun)
