@@ -59,7 +59,7 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
     const a = p<Activity>(source)
     for (const [i, it] of (a?.items || []).entries()) {
       const extra = (it.minutes || 0) >= 1 ? fmtMinutes(Math.round(it.minutes || 0)) : it.amount ? fmtAmount(it.amount, it.currency || a?.currency || 'EUR') : ''
-      const item: Item = { time: it.time || '', end: it.end && it.end !== it.time ? it.end : undefined, key: `${source}${i}`, icon: src(source), kind: 'act', title: it.title + (it.done && ACTIVITY[source].doneLabel ? ` · ${ACTIVITY[source].doneLabel}` : ''), sub: [it.sub, extra].filter(Boolean).join(' · ') || undefined }
+      const item: Item = { time: it.time || '', end: it.end && it.end !== it.time ? it.end : undefined, key: `${source}${i}`, icon: src(source), kind: 'act', title: it.title + (it.done && ACTIVITY[source].doneLabel ? ` · ${ACTIVITY[source].doneLabel}` : ''), sub: [it.sub, it.note, extra].filter(Boolean).join(' · ') || undefined }
       ;(item.time ? timed : untimed).push(item)
     }
   }

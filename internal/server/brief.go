@@ -256,6 +256,9 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 			if x.Done {
 				t += " ✓"
 			}
+			if x.Note != "" {
+				t += " — " + x.Note
+			}
 			it = append(it, t)
 		}
 		if len(it) > 0 {

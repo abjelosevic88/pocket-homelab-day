@@ -35,6 +35,19 @@ type ActivityItem struct {
 	Qty      float64 `json:"qty,omitempty"`
 	URL      string  `json:"url,omitempty"`
 	Image    string  `json:"image,omitempty"`
+	// Note is a line under the title ("moved to In Review · 2 comments");
+	// Events are what the item is made of, for sources that combine several
+	// happenings into one item (Pocket Projects: one issue's day).
+	Note   string          `json:"note,omitempty"`
+	Events []ActivityEvent `json:"events,omitempty"`
+}
+
+// ActivityEvent is one happening inside an item.
+type ActivityEvent struct {
+	Time string `json:"time,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	Text string `json:"text"`
+	URL  string `json:"url,omitempty"`
 }
 
 // Finish computes the totals, the top groups and sorts the items by time.
@@ -106,6 +119,7 @@ var Activities = map[string]ActivityMeta{
 	"split":          {Label: "Shared costs", One: "expense", Many: "expenses", Unit: "amount", Verb: "with shared costs", Group: "groups"},
 	"tasks":          {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with completed tasks", Group: "lists"},
 	"inventory":      {Label: "Inventory", One: "change", Many: "changes", Unit: "count", Verb: "with inventory changes", Group: "items"},
+	"projects":       {Label: "Work", One: "issue", Many: "issues", Unit: "count", Verb: "with work on issues", Group: "projects"},
 }
 
 // IsActivity reports whether a source uses the Activity payload.

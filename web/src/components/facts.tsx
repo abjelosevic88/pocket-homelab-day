@@ -265,6 +265,7 @@ function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity
   const headline = m.unit === 'min' ? fmtHeadline(source, a.minutes) : m.unit === 'qty' ? fmtHeadline(source, a.qty || 0) : m.unit === 'amount' ? fmtHeadline(source, a.amount || 0, cur) : fmtHeadline(source, a.count)
   const second = m.unit === 'count' ? '' : `${a.count} ${a.count === 1 ? m.one : m.many}`
   const [all, setAll] = useState(false)
+  const [open, setOpen] = useState<Record<string, boolean>>({})
   const items = all ? a.items : a.items.slice(0, 8)
   const base = link ? link.replace(/\/+$/, '') : ''
   return <>
@@ -275,7 +276,22 @@ function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity
       return <div key={(it.ref || it.title) + i} className="li act-li">
         <span className="muted mono small act-t">{it.time || ''}</span>
         {it.image ? <img className="act-img" src={it.image} alt="" loading="lazy" /> : null}
-        <span className="grow act-body"><b>{it.done && <span className="act-done" title={m.doneLabel || 'done'}>✓ </span>}{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{it.title || '(untitled)'}</a> : (it.title || '(untitled)')}</b>{it.sub && <span className="act-sub">{it.sub}</span>}</span>
+        <span className="grow act-body"><b>{it.done && <span className="act-done" title={m.doneLabel || 'done'}>✓ </span>}{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{it.title || '(untitled)'}</a> : (it.title || '(untitled)')}</b>{it.sub && <span className="act-sub">{it.sub}</span>}
+          {it.note && <span className="act-note">{it.note}</span>}
+          {(it.events?.length || 0) > 0 && (() => {
+            const k = (it.ref || it.title) + i
+            const shown = open[k]
+            return <>
+              <button type="button" className="act-events-toggle" aria-expanded={!!shown} onClick={() => setOpen(o => ({ ...o, [k]: !shown }))}>
+                <Icon name={shown ? 'chevron-down' : 'chevron-right'} size={12} />{shown ? 'Hide' : `${it.events!.length} ${it.events!.length === 1 ? 'event' : 'events'}`}
+              </button>
+              {shown && <ul className="act-events">{it.events!.map((e, j) => (
+                <li key={j} className={`act-ev ${e.kind || ''}`}><span className="muted mono small">{e.time || '·'}</span>
+                  <span>{e.url ? <a href={e.url} target="_blank" rel="noreferrer">{e.text}</a> : e.text}</span></li>
+              ))}</ul>}
+            </>
+          })()}
+        </span>
         {(it.minutes || 0) >= 1 ? <span className="muted small nowrap">{fmtMinutes(Math.round(it.minutes || 0))}</span> : it.amount ? <span className="money">{fmtAmount(it.amount, it.currency || cur)}</span> : (it.qty || 0) > 0 ? <span className="muted small nowrap">{it.qty} {it.qty === 1 ? m.qtyOne : m.qtyMany}</span> : null}
         <PinBtn ref_={`${source}:${it.ref || it.title}`} title={it.title} subtitle={it.sub} image={it.image} />
       </div>

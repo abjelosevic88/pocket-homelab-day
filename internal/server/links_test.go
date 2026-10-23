@@ -23,6 +23,7 @@ import (
 var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"history:read":  {regexp.MustCompile(`^/api/v1/listens(/dates)?$`)},
 	"tasks:read":    {regexp.MustCompile(`^/api/v1/tasks$`)},
+	"projects:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"habits:read":   {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
 	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":    {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
@@ -333,6 +334,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 		p := r.URL.Path
 		write := func(s string) { _, _ = rw.Write([]byte(s)) }
 		switch {
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "projects":
+			write(`{"issues":[{"identifier":"AS-6","title":"Rules","url":"https://projects.x/issue/AS-6","project":"Relaunch","done":true,"minutes":80,"first":"10:00","last":"15:00","summary":"done (Done) · 1 commit","events":[{"time":"10:00","kind":"created","text":"Created the issue"}]}],"projects":[]}`)
 		case p == "/api/v1/tasks":
 			write(`{"tasks":[{"id":1,"title":"Fix the shelf","completed_at":"` + d + `T12:00:00Z"}],"total":1}`)
 		case p == "/api/v1/auth/me":
@@ -509,7 +512,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read podcasts=history:read split=groups:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read podcasts=history:read projects=projects:read split=groups:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
