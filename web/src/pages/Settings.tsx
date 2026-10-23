@@ -250,7 +250,8 @@ function Sources() {
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
           return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
             {src.location && <LocationChoice loc={src.location} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('movement' as SourceName, src)} />}
-            <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
+            {/* One source, one card: while Pocket Movement answers, Dawarich's connection stays out of the way. */}
+            {!(src.location?.provider === 'movement' && src.location.movement_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
               extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
@@ -262,7 +263,7 @@ function Sources() {
                   {credExtra && <Field label={help.extra || 'User name'}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field>}
                 </div>
                 <Field label="Public URL (optional)" help="What the browser opens for the open-in-app links when the URL above is internal."><input value={src.public_url} onChange={e => upd(name, { public_url: e.target.value })} placeholder="https://…" /></Field>
-              </>} />
+              </>} />}
           </Section>
         }
         return <Section key={name} source={name} title={title(name)} sub={help.what}
@@ -338,7 +339,7 @@ function CoreHint({ what = 'This choice' }: { what?: string }) {
 // Dawarich fills in when Movement does not answer.
 function LocationChoice({ loc, core, onPick, test }: { loc: LocationState; core: boolean; onPick: (p: 'movement' | 'dawarich') => void; test: React.ReactNode }) {
   const movement = loc.provider === 'movement'
-  const fill = loc.dawarich_via ? ' Dawarich below fills in when it does not answer.' : ''
+  const fill = loc.dawarich_via ? ' If it ever does not answer, your Dawarich fills in.' : ''
   const line = movement
     ? (loc.movement_via ? `Your days come from Pocket Movement, as you, through Pocket Core.${fill}` : `Pocket Movement is not connected: ${loc.movement_detail || 'unknown'}.${loc.dawarich_via ? ' Dawarich below fills in meanwhile.' : ''}`)
     : !core && loc.choice === 'movement' ? 'Pocket Movement was chosen, but this app is not connected to a Pocket Core, so your days come from Dawarich below.'
@@ -356,7 +357,7 @@ function LocationChoice({ loc, core, onPick, test }: { loc: LocationState; core:
       {!core && <CoreHint what="Pocket Movement" />}
       <div className={`conn-status ${ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
       {movement && <div className="row wrap">{test}</div>}
-      <span className="lbl">Dawarich{movement ? ' (the alternative)' : ''}</span>
+      {!(movement && loc.movement_via) && <span className="lbl">Dawarich connection{movement ? ' (filling in meanwhile)' : ''}</span>}
     </div>
   )
 }
