@@ -15,9 +15,11 @@ interface Props { source: string; fact?: Fact; link?: string; unit: 'km' | 'mi';
 /** One source's card on the day page. */
 export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date }: Props) {
   const title = <><SourceIcon source={source} size={22} />{SOURCE_LABEL[source] || cap(source)}</>
+  // the location source names where the day came from (Pocket Movement or Dawarich)
+  const app = source === 'dawarich' && (fact?.payload as Where | null)?.provider === 'movement' ? 'Pocket Movement' : SOURCE_APP[source] || source
   const actions = <>
     {fact?.error && <span className="badge warn" title={fact.error}>stale</span>}
-    {link && <a className="btn ghost icon-only sm" href={link} target="_blank" rel="noreferrer" title={`Open ${SOURCE_APP[source] || source}`} aria-label={`Open ${SOURCE_APP[source] || source}`}><Icon name="external" size={14} /></a>}
+    {link && <a className="btn ghost icon-only sm" href={link} target="_blank" rel="noreferrer" title={`Open ${app}`} aria-label={`Open ${app}`}><Icon name="external" size={14} /></a>}
   </>
   const empty = (msg: string) => <p className="muted small" style={{ margin: 0 }}>{msg}</p>
   if (!fact || fact.payload === null || fact.payload === undefined) {

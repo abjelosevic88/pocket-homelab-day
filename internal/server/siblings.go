@@ -70,7 +70,8 @@ func pocketUses() []core.Use {
 		ps := pocketSources[n]
 		out = append(out, core.Use{App: ps.slug, Scopes: []string{ps.scope}, Reason: ps.reason})
 	}
-	return out
+	// Pocket Movement is not a source of its own: it feeds the location source (movement.go).
+	return append(out, core.Use{App: movementApp.slug, Scopes: []string{movementApp.scope}, Reason: movementApp.reason})
 }
 
 // Connection modes.
@@ -164,6 +165,13 @@ type sourceState struct {
 	// "personal" (the person's own) or "box" (the box-wide one, admins only);
 	// "" until Day has asked Core for it once.
 	KeySource string
+	// The location source (movement.go): the provider in effect ("movement"
+	// | "dawarich"), how Pocket Movement and Dawarich are each reached
+	// ("core" / "core" | "direct" | "") and why Pocket Movement is not.
+	Provider       string
+	MovementVia    string
+	MovementDetail string
+	DawarichVia    string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -215,6 +223,13 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 	var links map[string]core.LinkState
 	var linkErr error
 	asked := false
+	getLinks := func() (map[string]core.LinkState, error) {
+		if !asked {
+			links, linkErr = s.linkStates(ctx, u.Email)
+			asked = true
+		}
+		return links, linkErr
+	}
 	for _, n := range store.SourceNames {
 		src := st.Sources[n]
 		ct, ok := connectable(n)
@@ -239,11 +254,7 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 				ss.Detail = "there is no Pocket Core on this box; use a direct connection"
 				break
 			}
-			if !asked {
-				links, linkErr = s.linkStates(ctx, u.Email)
-				asked = true
-			}
-			if linkErr != nil {
+			if _, linkErr = getLinks(); linkErr != nil {
 				ss.Detail = "Pocket Core did not answer: " + linkErr.Error()
 				break
 			}
@@ -263,6 +274,9 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 			}
 		}
 		ss.Active = ss.Via != ""
+		if n == "dawarich" {
+			applyLocation(&ss, src, coreOK && u != nil, u, getLinks)
+		}
 		out[n] = ss
 	}
 	return out
@@ -348,6 +362,11 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 // URL set for the source, else where Pocket Core says the app (or service)
 // lives, else the source URL when it is not an internal one.
 func (s *Server) sourceLink(ctx context.Context, u *store.User, name string, src store.Source, ss sourceState) string {
+	if name == "dawarich" && ss.MovementVia != "" {
+		// the days come from Pocket Movement: open it (the public URL set is Dawarich's)
+		_, public := s.resolveSiblingFull(ctx, movementApp.slug)
+		return public
+	}
 	if src.PublicURL != "" {
 		return src.PublicURL
 	}

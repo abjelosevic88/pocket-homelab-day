@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, ConnMode, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, ConnMode, LocationState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
@@ -174,7 +174,7 @@ function General() {
 }
 
 const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; extra?: string }> = {
-  dawarich: { what: 'Distance, moving time, how you moved and the stops it recognised.', key: 'API key from Dawarich → Account', url: 'https://dawarich.example.com' },
+  dawarich: { what: 'Distance, moving time, how you moved and the stops of the day, from Pocket Movement or Dawarich.', key: 'API key from Dawarich → Account', url: 'https://dawarich.example.com' },
   immich: { what: 'Photos and videos taken that day, with a thumbnail grid proxied through this app.', key: 'API key from Immich → Account settings → API keys', url: 'http://host.docker.internal:2283' },
   maloja: { what: 'What played: listens, top artists, the full track list.', key: 'no key needed (read API is open)', url: 'http://host.docker.internal:42010' },
   jellystat: { what: 'What you watched in Jellyfin: episodes, films, minutes.', key: 'API key from Jellystat → Settings → API keys', url: 'http://host.docker.internal:3000', extra: 'Jellyfin user name to keep (empty = everyone)' },
@@ -184,7 +184,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   travel: { what: 'Which trip the day fell in, and which day of it.', key: 'Token from Pocket Travel → Settings → API', url: 'http://host.docker.internal:8174' },
   kitchen: { what: 'What was cooked.', key: 'Token from Pocket Kitchen → Settings → API & apps', url: 'http://host.docker.internal:8176' },
   garage: { what: 'Fill-ups and service records.', key: 'Token from Pocket Garage → Settings → API', url: 'http://host.docker.internal:8175' },
-  weather: { what: 'Daily weather from Open-Meteo for the home location, or where Dawarich says you were.', key: 'no key needed', url: '' },
+  weather: { what: 'Daily weather from Open-Meteo for the home location, or where your location source says you were.', key: 'no key needed', url: '' },
   pinepods: { what: 'Podcast episodes played, with minutes per day. Episodes spread over several days count on each of them (from the day Pocket Day starts watching).', key: 'API key from PinePods → Settings → API keys', url: 'http://host.docker.internal:8136' },
   audiobookshelf: { what: 'Listening sessions — audiobooks and ABS podcasts — per title, with minutes. Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
   jellyseerr: { what: 'Films and series requested, and requested titles that became available.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
@@ -215,7 +215,8 @@ function Sources() {
     try { const r = await api.post<{ ok: boolean; error?: string }>(`${V1}/facts/backfill`, { force }); toast(r.ok ? 'Backfill started' : r.error || 'failed', r.ok ? 'ok' : 'err'); reload() } catch (e) { toast((e as Error).message, 'err') }
   }
   const bf = status?.backfill
-  const title = (name: SourceName) => <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
+  const core = !!f.core_connected
+  const title = (name: SourceName) => name === 'dawarich' ? <>Location <span className="muted">— where you were</span></> : <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
   const testBtn = (name: SourceName, src: Source) => <><button type="button" className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>
   return (
     <div className="stack loose">
@@ -224,6 +225,7 @@ function Sources() {
         <div className="set-backfill">
           {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
           <p className="muted small" style={{ margin: 0 }}>The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste; so can the other services (Immich, Maloja, Dawarich…), with your own account there from Pocket Core.</p>
+          {!core && <CoreHint />}
           <div className="row wrap"><button type="button" className="btn sm" onClick={() => backfill(false)} disabled={bf?.running}><Icon name="download" size={14} />Backfill missing days ({f.backfill_days} back)</button><button type="button" className="btn ghost sm" onClick={() => backfill(true)} disabled={bf?.running} title="Re-fetch even days that already have facts"><Icon name="refresh" size={14} />Re-pull everything</button></div>
         </div>
       </Section>
@@ -231,7 +233,7 @@ function Sources() {
         const src = f.sources[name]
         const help = SOURCE_HELP[name]
         if (src.pocket) return <Section key={name} source={name} title={title(name)} sub={help.what} actions={connBadge(src.mode || 'off', src.via)}>
-          <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={f.core_configured} hasToken={!!src.key || !!src.url}
+          <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
             onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '' })}
             test={testBtn(name, src)}
             direct={<>
@@ -246,8 +248,9 @@ function Sources() {
           // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
           const credExtra = name === 'nextcloud'
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
-          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={connBadge(src.mode || 'off', src.via)}>
-            <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={f.core_configured} hasToken={!!src.key || !!src.url}
+          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
+            {src.location && <LocationChoice loc={src.location} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('movement' as SourceName, src)} />}
+            <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
               extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
@@ -287,6 +290,9 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
   hasToken: boolean; test: React.ReactNode; direct: React.ReactNode
   service?: boolean; keySource?: string; keyless?: boolean; extra?: React.ReactNode
 }) {
+  // Pocket Core saved earlier on an app that is not connected to one: nothing is read, say so.
+  const stranded = !core && mode === 'core'
+  if (stranded) mode = 'off'
   const ok = via !== ''
   const [advanced, setAdvanced] = useState(mode === 'direct')
   const showDirect = !core || mode === 'direct' || advanced
@@ -295,18 +301,20 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
   const coreLine = service
     ? `Connected through Pocket Core${whose}. Nothing to fill in; switch it off for yourself in Pocket Core → Settings → Apps acting for me.`
     : 'Connected through Pocket Core, as you. Nothing to fill in; switch it off for yourself in Pocket Core → Settings → Apps acting for me.'
-  const line = mode === 'off' ? `Off: Day does not read ${app}.`
+  const line = stranded ? `Pocket Core was chosen, but this app is not connected to one, so Day does not read ${app}. Use Direct with your own ${cred}.`
+    : mode === 'off' ? `Off: Day does not read ${app}.`
     : mode === 'core' ? (ok ? coreLine : `Not connected: ${detail}.`)
     : (ok ? `Direct connection with your own ${app} ${cred}; use Test connection to check it.` : `Not connected: ${detail || `add the ${cred}`}.`)
   return (
     <div className="conn-block">
       <div className="conn-mode">
         <Segmented size="sm" value={mode} onChange={m => onMode(m as ConnMode)} options={[
-          { value: 'core', label: 'Pocket Core', title: core ? 'Through Pocket Core: per person, nothing to paste' : 'There is no Pocket Core on this box' },
+          { value: 'core', label: 'Pocket Core', disabled: !core, title: core ? 'Through Pocket Core: per person, nothing to paste' : 'Needs Pocket Core' },
           ...(showDirect ? [{ value: 'direct', label: 'Direct', title: `Your own ${cred}` }] : []),
           { value: 'off', label: 'Off' },
         ]} />
       </div>
+      {!core && <p className="core-hint">Pocket Core is greyed out: it needs Pocket Core (see the note at the top).</p>}
       {!showDirect && <button type="button" className="conn-advanced" onClick={() => setAdvanced(true)}>Advanced: connect directly with a URL{keyless ? '' : ' and key'}</button>}
       <div className={`conn-status ${mode === 'off' ? '' : ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
       {mode === 'direct' && <>
@@ -318,6 +326,45 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
     </div>
   )
 }
+
+// The words every Core-only choice shows while this app is not connected to a Pocket Core.
+function CoreHint({ what = 'This choice' }: { what?: string }) {
+  return <p className="core-hint">{what} needs Pocket Core. Pocket Core connects your Pocket apps to each other and to your services: one sign-in for everyone, each person's own accounts, nothing to copy or paste. Set CORE_URL to connect this app. <a href="https://github.com/abjelosevic88/pocket-homelab-core" target="_blank" rel="noreferrer">Learn more</a></p>
+}
+
+// LocationChoice is where the location source's days come from: Pocket
+// Movement (the person's own location history, through Pocket Core only) or
+// Dawarich (its connection below). While Movement is chosen, a connected
+// Dawarich fills in when Movement does not answer.
+function LocationChoice({ loc, core, onPick, test }: { loc: LocationState; core: boolean; onPick: (p: 'movement' | 'dawarich') => void; test: React.ReactNode }) {
+  const movement = loc.provider === 'movement'
+  const fill = loc.dawarich_via ? ' Dawarich below fills in when it does not answer.' : ''
+  const line = movement
+    ? (loc.movement_via ? `Your days come from Pocket Movement, as you, through Pocket Core.${fill}` : `Pocket Movement is not connected: ${loc.movement_detail || 'unknown'}.${loc.dawarich_via ? ' Dawarich below fills in meanwhile.' : ''}`)
+    : !core && loc.choice === 'movement' ? 'Pocket Movement was chosen, but this app is not connected to a Pocket Core, so your days come from Dawarich below.'
+    : `Your days come from Dawarich${loc.dawarich_via ? '' : ' once its connection below works'}.`
+  const ok = movement ? !!loc.movement_via : !!loc.dawarich_via
+  return (
+    <div className="loc-block">
+      <span className="lbl">Where you were, from</span>
+      <div className="conn-mode">
+        <Segmented size="sm" label="Location source" value={loc.provider} onChange={p => onPick(p as 'movement' | 'dawarich')} options={[
+          { value: 'movement', label: 'Pocket Movement', disabled: !core, title: core ? 'Your own location history, through Pocket Core' : 'Needs Pocket Core' },
+          { value: 'dawarich', label: 'Dawarich', title: 'Dawarich, connected below' },
+        ]} />
+      </div>
+      {!core && <CoreHint what="Pocket Movement" />}
+      <div className={`conn-status ${ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {movement && <div className="row wrap">{test}</div>}
+      <span className="lbl">Dawarich{movement ? ' (the alternative)' : ''}</span>
+    </div>
+  )
+}
+
+const locationBadge = (loc: LocationState, mode: ConnMode, via: string) => loc.provider === 'movement' && loc.movement_via
+  ? <span className="badge ok">Pocket Movement</span>
+  : loc.provider === 'movement' && via ? <span className="badge warn">Dawarich (fallback)</span>
+  : connBadge(mode, via)
 
 const connBadge = (mode: ConnMode, via: string) => mode === 'off' ? <span className="badge">off</span>
   : via ? <span className="badge ok">{via === 'core' ? 'Pocket Core' : 'direct'}</span>
@@ -378,9 +425,11 @@ function AISettings() {
       <Section title="AI provider" icon="sparkles" actions={<span className={`badge ${f.ai_configured ? 'ok' : ''}`}>{f.ai_configured ? 'connected' : 'not set'}</span>}
         sub="Automatic uses Pocket AI when its Core link is enabled. You can also choose your own OpenAI-compatible endpoint.">
         <div className="stack">
-          <Field group label="Text generation" help="Automatic prefers your enabled Pocket AI connection. Without one, it uses your saved OpenAI settings."><Select ariaLabel="Text generation provider" value={f.ai_provider || 'auto'} onChange={v => { setF({ ...f, ai_provider: v }); setShowDictation(false) }} options={[{ value: 'auto', label: 'Automatic — prefer Pocket AI' }, { value: 'pocket', label: 'Pocket AI' }, { value: 'openai', label: 'OpenAI / compatible API' }]} /></Field>
+          <Field group label="Text generation" help="Automatic prefers your enabled Pocket AI connection. Without one, it uses your saved OpenAI settings."><Select ariaLabel="Text generation provider" value={f.ai_provider || 'auto'} onChange={v => { setF({ ...f, ai_provider: v }); setShowDictation(false) }} options={[{ value: 'auto', label: 'Automatic — prefer Pocket AI' }, { value: 'pocket', label: 'Pocket AI', disabled: !f.core_connected, hint: f.core_connected ? undefined : 'needs Pocket Core' }, { value: 'openai', label: 'OpenAI / compatible API' }]} /></Field>
+          {!f.core_connected && <CoreHint what="Pocket AI" />}
+          {!f.core_connected && f.ai_provider === 'pocket' && <p className="muted small">Pocket AI was chosen, but this app is not connected to a Pocket Core, so text generation is off. Choose OpenAI / compatible API, or Automatic.</p>}
           <p className="muted small" role="status">Saved selection: {f.ai_status?.detail}. Pocket AI uses your connected Claude account.</p>
-          {f.ai_provider !== 'openai' && <PocketModelSelect value={f.ai_pocket_model || ''} onChange={v => setF({ ...f, ai_pocket_model: v })} />}
+          {f.ai_provider !== 'openai' && !!f.core_connected && <PocketModelSelect value={f.ai_pocket_model || ''} onChange={v => setF({ ...f, ai_pocket_model: v })} />}
           {f.ai_provider === 'openai' && <div className="stack">
             <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
             <Field label="Model" help={`Default ${f.ai_default_model}: fast and cheap, good enough for every feature here.`}><input list="ai-models" value={f.ai_model} onChange={e => setF({ ...f, ai_model: e.target.value })} placeholder={f.ai_default_model} /><datalist id="ai-models">{AI_MODELS.map(m => <option key={m} value={m} />)}</datalist></Field>

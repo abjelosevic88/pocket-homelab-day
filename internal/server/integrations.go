@@ -44,6 +44,19 @@ type publicSource struct {
 	Via        string `json:"via"`
 	Detail     string `json:"detail,omitempty"`
 	KeySource  string `json:"key_source,omitempty"`
+	// The location source only (movement.go).
+	Location *publicLocation `json:"location,omitempty"`
+}
+
+// publicLocation is where the location source's days come from: the saved
+// choice ("" = not chosen), the provider in effect, and how Pocket Movement
+// and Dawarich each stand.
+type publicLocation struct {
+	Choice         string `json:"choice"`
+	Provider       string `json:"provider"`
+	MovementVia    string `json:"movement_via"`
+	MovementDetail string `json:"movement_detail,omitempty"`
+	DawarichVia    string `json:"dawarich_via"`
 }
 
 func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Settings) map[string]any {
@@ -57,6 +70,9 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		if ct, ok := connectable(n); ok {
 			ps.Pocket, ps.Service, ps.App, ps.Mode, ps.Via, ps.Detail, ps.KeySource = !ct.service, ct.service, ct.app, ss.Mode, ss.Via, ss.Detail, ss.KeySource
 		}
+		if n == "dawarich" {
+			ps.Location = &publicLocation{Choice: src.Provider, Provider: ss.Provider, MovementVia: ss.MovementVia, MovementDetail: ss.MovementDetail, DawarichVia: ss.DawarichVia}
+		}
 		srcs[n] = ps
 	}
 	_, aiStatus := s.inferenceFor(ctx, u.ID, st.AIProvider, st.AIKey != "")
@@ -69,7 +85,7 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		"ai_key": mask(st.AIKey), "ai_model": st.AIModel, "ai_base_url": st.AIBaseURL, "ai_transcribe_model": st.AITranscribeModel, "ai_language": st.AILanguage,
 		"ai_question": st.AIQuestion, "ai_weekly_story": st.AIWeeklyStory, "ai_send_text": st.AISendText,
 		"ai_default_model": ai.DefaultModel, "ai_default_transcribe": ai.DefaultTranscribe,
-		"sources": srcs, "source_names": store.SourceNames, "core_configured": s.core.Configured(), "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
+		"sources": srcs, "source_names": store.SourceNames, "core_configured": s.core.Configured(), "core_connected": s.coreConnected(), "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
 	}
 }
 
@@ -104,6 +120,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			Extra     *string `json:"extra"`
 			Enabled   *bool   `json:"enabled"`
 			Mode      *string `json:"mode"`
+			Provider  *string `json:"provider"`
 		} `json:"sources"`
 	}
 	keys, err := decodeKeys(r, &in)
@@ -236,6 +253,9 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			src.Mode = *p.Mode
 			src.Enabled = src.Mode != modeOff
 		}
+		if name == "dawarich" && p.Provider != nil && (*p.Provider == "" || validLocationProvider(*p.Provider)) {
+			src.Provider = *p.Provider
+		}
 		cur.Sources[name] = src
 	}
 	if err := s.store.SaveSettings(r.Context(), u.ID, cur); err != nil {
@@ -287,6 +307,15 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 	}
 	var f sources.Fetcher
 	typed := in.Key != "" && !strings.Contains(in.Key, "••")
+	if in.Which == "movement" {
+		msg, err := sources.NewMovement(s.movementConn(u)).Test(ctx)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": strings.TrimPrefix(err.Error(), "not connected: ")})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg + " through Pocket Core"})
+		return
+	}
 	if _, ok := pocketSources[in.Which]; ok {
 		s.testPocketSource(ctx, w, u, in.Which, saved, url, key, typed)
 		return
@@ -427,6 +456,18 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 		"uptime": time.Since(s.started).Round(time.Second).String(), "timezone": time.Now().Location().String(),
 		"counts": counts, "days_with_facts": len(dates), "first_fact_day": first, "backfill": s.backfillStatus(u.ID),
 	})
+}
+
+// coreConnected reports whether Day is connected to a Pocket Core: configured
+// and registered with it. The Core-only choices in Settings are greyed out
+// otherwise.
+func (s *Server) coreConnected() bool {
+	if !s.core.Configured() {
+		return false
+	}
+	s.coreMu.Lock()
+	defer s.coreMu.Unlock()
+	return s.coreOK || s.core.Token() != "" // a failed re-registration keeps the token
 }
 
 // coreStatus summarises the Pocket Core link for the About page.

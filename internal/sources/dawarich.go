@@ -91,6 +91,9 @@ type Where struct {
 	Bounds        *[4]float64        `json:"bounds,omitempty"` // swLat, swLng, neLat, neLng
 	FirstMove     string             `json:"first_move"`
 	LastMove      string             `json:"last_move"`
+	// Provider is where the day came from: "movement" (Pocket Movement) or
+	// "dawarich"; "" on days recorded before Pocket Movement existed.
+	Provider string `json:"provider,omitempty"`
 }
 
 // Fetch implements Fetcher.
@@ -135,7 +138,7 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 	if err := c.get(ctx, "/api/v1/timeline", q, &out); err != nil {
 		return nil, err
 	}
-	w := Where{Modes: map[string]float64{}, Entries: []Visit{}}
+	w := Where{Modes: map[string]float64{}, Entries: []Visit{}, Provider: "dawarich"}
 	journeyMoving := 0 // seconds; Dawarich's day summary counts gaps inside tracks as moving
 	for _, d := range out.Days {
 		if d.Date != date && len(out.Days) > 1 {
@@ -178,16 +181,5 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 	for k, v := range w.Modes {
 		w.Modes[k] = Round1(v)
 	}
-	sum := ""
-	if w.DistanceKm > 0 {
-		parts := []string{fmt.Sprintf("%.1f km", w.DistanceKm)}
-		if w.MovingMinutes > 0 {
-			parts = append(parts, HoursMinutes(w.MovingMinutes)+" moving")
-		}
-		if w.Places > 0 {
-			parts = append(parts, Plural(w.Places, "place", "places"))
-		}
-		sum = strings.Join(parts, " · ")
-	}
-	return &Result{Payload: w, Headline: w.DistanceKm, Summary: sum}, nil
+	return &Result{Payload: w, Headline: w.DistanceKm, Summary: whereSummary(w)}, nil
 }

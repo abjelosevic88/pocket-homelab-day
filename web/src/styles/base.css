@@ -270,6 +270,8 @@ input.bare, textarea.bare { border-color: transparent; background: transparent; 
 .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm), 0 0 0 1px var(--hairline); }
 [data-theme="dark"] .segmented button.active { background: var(--surface-3); }
 .segmented.sm button { height: 24px; padding: 0 9px; font-size: 12.5px; }
+.segmented button.disabled, .segmented button:disabled { opacity: .45; cursor: not-allowed; }
+.segmented button.disabled:hover { color: var(--muted); }
 
 /* chips, badges, callouts */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -27,6 +27,12 @@ func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings)
 		if !ss.Active {
 			continue
 		}
+		if name == "dawarich" {
+			if f := s.locationSource(u, src, ss); f != nil {
+				out[name] = f
+			}
+			continue
+		}
 		if _, ok := pocketSources[name]; ok {
 			out[name] = pocketFetcher(name, s.pocketConn(u, name, src, ss.Mode))
 			continue

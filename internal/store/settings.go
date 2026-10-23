@@ -99,6 +99,8 @@ func applySetting(st *Settings, k, v string) {
 			src.Enabled = v != "0"
 		case "mode":
 			src.Mode = v
+		case "provider":
+			src.Provider = v
 		}
 		st.Sources[parts[0]] = src
 		return
@@ -224,6 +226,7 @@ func settingValues(st Settings) map[string]string {
 		kv["src_"+name+"_extra"] = src.Extra
 		kv["src_"+name+"_enabled"] = b[src.Enabled]
 		kv["src_"+name+"_mode"] = src.Mode
+		kv["src_"+name+"_provider"] = src.Provider
 	}
 	return kv
 }

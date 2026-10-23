@@ -6,7 +6,9 @@ export type ConnMode = 'core' | 'direct' | 'off'
 // pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
 // service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
 // via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box' }
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; provider?: '' | 'movement' | 'dawarich' }
+/** Where the location source's days come from: Pocket Movement (through Pocket Core only) or Dawarich. */
+export interface LocationState { choice: '' | 'movement' | 'dawarich'; provider: 'movement' | 'dawarich'; movement_via: '' | 'core'; movement_detail?: string; dawarich_via: '' | 'core' | 'direct' }
 export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'documents' | 'invoicing' | 'split' | 'inventory' | 'tasks'
 export interface Settings {
   ai_provider: string; ai_pocket_model: string; ai_status: { provider: string; selected: string; ready: boolean; detail: string }; ai_transcribe_configured: boolean
@@ -14,7 +16,7 @@ export interface Settings {
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
   notify_url: string; notify_format: string; notify_configured: boolean; notify_evening: boolean; evening_hour: number; notify_morning: boolean; morning_hour: number
-  sources: Record<SourceName, Source>; source_names: SourceName[]; core_configured: boolean; setup_complete: boolean; base_url: string; timezone: string
+  sources: Record<SourceName, Source>; source_names: SourceName[]; core_configured: boolean; core_connected?: boolean; setup_complete: boolean; base_url: string; timezone: string
   ai_key: string; ai_model: string; ai_base_url: string; ai_transcribe_model: string; ai_language: string
   ai_question: boolean; ai_weekly_story: boolean; ai_send_text: boolean; ai_configured: boolean; ai_default_model: string; ai_default_transcribe: string
 }
@@ -38,7 +40,7 @@ export interface BackfillStatus { running: boolean; from: string; to: string; do
 
 // ---- fact payloads (mirror internal/sources) ----
 export interface Visit { kind: 'visit' | 'journey'; name?: string; start: string; end: string; minutes: number; lat?: number; lng?: number; mode?: string; distance_km?: number; status?: string }
-export interface Where { distance_km: number; moving_minutes: number; still_minutes: number; modes: Record<string, number>; places: number; journeys: number; entries: Visit[]; bounds?: number[]; first_move: string; last_move: string }
+export interface Where { distance_km: number; moving_minutes: number; still_minutes: number; modes: Record<string, number>; places: number; journeys: number; entries: Visit[]; bounds?: number[]; first_move: string; last_move: string; provider?: 'movement' | 'dawarich' }
 export interface Photo { id: string; type: 'IMAGE' | 'VIDEO'; taken_at: string; time: string; lat?: number; lng?: number; city?: string; country?: string; favorite: boolean; duration?: string; file_name?: string }
 export interface Photos { count: number; videos: number; favorites: number; places: string[]; first: string; last: string; items: Photo[] }
 export interface Count { name: string; count: number }

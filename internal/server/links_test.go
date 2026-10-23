@@ -110,6 +110,15 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 			}
 			out = append(out, map[string]any{"app": ps.slug, "scope": ps.scope, "state": state, "on": state == "on"})
 		}
+		if w.targets[movementApp.slug] != nil { // only in the tests that add a Pocket Movement
+			state := "on"
+			if user != "owner@x" {
+				state = "not_in_audience"
+			} else if s, ok := w.off[movementApp.slug+" "+movementApp.scope]; ok {
+				state = s
+			}
+			out = append(out, map[string]any{"app": movementApp.slug, "scope": movementApp.scope, "state": state, "on": state == "on"})
+		}
 		for _, n := range serviceSourceOrder {
 			state := w.serviceState(user, serviceSources[n].typ)
 			out = append(out, map[string]any{"app": "service:" + serviceSources[n].typ, "scope": "account", "state": state, "on": state == "on"})
@@ -497,7 +506,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read split=groups:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read split=groups:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
