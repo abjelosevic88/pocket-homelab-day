@@ -132,12 +132,12 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75, titl
 /** Each source's glyph and colour. */
 export const SOURCE_GLYPH: Record<string, string> = {
   dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', bookshelf: 'book',
-  travel: 'plane', kitchen: 'utensils', garage: 'car', weather: 'cloud-sun', pinepods: 'mic', audiobookshelf: 'headphones', jellyseerr: 'film',
+  travel: 'plane', kitchen: 'utensils', garage: 'car', weather: 'cloud-sun', podcasts: 'mic', pinepods: 'mic', audiobookshelf: 'headphones', jellyseerr: 'film',
   forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', split: 'users', tasks: 'check-square', inventory: 'package',
 }
 export const SOURCE_COLOR: Record<string, string> = {
   dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', bookshelf: '#b45309',
-  travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
+  travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', podcasts: '#9333ea', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
   forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', split: '#0891b2', tasks: '#2563eb', inventory: '#a16207',
 }
 

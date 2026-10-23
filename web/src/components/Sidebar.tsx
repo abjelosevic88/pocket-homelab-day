@@ -58,8 +58,7 @@ export function Sidebar({ onWrite, onNavigate, onPalette }: { onWrite: (k: Write
   return (
     <aside className="sidebar" aria-label="Day">
       <div className="sb-brand">
-        <img src="/favicon.svg" alt="" className="sb-logo" />
-        <span className="sb-title">{title !== 'Pocket Day' ? title : <>Pocket <b>Day</b></>}</span>
+        <img src="/favicon.svg" alt={title} className="sb-logo" />
         {status?.version && <span className="sb-version" title={`Version ${status.version}`}>{/^\d/.test(status.version) ? 'v' + status.version : status.version}</span>}
       </div>
       <button type="button" className="btn primary create-btn" aria-haspopup="menu" aria-expanded={!!menu} onClick={e => setMenu(menu ? null : rectOf(e.currentTarget))}>

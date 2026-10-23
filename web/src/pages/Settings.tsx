@@ -185,6 +185,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   kitchen: { what: 'What was cooked.', key: 'Token from Pocket Kitchen → Settings → API & apps', url: 'http://host.docker.internal:8176' },
   garage: { what: 'Fill-ups and service records.', key: 'Token from Pocket Garage → Settings → API', url: 'http://host.docker.internal:8175' },
   weather: { what: 'Daily weather from Open-Meteo for the home location, or where your location source says you were.', key: 'no key needed', url: '' },
+  podcasts: { what: 'Episodes and actual listening minutes recorded in Pocket Podcasts, including offline playback after it syncs.', key: 'Token from Pocket Podcasts → Settings → API tokens', url: 'http://pocket-podcasts:8080' },
   pinepods: { what: 'Podcast episodes played, with minutes per day. Episodes spread over several days count on each of them (from the day Pocket Day starts watching).', key: 'API key from PinePods → Settings → API keys', url: 'http://host.docker.internal:8136' },
   audiobookshelf: { what: 'Listening sessions — audiobooks and ABS podcasts — per title, with minutes. Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
   jellyseerr: { what: 'Films and series requested, and requested titles that became available.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
@@ -221,7 +222,7 @@ function Sources() {
   return (
     <div className="stack loose">
       <Section title="Pulling the days" icon="refresh" actions={bf?.running ? <span className="badge cat">running</span> : undefined}
-        sub={<>Today and yesterday are pulled every 30 minutes. Older days are frozen once fetched. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</>}>
+        sub={<>Most sources refresh today and yesterday every 30 minutes, then keep older days as recorded. Pocket Podcasts checks for new listening every minute, including late uploads for older days. {status ? <>{status.days_with_facts} days have facts{status.first ? ` (${status.first} → ${status.last})` : ''}.</> : null}</>}>
         <div className="set-backfill">
           {bf?.running && <div className="progress"><div style={{ width: `${bf.total ? bf.done / bf.total * 100 : 0}%` }} /><span className="small muted">{bf.done}/{bf.total} · {bf.current}</span></div>}
           <p className="muted small" style={{ margin: 0 }}>The sources are yours: what you connect here is pulled with your own accounts and only ever shows up in your journal. The Pocket apps can come through Pocket Core, as you, with nothing to paste; so can the other services (Immich, Maloja, Dawarich…), with your own account there from Pocket Core.</p>

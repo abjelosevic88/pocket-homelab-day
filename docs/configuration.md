@@ -146,3 +146,16 @@ pocket-day backfill [-from D] [-to D] [-force]
 pocket-day reset-password [-email U] [-password P]
 pocket-day version
 ```
+
+## Pocket Podcasts listening history
+
+Select **Pocket Core** for **Pocket Podcasts** in Settings → Sources. Day requests
+only `history:read` from the `podcasts` app. Direct connections also work with its
+URL and a personal API token. PinePods remains a separate source so historical
+facts are preserved when its live connection is switched off.
+
+Day reads `/api/v1/listens?date=YYYY-MM-DD` for actual daily seconds and checks
+`/api/v1/listens/dates` every minute. Changed historical dates are refreshed after
+offline uploads, even when the rest of that day is frozen. Both apps should use
+the same server timezone. Unknown historical times stay unknown; resume positions
+and full episode durations are never substituted for listened minutes.

@@ -5,17 +5,17 @@ import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
 import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
 
-const ACT_ORDER = ['pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'invoicing', 'split', 'inventory']
+const ACT_ORDER = ['podcasts', 'pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'invoicing', 'split', 'inventory']
 import { Card, Empty, Loading, useAsync } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
 import { Ring } from './Calendar'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr' | 'documents'
+type Metric = 'written' | 'mood' | 'immich' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr' | 'documents'
 const METRICS: { id: Metric; label: string; icon: string }[] = [
   { id: 'immich', label: 'Photos', icon: 'camera' }, { id: 'dawarich', label: 'Distance', icon: 'map' }, { id: 'maloja', label: 'Music', icon: 'music' },
-  { id: 'pinepods', label: 'Podcasts', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
+  { id: 'podcasts', label: 'Podcasts', icon: 'mic' }, { id: 'pinepods', label: 'PinePods', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
   { id: 'jellystat', label: 'Watched', icon: 'tv' }, { id: 'firefly', label: 'Spend', icon: 'wallet' }, { id: 'forgejo', label: 'Code', icon: 'code' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: 'check-square' }, { id: 'tasks', label: 'Pocket Tasks', icon: 'check-square' },
   { id: 'jellyseerr', label: 'Requests', icon: 'film' }, { id: 'documents', label: 'Documents', icon: 'file' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'written', label: 'Written', icon: 'pen' },
 ]
@@ -126,7 +126,7 @@ export default function Year() {
           {d.dishes.length > 0 && <Card title={<><SourceIcon source="kitchen" size={22} />Cooked most</>}><Ranked items={d.dishes} unitLabel="×" /></Card>}
           {Object.entries(d.activity || {}).filter(([src, ay]) => isActivity(src) && (ay.top?.length || ay.titles?.length)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
             const m = ACTIVITY[src]
-            const repeated = ['pinepods', 'audiobookshelf', 'nextcloud'].includes(src) ? (ay.titles || []).filter(t => t.count > 1) : []
+            const repeated = ['podcasts', 'pinepods', 'audiobookshelf', 'nextcloud'].includes(src) ? (ay.titles || []).filter(t => t.count > 1) : []
             return <Card key={src} title={<><SourceIcon source={src} size={22} />{SOURCE_LABEL[src]}</>}>
               <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', m.unit === 'qty' ? `${compact(ay.qty)} ${m.qtyMany}` : m.unit === 'amount' ? money(ay.amount, ay.currency || cur, false) : '', m.unit === 'qty' ? '' : `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
               {ay.top?.length > 0 && <Ranked items={ay.top.slice(0, 6)} />}

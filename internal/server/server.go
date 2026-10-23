@@ -200,6 +200,8 @@ func (s *Server) seedOwner(ctx context.Context) error {
 func (s *Server) janitor(ctx context.Context) {
 	first := time.NewTimer(10 * time.Second)
 	t := time.NewTicker(30 * time.Minute)
+	podcasts := time.NewTicker(time.Minute)
+	defer podcasts.Stop()
 	defer t.Stop()
 	tick := func() {
 		today := store.Today()
@@ -219,6 +221,8 @@ func (s *Server) janitor(ctx context.Context) {
 			s.syncAllHabitsEntries(ctx)
 			tick()
 			go s.runBackfillAll(ctx, "", "", false)
+		case <-podcasts.C:
+			s.syncAllPodcastHistory(ctx)
 		case <-t.C:
 			tick()
 		}

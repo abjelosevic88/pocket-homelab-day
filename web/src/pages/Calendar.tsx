@@ -9,11 +9,11 @@ import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr'
+type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr'
 // icon: a stroke icon name; the source layers use their source's glyph
 const LAYERS: { id: Layer; label: string; icon: string }[] = [
   { id: 'photos', label: 'Photos', icon: 'camera' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'dawarich', label: 'Distance', icon: 'map' },
-  { id: 'maloja', label: 'Music', icon: 'music' }, { id: 'pinepods', label: 'Podcasts', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
+  { id: 'maloja', label: 'Music', icon: 'music' }, { id: 'podcasts', label: 'Podcasts', icon: 'mic' }, { id: 'pinepods', label: 'PinePods', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
   { id: 'jellystat', label: 'Watched', icon: 'tv' }, { id: 'firefly', label: 'Spend', icon: 'wallet' }, { id: 'forgejo', label: 'Code', icon: 'code' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: 'check-square' }, { id: 'tasks', label: 'Pocket Tasks', icon: 'check-square' }, { id: 'jellyseerr', label: 'Requests', icon: 'film' },
 ]
 const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
@@ -209,7 +209,7 @@ function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'k
 function Preview({ date, onClose }: { date: string; onClose: () => void }) {
   const { data, loading } = useAsync(() => api.get<DayPage>(`${V1}/days/${date}`), [date])
   const photos = (data?.facts?.immich?.payload as Photos | null)?.items?.filter(p => p.type === 'IMAGE').slice(0, 6) || []
-  const order = ['travel', 'dawarich', 'maloja', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'tasks', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
+  const order = ['travel', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'nextcloud', 'tasks', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
   return (
     <aside className="cal2-panel">
       <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button type="button" className="btn ghost icon-only" onClick={onClose} aria-label="Close" title="Close"><Icon name="x" size={17} /></button></div>

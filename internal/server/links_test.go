@@ -21,6 +21,7 @@ import (
 
 // The routes each target allows a pcx_ token, exactly as the targets offer them.
 var fakeLinkRoutes = map[string][]*regexp.Regexp{
+	"history:read":  {regexp.MustCompile(`^/api/v1/listens(/dates)?$`)},
 	"tasks:read":    {regexp.MustCompile(`^/api/v1/tasks$`)},
 	"habits:read":   {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
 	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
@@ -338,6 +339,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"id":1,"email":"owner@x"}`)
 		case strings.HasPrefix(p, "/api/v1/days/"):
 			write(`{"done":2,"total":3,"journal":"good day","habits":[],"trackers":[]}`)
+		case p == "/api/v1/listens":
+			write(`{"listens":[{"episode_id":1,"title":"Episode","podcast":"Show","seconds":120}]}`)
 		case p == "/api/v1/reading/sessions":
 			write(`{"sessions":[{"book_id":1,"title":"Dune","start":"` + d + `T20:00:00Z","end":"` + d + `T20:30:00Z","minutes":30,"pages":25}]}`)
 		case p == "/api/v1/books":
@@ -506,7 +509,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read split=groups:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read podcasts=history:read split=groups:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}

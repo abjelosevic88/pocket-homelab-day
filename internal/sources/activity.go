@@ -95,6 +95,7 @@ type ActivityMeta struct {
 
 // Activities lists every activity source.
 var Activities = map[string]ActivityMeta{
+	"podcasts":       {Label: "Podcasts", One: "episode", Many: "episodes", Unit: "min", Verb: "with podcasts", Group: "shows"},
 	"pinepods":       {Label: "Podcasts", One: "episode", Many: "episodes", Unit: "min", Verb: "with podcasts", Group: "shows"},
 	"audiobookshelf": {Label: "Audiobooks", One: "title", Many: "titles", Unit: "min", Verb: "with an audiobook", Group: "authors"},
 	"jellyseerr":     {Label: "Requests", One: "request", Many: "requests", Unit: "count", Verb: "with a film or show requested", Group: "kinds"},

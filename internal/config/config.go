@@ -85,7 +85,7 @@ type SourceEnv struct {
 }
 
 // SourceNames lists every data source, in display order.
-var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "bookshelf", "travel", "kitchen", "garage", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "documents", "invoicing", "split", "inventory", "weather"}
+var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "bookshelf", "travel", "kitchen", "garage", "podcasts", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "documents", "invoicing", "split", "inventory", "weather"}
 
 func env(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
