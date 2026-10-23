@@ -329,9 +329,9 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"id":1,"email":"owner@x"}`)
 		case strings.HasPrefix(p, "/api/v1/days/"):
 			write(`{"done":2,"total":3,"journal":"good day","habits":[],"trackers":[]}`)
-		case p == "/api/v1/books":
 		case p == "/api/v1/reading/sessions":
 			write(`{"sessions":[{"book_id":1,"title":"Dune","start":"` + d + `T20:00:00Z","end":"` + d + `T20:30:00Z","minutes":30,"pages":25}]}`)
+		case p == "/api/v1/books":
 			write(`[{"id":1,"title":"Dune","status":"finished","finished_on":"` + d + `"}]`)
 		case p == "/api/v1/trips":
 			write(`[{"id":1,"name":"Rome","start_date":"2026-08-30","end_date":"2026-09-03"}]`)
