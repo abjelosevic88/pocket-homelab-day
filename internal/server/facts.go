@@ -33,6 +33,12 @@ func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings)
 			}
 			continue
 		}
+		if name == "audiobookshelf" {
+			if f := s.audiobooksSource(u, src, ss); f != nil {
+				out[name] = f
+			}
+			continue
+		}
 		if name == "maloja" {
 			if f := s.musicSource(u, src, ss); f != nil {
 				out[name] = f

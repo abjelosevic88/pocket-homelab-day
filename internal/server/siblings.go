@@ -74,9 +74,10 @@ func pocketUses() []core.Use {
 		out = append(out, core.Use{App: ps.slug, Scopes: []string{ps.scope}, Reason: ps.reason})
 	}
 	// Pocket Movement is not a source of its own: it feeds the location source (movement.go).
-	// Pocket Music feeds the music source the same way (music.go).
+	// Pocket Music feeds the music source the same way (music.go), Pocket Audiobooks the audiobooks one (audiobooks.go).
 	return append(out, core.Use{App: movementApp.slug, Scopes: []string{movementApp.scope}, Reason: movementApp.reason},
-		core.Use{App: musicApp.slug, Scopes: []string{musicApp.scope}, Reason: musicApp.reason})
+		core.Use{App: musicApp.slug, Scopes: []string{musicApp.scope}, Reason: musicApp.reason},
+		core.Use{App: audiobooksApp.slug, Scopes: []string{audiobooksApp.scope}, Reason: audiobooksApp.reason})
 }
 
 // Connection modes.
@@ -181,6 +182,10 @@ type sourceState struct {
 	MusicVia    string
 	MusicDetail string
 	MalojaVia   string
+	// The audiobooks source (audiobooks.go): Pocket Audiobooks' and Audiobookshelf's connections.
+	AudiobooksVia    string
+	AudiobooksDetail string
+	ABSVia           string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -289,6 +294,9 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 		if n == "maloja" {
 			applyMusic(&ss, src, coreOK && u != nil, u, getLinks)
 		}
+		if n == "audiobookshelf" {
+			applyAudiobooks(&ss, src, coreOK && u != nil, u, getLinks)
+		}
 		out[n] = ss
 	}
 	return out
@@ -380,6 +388,11 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 // URL set for the source, else where Pocket Core says the app (or service)
 // lives, else the source URL when it is not an internal one.
 func (s *Server) sourceLink(ctx context.Context, u *store.User, name string, src store.Source, ss sourceState) string {
+	if name == "audiobookshelf" && ss.AudiobooksVia != "" {
+		// the days come from Pocket Audiobooks: open it (the public URL set is Audiobookshelf's)
+		_, public := s.resolveSiblingFull(ctx, audiobooksApp.slug)
+		return public
+	}
 	if name == "maloja" && ss.MusicVia != "" {
 		// the days come from Pocket Music: open it (the public URL set is Maloja's)
 		_, public := s.resolveSiblingFull(ctx, musicApp.slug)

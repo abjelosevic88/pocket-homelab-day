@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, ConnMode, LocationState, MusicState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
@@ -188,7 +188,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   weather: { what: 'Daily weather from Open-Meteo for the home location, or where your location source says you were.', key: 'no key needed', url: '' },
   podcasts: { what: 'Episodes and actual listening minutes recorded in Pocket Podcasts, including offline playback after it syncs.', key: 'Token from Pocket Podcasts → Settings → API tokens', url: 'http://pocket-podcasts:8080' },
   pinepods: { what: 'Podcast episodes played, with minutes per day. Episodes spread over several days count on each of them (from the day Pocket Day starts watching).', key: 'API key from PinePods → Settings → API keys', url: 'http://host.docker.internal:8136' },
-  audiobookshelf: { what: 'Listening sessions — audiobooks and ABS podcasts — per title, with minutes. Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
+  audiobookshelf: { what: 'Audiobooks you listened to, per title, with minutes — from Pocket Audiobooks, or Audiobookshelf’s sessions (its podcasts too). Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
   jellyseerr: { what: 'Films and series requested, and requested titles that became available.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
   forgejo: { what: 'Your pushes per repository: commits, the latest message, new repositories, tags and pull requests.', key: 'A read-only access token (Settings → Applications, scopes read:user + read:repository)', url: 'http://host.docker.internal:3000', extra: 'User name (empty = the token’s owner)' },
   nextcloud: { what: 'Tasks completed (every task list), events and contact birthdays, over CalDAV.', key: 'An app password (Personal settings → Security)', url: 'http://host.docker.internal:8080', extra: 'Nextcloud user name' },
@@ -251,11 +251,12 @@ function Sources() {
           // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
           const credExtra = name === 'nextcloud'
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
-          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
+          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : src.audiobooks ? booksBadge(src.audiobooks, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
             {src.location && <LocationChoice loc={src.location} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('movement' as SourceName, src)} />}
             {src.music && <MusicChoice mus={src.music} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('music' as SourceName, src)} />}
+            {src.audiobooks && <BooksChoice bk={src.audiobooks} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('audiobooks' as SourceName, src)} />}
             {/* One source, one card: while Pocket Movement (or Pocket Music) answers, Dawarich's (Maloja's) connection stays out of the way. */}
-            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
+            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && !(src.audiobooks?.provider === 'audiobooks' && src.audiobooks.books_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
               extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
@@ -394,6 +395,40 @@ function MusicChoice({ mus, core, onPick, test }: { mus: MusicState; core: boole
     </div>
   )
 }
+
+// BooksChoice is where the audiobooks source's days come from: Pocket Audiobooks
+// (the person's own listening history, through Pocket Core only) or
+// Audiobookshelf (its connection below), which fills in when Pocket
+// Audiobooks does not answer.
+function BooksChoice({ bk, core, onPick, test }: { bk: BooksState; core: boolean; onPick: (p: 'audiobooks' | 'audiobookshelf') => void; test: React.ReactNode }) {
+  const pocket = bk.provider === 'audiobooks'
+  const fill = bk.abs_via ? ' If it ever does not answer, your Audiobookshelf connection fills in.' : ''
+  const line = pocket
+    ? (bk.books_via ? `Your audiobooks come from Pocket Audiobooks, as you, through Pocket Core.${fill}` : `Pocket Audiobooks is not connected: ${bk.books_detail || 'unknown'}.${bk.abs_via ? ' Audiobookshelf below fills in meanwhile.' : ''}`)
+    : !core && bk.choice === 'audiobooks' ? 'Pocket Audiobooks was chosen, but this app is not connected to a Pocket Core, so your audiobooks come from Audiobookshelf below.'
+    : `Your audiobooks come from Audiobookshelf${bk.abs_via ? '' : ' once its connection below works'}.`
+  const ok = pocket ? !!bk.books_via : !!bk.abs_via
+  return (
+    <div className="loc-block">
+      <span className="lbl">What you listened to, from</span>
+      <div className="conn-mode">
+        <Segmented size="sm" label="Audiobooks source" value={bk.provider} onChange={p => onPick(p as 'audiobooks' | 'audiobookshelf')} options={[
+          { value: 'audiobooks', label: 'Pocket Audiobooks', disabled: !core, title: core ? 'Your own listening history, through Pocket Core' : 'Needs Pocket Core' },
+          { value: 'audiobookshelf', label: 'Audiobookshelf', title: 'Audiobookshelf, connected below' },
+        ]} />
+      </div>
+      {!core && <CoreHint what="Pocket Audiobooks" />}
+      <div className={`conn-status ${ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {pocket && <div className="row wrap">{test}</div>}
+      {!(pocket && bk.books_via) && <span className="lbl">Audiobookshelf connection{pocket ? ' (filling in meanwhile)' : ''}</span>}
+    </div>
+  )
+}
+
+const booksBadge = (bk: BooksState, mode: ConnMode, via: string) => bk.provider === 'audiobooks' && bk.books_via
+  ? <span className="badge ok">Pocket Audiobooks</span>
+  : bk.provider === 'audiobooks' && via ? <span className="badge warn">Audiobookshelf (fallback)</span>
+  : connBadge(mode, via)
 
 const musicBadge = (mus: MusicState, mode: ConnMode, via: string) => mus.provider === 'music' && mus.music_via
   ? <span className="badge ok">Pocket Music</span>
