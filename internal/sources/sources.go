@@ -97,6 +97,14 @@ func LocalClock(ts time.Time, loc *time.Location) string {
 	return ts.In(loc).Format("15:04")
 }
 
+// LocalDate preserves the calendar date alongside a location's display clock.
+func LocalDate(ts time.Time, loc *time.Location) string {
+	if ts.IsZero() {
+		return ""
+	}
+	return ts.In(loc).Format("2006-01-02")
+}
+
 // ParseAny parses the timestamp shapes the sources use.
 func ParseAny(s string) (time.Time, bool) {
 	for _, l := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05.000", "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {

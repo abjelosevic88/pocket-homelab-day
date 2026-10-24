@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
+import { locationTime, timelineOrder } from '../lib/locationTime'
 import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
 import { DictateButton, useAI } from './ai'
 
-type Item = { time: string; end?: string; key: string; icon: React.ReactNode; kind: string; title: string; sub?: string; moment?: Moment; thumbs?: Photo[] }
+type Item = { time: string; sortKey?: string; continued?: boolean; end?: string; key: string; icon: React.ReactNode; kind: string; title: string; sub?: string; moment?: Moment; thumbs?: Photo[] }
 
 const MODE_GLYPH: Record<string, string> = { walking: 'walk', running: 'walk', cycling: 'bike', driving: 'car', train: 'train', flying: 'plane', plane: 'plane', boat: 'boat' }
 /** A moment's kind as a stroke icon (the API keeps note / win / thanks / idea / event). */
@@ -28,14 +29,17 @@ function sessions<T extends { time: string }>(list: T[], gap: number): T[][] {
   return out
 }
 
-function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' | 'mi'): { timed: Item[]; untimed: Item[] } {
+function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' | 'mi', date: string, isToday: boolean): { timed: Item[]; untimed: Item[] } {
   const timed: Item[] = [], untimed: Item[] = []
   const p = <T,>(src: string) => (facts[src]?.payload ?? null) as T | null
   for (const m of moments) (m.time ? timed : untimed).push({ time: m.time, key: `m${m.id}`, icon: g(KIND_GLYPH[m.kind] || 'dot'), kind: 'moment', title: m.text, moment: m })
   const where = p<Where>('dawarich')
   for (const [i, e] of (where?.entries || []).entries()) {
-    if (e.kind === 'visit') timed.push({ time: e.start, end: e.end, key: `v${i}`, icon: g('pin'), kind: 'place', title: e.name || 'A stop', sub: fmtMinutes(e.minutes) })
-    else if ((e.distance_km || 0) >= 0.3) timed.push({ time: e.start, end: e.end, key: `j${i}`, icon: g(MODE_GLYPH[e.mode || ''] || 'route'), kind: 'move', title: `${MODE_VERB[e.mode || ''] || 'Moved'} ${fmtKm(e.distance_km || 0, unit)}`, sub: e.minutes ? fmtMinutes(e.minutes) : undefined })
+    const timing = locationTime(e, date, isToday)
+    const duration = e.minutes ? `${fmtMinutes(e.minutes)}${timing.crossesDay ? ' total' : ''}` : ''
+    const when = { time: timing.time, sortKey: timing.sortKey, continued: timing.continued, sub: [timing.range, duration].filter(Boolean).join(' · ') }
+    if (e.kind === 'visit') timed.push({ ...when, key: `v${i}`, icon: g('pin'), kind: 'place', title: e.name || 'A stop' })
+    else if ((e.distance_km || 0) >= 0.3) timed.push({ ...when, key: `j${i}`, icon: g(MODE_GLYPH[e.mode || ''] || 'route'), kind: 'move', title: `${MODE_VERB[e.mode || ''] || 'Moved'} ${fmtKm(e.distance_km || 0, unit)}` })
   }
   const photos = p<Photos>('immich')
   for (const s of sessions(photos?.items || [], 30)) {
@@ -68,7 +72,7 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })
   const cooked = p<Cooked>('kitchen')
   for (const c of cooked?.cooks || []) untimed.push({ time: '', key: `c${c.id}`, icon: src('kitchen'), kind: 'cook', title: `Cooked ${c.title}` })
-  timed.sort((a, b) => a.time.localeCompare(b.time) || (a.kind === 'moment' ? -1 : 1))
+  timed.sort((a, b) => timelineOrder(a, b, date))
   return { timed, untimed }
 }
 
@@ -82,7 +86,7 @@ export function Timeline({ date, facts, moments, isToday, unit, onMoments }: { d
   const [kind, setKind] = useState('note')
   const [time, setTime] = useState('')
   const [all, setAll] = useState(false)
-  const { timed, untimed } = useMemo(() => buildItems(facts, moments, unit), [facts, moments, unit])
+  const { timed, untimed } = useMemo(() => buildItems(facts, moments, unit, date, isToday), [facts, moments, unit, date, isToday])
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!text.trim()) return
@@ -104,7 +108,7 @@ export function Timeline({ date, facts, moments, isToday, unit, onMoments }: { d
   const shown = all ? timed : timed.slice(0, limit)
   const row = (it: Item) => (
     <div key={it.key} className={`tl-item tl-${it.kind}`}>
-      <span className="tl-time">{it.time || ''}</span>
+      <span className={`tl-time${it.continued ? ' tl-time-continued' : ''}`}>{it.time || ''}</span>
       <span className="tl-dot">{it.icon}</span>
       <div className="tl-body">
         {it.moment

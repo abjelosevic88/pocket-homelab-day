@@ -67,16 +67,18 @@ func (c *Dawarich) Test(ctx context.Context) (string, error) {
 
 // Visit is a stop Dawarich recognised.
 type Visit struct {
-	Name     string   `json:"name"`
-	Start    string   `json:"start"` // HH:MM
-	End      string   `json:"end"`
-	Minutes  int      `json:"minutes"`
-	Lat      *float64 `json:"lat,omitempty"`
-	Lng      *float64 `json:"lng,omitempty"`
-	Status   string   `json:"status,omitempty"`
-	Kind     string   `json:"kind"` // visit | journey
-	Mode     string   `json:"mode,omitempty"`
-	Distance float64  `json:"distance_km,omitempty"`
+	Name      string   `json:"name"`
+	Start     string   `json:"start"` // HH:MM
+	End       string   `json:"end"`
+	StartDate string   `json:"start_date,omitempty"` // local YYYY-MM-DD; retain overnight context
+	EndDate   string   `json:"end_date,omitempty"`
+	Minutes   int      `json:"minutes"`
+	Lat       *float64 `json:"lat,omitempty"`
+	Lng       *float64 `json:"lng,omitempty"`
+	Status    string   `json:"status,omitempty"`
+	Kind      string   `json:"kind"` // visit | journey
+	Mode      string   `json:"mode,omitempty"`
+	Distance  float64  `json:"distance_km,omitempty"`
 }
 
 // Where is the day's movement.
@@ -161,6 +163,7 @@ func (c *Dawarich) Fetch(ctx context.Context, date string, loc *time.Location) (
 			st, _ := ParseAny(e.StartedAt)
 			en, _ := ParseAny(e.EndedAt)
 			v := Visit{Kind: e.Type, Name: e.Name, Status: e.Status, Start: LocalClock(st, loc), End: LocalClock(en, loc), Minutes: e.Duration / 60, Lat: e.Lat, Lng: e.Lng, Mode: e.Mode, Distance: Round1(e.Distance)}
+			v.StartDate, v.EndDate = LocalDate(st, loc), LocalDate(en, loc)
 			if e.Type == "journey" {
 				w.Journeys++
 				journeyMoving += e.Moving

@@ -94,6 +94,7 @@ func movementWhere(d movementDay, loc *time.Location) Where {
 	for _, e := range d.Entries {
 		st, en := time.Unix(e.StartTS, 0), time.Unix(e.EndTS, 0)
 		v := Visit{Kind: e.Type, Start: LocalClock(st, loc), End: LocalClock(en, loc), Minutes: int(e.EndTS-e.StartTS) / 60}
+		v.StartDate, v.EndDate = LocalDate(st, loc), LocalDate(en, loc)
 		switch e.Type {
 		case "journey":
 			v.Mode, v.Distance = e.Mode, Round1(e.Distance/1000)

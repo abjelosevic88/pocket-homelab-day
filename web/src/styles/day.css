@@ -139,6 +139,7 @@ a.status-pill:hover { background: var(--surface-3); color: var(--text); }
 .tl::before { content: ""; position: absolute; left: 61px; top: 10px; bottom: 10px; width: 2px; background: var(--hairline); border-radius: 1px; }
 .tl-item { position: relative; display: grid; grid-template-columns: 44px 36px minmax(0, 1fr) auto; align-items: start; gap: 4px; padding: 6px 0; }
 .tl-time { font: 12px var(--mono); color: var(--muted); padding-top: 6px; text-align: right; padding-right: 4px; font-variant-numeric: tabular-nums; }
+.tl-time-continued { font-family: inherit; font-size: 11px; }
 .tl-dot { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--border); font-size: 13px; z-index: 1; justify-self: center; color: var(--muted); }
 .tl-dot .src-ico { background: transparent; }
 .tl-moment .tl-dot { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }

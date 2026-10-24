@@ -14,6 +14,8 @@ jobs:
         with: { go-version-file: go.mod, cache: true }
       - name: Build web UI
         run: cd web && npm ci --no-audit --no-fund && npm run build
+      - name: Test timeline dates
+        run: cd web && npm test
       - name: Vet & test
         run: |
           test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)

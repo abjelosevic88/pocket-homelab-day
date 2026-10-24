@@ -43,7 +43,7 @@ export interface HomeData { today: string; stats: { total: number; this_month: n
 export interface BackfillStatus { running: boolean; from: string; to: string; done: number; total: number; current: string; last_run: string; error?: string }
 
 // ---- fact payloads (mirror internal/sources) ----
-export interface Visit { kind: 'visit' | 'journey'; name?: string; start: string; end: string; minutes: number; lat?: number; lng?: number; mode?: string; distance_km?: number; status?: string }
+export interface Visit { kind: 'visit' | 'journey'; name?: string; start: string; end: string; start_date?: string; end_date?: string; minutes: number; lat?: number; lng?: number; mode?: string; distance_km?: number; status?: string }
 export interface Where { distance_km: number; moving_minutes: number; still_minutes: number; modes: Record<string, number>; places: number; journeys: number; entries: Visit[]; bounds?: number[]; first_move: string; last_move: string; provider?: 'movement' | 'dawarich' }
 export interface Photo { id: string; type: 'IMAGE' | 'VIDEO'; taken_at: string; time: string; lat?: number; lng?: number; city?: string; country?: string; favorite: boolean; duration?: string; file_name?: string }
 export interface Photos { count: number; videos: number; favorites: number; places: string[]; first: string; last: string; items: Photo[] }

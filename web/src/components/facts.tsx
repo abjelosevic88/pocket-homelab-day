@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { V1 } from '../lib/api'
+import { locationTime } from '../lib/locationTime'
 import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
@@ -40,7 +41,10 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       body = <>
         <div className="fact-head"><b>{fmtKm(w.distance_km, unit)}</b>{w.moving_minutes > 0 && <span className="muted"> · {fmtMinutes(w.moving_minutes)} moving</span>}{w.first_move && <span className="muted"> · {w.first_move}–{w.last_move}</span>}</div>
         {modes.length > 0 && <div className="chips">{modes.map(([m, v]) => <span key={m} className="chip" title={m}><Icon name={modeIcon(m)} size={14} />{fmtKm(v, unit)}</span>)}</div>}
-        {visits.length > 0 && <div className="inline-list mt-sm">{visits.map((v, i) => <div key={i} className="li"><span className="muted mono small">{v.start}</span><span className="grow">{v.name || 'Somewhere'}</span><span className="muted small">{fmtMinutes(v.minutes)}</span><PinBtn ref_={`visit:${v.start}:${v.name}`} title={v.name || 'Somewhere'} subtitle={`${v.start}–${v.end}`} /></div>)}</div>}
+        {visits.length > 0 && <div className="inline-list mt-sm">{visits.map((v, i) => {
+          const timing = locationTime(v, date)
+          return <div key={i} className="li"><span className="muted mono small">{timing.time}</span><span className="grow act-body">{v.name || 'Somewhere'}{timing.crossesDay && <span className="tl-sub">{timing.range}</span>}</span><span className="muted small">{fmtMinutes(v.minutes)}{timing.crossesDay ? ' total' : ''}</span><PinBtn ref_={`visit:${v.start}:${v.name}`} title={v.name || 'Somewhere'} subtitle={`${timing.start}–${timing.end}`} /></div>
+        })}</div>}
       </>
       break
     }
