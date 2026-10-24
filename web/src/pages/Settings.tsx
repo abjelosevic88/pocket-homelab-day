@@ -180,6 +180,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   jellystat: { what: 'What you watched in Jellyfin: episodes, films, minutes.', key: 'API key from Jellystat → Settings → API keys', url: 'http://host.docker.internal:3000', extra: 'Jellyfin user name to keep (empty = everyone)' },
   firefly: { what: 'Withdrawals of the day with categories and totals per currency, read from Pocket Money’s Firefly-compatible API.', key: 'Direct: a token from Pocket Money → Settings → API tokens with the URL ending in /firefly (a Firefly III URL with its personal access token works too)', url: 'http://host.docker.internal:8178/firefly' },
   habits: { what: 'The check-in: habits done, tracker values, the journal line.', key: 'Token from Pocket Habits → Settings → API tokens', url: 'http://host.docker.internal:8169' },
+  health: { what: 'Steps, sleep, workouts, resting heart rate, weight and the goals you met that day.', key: 'Token from Pocket Health → Settings → API & shortcuts', url: 'http://host.docker.internal:8199' },
   bookshelf: { what: 'Books being read, started or finished.', key: 'Token from Pocket Bookshelf → Settings → API', url: 'http://host.docker.internal:8171' },
   travel: { what: 'Which trip the day fell in, and which day of it.', key: 'Token from Pocket Travel → Settings → API', url: 'http://host.docker.internal:8174' },
   kitchen: { what: 'What was cooked.', key: 'Token from Pocket Kitchen → Settings → API & apps', url: 'http://host.docker.internal:8176' },

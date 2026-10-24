@@ -12,7 +12,7 @@ import (
 
 // modeTargets is every target Day reports, in Core's names: the Pocket apps
 // (the money source as "money") and the services.
-var modeTargets = []string{"podcasts", "habits", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "projects", "money",
+var modeTargets = []string{"podcasts", "habits", "health", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "projects", "money",
 	"service:immich", "service:maloja", "service:dawarich", "service:jellystat", "service:pinepods", "service:audiobookshelf",
 	"service:jellyseerr", "service:forgejo", "service:nextcloud"}
 

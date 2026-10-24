@@ -544,6 +544,7 @@ func (s *Server) moodPatterns(ctx context.Context, u *store.User, from, to strin
 		{"with 90+ minutes of TV", "jellystat", func(f store.Fact) bool { return f.Headline >= 90 }},
 		{"when you cooked", "kitchen", func(f store.Fact) bool { return f.Headline > 0 }},
 		{"with 75%+ of habits done", "habits", func(f store.Fact) bool { return f.Headline >= 75 }},
+		{"with 10,000+ steps", "health", func(f store.Fact) bool { return f.Headline >= 10000 }},
 		{"that were sunny", "weather", func(f store.Fact) bool {
 			var d sources.Day
 			return payload(f, &d) && (d.Condition == "clear" || d.Condition == "partly")
@@ -818,7 +819,7 @@ func (s *Server) askMaterial(ctx context.Context, u *store.User, st store.Settin
 			}
 		}
 		var sums []string
-		for _, src := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "weather"} {
+		for _, src := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "weather"} {
 			if f, ok := factsBy[d][src]; ok && f.Summary != "" {
 				sums = append(sums, f.Summary)
 			}

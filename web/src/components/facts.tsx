@@ -4,7 +4,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where,
+  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -111,6 +111,25 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       body = <div className="inline-list">{c.cooks.map(ck => <div key={ck.id} className="li"><Icon name="utensils" size={15} className="muted" /><span className="grow"><b>{ck.title}</b>{ck.servings ? <span className="muted"> · {ck.servings} servings</span> : null}{ck.by && <span className="muted small"> · {ck.by}</span>}</span>{ck.rating > 0 && <span className="stars">{'★'.repeat(ck.rating)}</span>}<PinBtn ref_={`cook:${ck.id}`} title={ck.title} subtitle="cooked" /></div>)}</div>
       break
     }
+    case 'health': {
+      const h = fact.payload as HealthDay
+      const chips: string[] = []
+      if (h.steps !== undefined) chips.push(`${Math.round(h.steps).toLocaleString()} steps`)
+      if (h.distance_km !== undefined) chips.push(`${h.distance_km.toFixed(1)} km`)
+      if (h.active_kcal !== undefined) chips.push(`${Math.round(h.active_kcal)} kcal`)
+      if (h.exercise_min !== undefined) chips.push(`${Math.round(h.exercise_min)} min exercise`)
+      if (h.resting_hr !== undefined) chips.push(`resting HR ${Math.round(h.resting_hr)}`)
+      if (h.hrv !== undefined) chips.push(`HRV ${Math.round(h.hrv)} ms`)
+      if (h.weight_kg !== undefined) chips.push(`${h.weight_kg.toFixed(1)} kg`)
+      if (!chips.length && !h.sleep && !h.workouts?.length) { body = empty('Nothing from the phone this day.'); break }
+      body = <>
+        {chips.length > 0 && <div className="fact-head">{chips.map(c => <span key={c} className="badge">{c}</span>)}</div>}
+        {h.sleep && <div className="li"><Icon name="moon" size={15} className="muted" /><span className="grow"><b>Slept {fmtMinutes(h.sleep.asleep_min)}</b><span className="muted"> · {h.sleep.bed} → {h.sleep.wake}{h.sleep.deep_min ? ` · deep ${fmtMinutes(h.sleep.deep_min)}` : ''}{h.sleep.rem_min ? ` · REM ${fmtMinutes(h.sleep.rem_min)}` : ''}</span></span></div>}
+        {h.workouts?.length ? <div className="inline-list">{h.workouts.map(w => <div key={w.id} className="li"><Icon name="activity" size={15} className="muted" /><span className="grow"><b>{w.name || w.kind.replace('_', ' ')}</b><span className="muted"> · {w.time} · {fmtMinutes(w.minutes)}{w.distance_km ? ` · ${w.distance_km} km` : ''}{w.kcal ? ` · ${w.kcal} kcal` : ''}{w.avg_hr ? ` · ♥ ${w.avg_hr}` : ''}</span></span>{link && <a className="btn ghost icon-only sm" href={`${link}/workouts/${w.id}`} target="_blank" rel="noreferrer" title="Open in Pocket Health" aria-label="Open in Pocket Health"><Icon name="external" size={14} /></a>}<PinBtn ref_={`workout:${w.id}`} title={w.name || w.kind} subtitle="workout" /></div>)}</div> : null}
+        {h.goals_met?.length ? <div className="muted small" style={{ marginTop: 6 }}>Goals met: {h.goals_met.map(g => g.replace('_', ' ')).join(', ')}</div> : null}
+      </>
+      break
+    }
     case 'garage': {
       const c = fact.payload as Car
       if (!c.items?.length) { body = empty('Nothing in the garage.'); break }
@@ -193,6 +212,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'bookshelf': return len('reading') + len('started') + len('finished') + len('sessions') > 0
     case 'travel': return len('trips') > 0
     case 'kitchen': return len('cooks') > 0
+    case 'health': return n('steps') > 0 || len('workouts') > 0 || !!(v as { sleep?: unknown }).sleep
     case 'garage': return len('items') > 0
   }
   return true

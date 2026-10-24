@@ -61,6 +61,7 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 | App | Scope | Day reads |
 |---|---|---|
 | habits | `habits:read` | `GET /api/v1/days/{date}` |
+| health | `health:read` | `GET /api/v1/day/{date}` |
 | bookshelf | `books:read` | `GET /api/v1/books` |
 | travel | `trips:read` | `GET /api/v1/trips` |
 | kitchen | `cooklog:read` | `GET /api/v1/cooklog` |

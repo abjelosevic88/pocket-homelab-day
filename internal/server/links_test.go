@@ -25,6 +25,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"tasks:read":    {regexp.MustCompile(`^/api/v1/tasks$`)},
 	"projects:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"habits:read":   {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
+	"health:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":    {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":    {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":  {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -334,6 +335,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 		p := r.URL.Path
 		write := func(s string) { _, _ = rw.Write([]byte(s)) }
 		switch {
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "health":
+			write(`{"date":"` + d + `","metrics":{"steps":{"value":9123,"unit":"count","name":"Steps"},"sleep_asleep":{"value":408,"unit":"min","name":"Time asleep"}},"workouts":[{"id":1,"kind":"running","name":"Running","start_at":"` + d + `T07:00:00Z","duration_s":2100,"distance_m":5200,"energy_kcal":310,"avg_hr":151}],"sleep":[{"start_at":"` + d + `T23:10:00Z","end_at":"` + d + `T06:40:00Z","asleep_s":24480,"in_bed_s":27000,"deep_s":3960,"rem_s":5040}],"goals_met":["steps"],"summary":"9123 steps · slept 6h 48m"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "projects":
 			write(`{"issues":[{"identifier":"AS-6","title":"Rules","url":"https://projects.x/issue/AS-6","project":"Relaunch","done":true,"minutes":80,"first":"10:00","last":"15:00","summary":"done (Done) · 1 commit","events":[{"time":"10:00","kind":"created","text":"Created the issue"}]}],"projects":[]}`)
 		case p == "/api/v1/tasks":
@@ -512,7 +515,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read split=groups:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read split=groups:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}

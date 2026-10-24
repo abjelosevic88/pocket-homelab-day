@@ -172,6 +172,40 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Spent", s)
 	}
+	var hd sources.HealthDay
+	if get("health", &hd) {
+		var p []string
+		if hd.Steps != nil {
+			p = append(p, fmt.Sprintf("%d steps", int(*hd.Steps)))
+		}
+		if hd.Sleep != nil {
+			p = append(p, "slept "+sources.HoursMinutes(hd.Sleep.AsleepMin)+" ("+hd.Sleep.Bed+"–"+hd.Sleep.Wake+")")
+		}
+		for _, w := range hd.Workouts {
+			x := fmt.Sprintf("%s %d min", strings.ReplaceAll(w.Kind, "_", " "), w.Minutes)
+			if detail {
+				if w.DistanceKm > 0 {
+					x += fmt.Sprintf(" %.1f km", w.DistanceKm)
+				}
+				if w.AvgHR > 0 {
+					x += fmt.Sprintf(" avg HR %d", w.AvgHR)
+				}
+			}
+			p = append(p, x)
+		}
+		if hd.RestingHR != nil {
+			p = append(p, fmt.Sprintf("resting HR %d", int(*hd.RestingHR)))
+		}
+		if hd.WeightKg != nil {
+			p = append(p, fmt.Sprintf("%.1f kg", *hd.WeightKg))
+		}
+		if detail && len(hd.GoalsMet) > 0 {
+			p = append(p, "goals met: "+strings.Join(hd.GoalsMet, ", "))
+		}
+		if len(p) > 0 {
+			add("Health", strings.Join(p, ", "))
+		}
+	}
 	var hb sources.Checkin
 	if get("habits", &hb) {
 		var s []string
