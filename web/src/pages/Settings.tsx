@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, ConnMode, LocationState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, ConnMode, LocationState, MusicState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
@@ -176,7 +176,7 @@ function General() {
 const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; extra?: string }> = {
   dawarich: { what: 'Distance, moving time, how you moved and the stops of the day, from Pocket Movement or Dawarich.', key: 'API key from Dawarich → Account', url: 'https://dawarich.example.com' },
   immich: { what: 'Photos and videos taken that day, with a thumbnail grid proxied through this app.', key: 'API key from Immich → Account settings → API keys', url: 'http://host.docker.internal:2283' },
-  maloja: { what: 'What played: listens, top artists, the full track list.', key: 'no key needed (read API is open)', url: 'http://host.docker.internal:42010' },
+  maloja: { what: 'What played: listens, top artists, the full track list — from Pocket Music or Maloja.', key: 'no key needed (read API is open)', url: 'http://host.docker.internal:42010' },
   jellystat: { what: 'What you watched in Jellyfin: episodes, films, minutes.', key: 'API key from Jellystat → Settings → API keys', url: 'http://host.docker.internal:3000', extra: 'Jellyfin user name to keep (empty = everyone)' },
   firefly: { what: 'Withdrawals of the day with categories and totals per currency, read from Pocket Money’s Firefly-compatible API.', key: 'Direct: a token from Pocket Money → Settings → API tokens with the URL ending in /firefly (a Firefly III URL with its personal access token works too)', url: 'http://host.docker.internal:8178/firefly' },
   habits: { what: 'The check-in: habits done, tracker values, the journal line.', key: 'Token from Pocket Habits → Settings → API tokens', url: 'http://host.docker.internal:8169' },
@@ -250,10 +250,11 @@ function Sources() {
           // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
           const credExtra = name === 'nextcloud'
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
-          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
+          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
             {src.location && <LocationChoice loc={src.location} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('movement' as SourceName, src)} />}
-            {/* One source, one card: while Pocket Movement answers, Dawarich's connection stays out of the way. */}
-            {!(src.location?.provider === 'movement' && src.location.movement_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
+            {src.music && <MusicChoice mus={src.music} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('music' as SourceName, src)} />}
+            {/* One source, one card: while Pocket Movement (or Pocket Music) answers, Dawarich's (Maloja's) connection stays out of the way. */}
+            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
               extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
@@ -363,6 +364,40 @@ function LocationChoice({ loc, core, onPick, test }: { loc: LocationState; core:
     </div>
   )
 }
+
+// MusicChoice is where the music source's days come from: Pocket Music (the
+// person's own listening history, through Pocket Core only) or Maloja (its
+// connection below). While Pocket Music is chosen, a connected Maloja fills in
+// when it does not answer.
+function MusicChoice({ mus, core, onPick, test }: { mus: MusicState; core: boolean; onPick: (p: 'music' | 'maloja') => void; test: React.ReactNode }) {
+  const pocket = mus.provider === 'music'
+  const fill = mus.maloja_via ? ' If it ever does not answer, your Maloja fills in.' : ''
+  const line = pocket
+    ? (mus.music_via ? `Your music comes from Pocket Music, as you, through Pocket Core.${fill}` : `Pocket Music is not connected: ${mus.music_detail || 'unknown'}.${mus.maloja_via ? ' Maloja below fills in meanwhile.' : ''}`)
+    : !core && mus.choice === 'music' ? 'Pocket Music was chosen, but this app is not connected to a Pocket Core, so your music comes from Maloja below.'
+    : `Your music comes from Maloja${mus.maloja_via ? '' : ' once its connection below works'}.`
+  const ok = pocket ? !!mus.music_via : !!mus.maloja_via
+  return (
+    <div className="loc-block">
+      <span className="lbl">What you listened to, from</span>
+      <div className="conn-mode">
+        <Segmented size="sm" label="Music source" value={mus.provider} onChange={p => onPick(p as 'music' | 'maloja')} options={[
+          { value: 'music', label: 'Pocket Music', disabled: !core, title: core ? 'Your own listening history, through Pocket Core' : 'Needs Pocket Core' },
+          { value: 'maloja', label: 'Maloja', title: 'Maloja, connected below' },
+        ]} />
+      </div>
+      {!core && <CoreHint what="Pocket Music" />}
+      <div className={`conn-status ${ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {pocket && <div className="row wrap">{test}</div>}
+      {!(pocket && mus.music_via) && <span className="lbl">Maloja connection{pocket ? ' (filling in meanwhile)' : ''}</span>}
+    </div>
+  )
+}
+
+const musicBadge = (mus: MusicState, mode: ConnMode, via: string) => mus.provider === 'music' && mus.music_via
+  ? <span className="badge ok">Pocket Music</span>
+  : mus.provider === 'music' && via ? <span className="badge warn">Maloja (fallback)</span>
+  : connBadge(mode, via)
 
 const locationBadge = (loc: LocationState, mode: ConnMode, via: string) => loc.provider === 'movement' && loc.movement_via
   ? <span className="badge ok">Pocket Movement</span>

@@ -73,7 +73,9 @@ func pocketUses() []core.Use {
 		out = append(out, core.Use{App: ps.slug, Scopes: []string{ps.scope}, Reason: ps.reason})
 	}
 	// Pocket Movement is not a source of its own: it feeds the location source (movement.go).
-	return append(out, core.Use{App: movementApp.slug, Scopes: []string{movementApp.scope}, Reason: movementApp.reason})
+	// Pocket Music feeds the music source the same way (music.go).
+	return append(out, core.Use{App: movementApp.slug, Scopes: []string{movementApp.scope}, Reason: movementApp.reason},
+		core.Use{App: musicApp.slug, Scopes: []string{musicApp.scope}, Reason: musicApp.reason})
 }
 
 // Connection modes.
@@ -174,6 +176,10 @@ type sourceState struct {
 	MovementVia    string
 	MovementDetail string
 	DawarichVia    string
+	// The music source (music.go): Pocket Music's and Maloja's connections.
+	MusicVia    string
+	MusicDetail string
+	MalojaVia   string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -279,6 +285,9 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 		if n == "dawarich" {
 			applyLocation(&ss, src, coreOK && u != nil, u, getLinks)
 		}
+		if n == "maloja" {
+			applyMusic(&ss, src, coreOK && u != nil, u, getLinks)
+		}
 		out[n] = ss
 	}
 	return out
@@ -368,6 +377,11 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 // URL set for the source, else where Pocket Core says the app (or service)
 // lives, else the source URL when it is not an internal one.
 func (s *Server) sourceLink(ctx context.Context, u *store.User, name string, src store.Source, ss sourceState) string {
+	if name == "maloja" && ss.MusicVia != "" {
+		// the days come from Pocket Music: open it (the public URL set is Maloja's)
+		_, public := s.resolveSiblingFull(ctx, musicApp.slug)
+		return public
+	}
 	if name == "dawarich" && ss.MovementVia != "" {
 		// the days come from Pocket Movement: open it (the public URL set is Dawarich's)
 		_, public := s.resolveSiblingFull(ctx, movementApp.slug)

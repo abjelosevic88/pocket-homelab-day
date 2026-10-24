@@ -102,7 +102,7 @@ type Source struct {
 	// Mode is how a Pocket app source is reached: "core" (a Pocket Core app
 	// link, per person), "direct" (URL + token) or "off"; "" = not chosen yet.
 	Mode string `json:"mode"`
-	// Provider is the location source's own choice of where the day comes
+	// Provider is the location (or music) source's own choice of where the day comes
 	// from: "movement" (Pocket Movement, through Pocket Core) or "dawarich";
 	// "" = not chosen (Pocket Movement on a box with Pocket Core).
 	Provider string `json:"provider"`

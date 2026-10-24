@@ -6,9 +6,11 @@ export type ConnMode = 'core' | 'direct' | 'off'
 // pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
 // service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
 // via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; provider?: '' | 'movement' | 'dawarich' }
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' }
 /** Where the location source's days come from: Pocket Movement (through Pocket Core only) or Dawarich. */
 export interface LocationState { choice: '' | 'movement' | 'dawarich'; provider: 'movement' | 'dawarich'; movement_via: '' | 'core'; movement_detail?: string; dawarich_via: '' | 'core' | 'direct' }
+/** Where the music source's days come from: Pocket Music (through Pocket Core only) or Maloja. */
+export interface MusicState { choice: '' | 'music' | 'maloja'; provider: 'music' | 'maloja'; music_via: '' | 'core'; music_detail?: string; maloja_via: '' | 'core' | 'direct' }
 export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'documents' | 'invoicing' | 'split' | 'inventory' | 'tasks' | 'projects'
 export interface Settings {
   ai_provider: string; ai_pocket_model: string; ai_status: { provider: string; selected: string; ready: boolean; detail: string }; ai_transcribe_configured: boolean

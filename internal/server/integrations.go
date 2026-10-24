@@ -46,6 +46,7 @@ type publicSource struct {
 	KeySource  string `json:"key_source,omitempty"`
 	// The location source only (movement.go).
 	Location *publicLocation `json:"location,omitempty"`
+	Music    *publicMusic    `json:"music,omitempty"`
 }
 
 // publicLocation is where the location source's days come from: the saved
@@ -59,6 +60,17 @@ type publicLocation struct {
 	DawarichVia    string `json:"dawarich_via"`
 }
 
+// publicMusic is where the music source's days come from: the saved choice
+// ("" = not chosen), the provider in effect, and how Pocket Music and Maloja
+// each stand.
+type publicMusic struct {
+	Choice      string `json:"choice"`
+	Provider    string `json:"provider"`
+	MusicVia    string `json:"music_via"`
+	MusicDetail string `json:"music_detail,omitempty"`
+	MalojaVia   string `json:"maloja_via"`
+}
+
 func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Settings) map[string]any {
 	states := s.sourceStates(ctx, u, st)
 	s.probeKeySources(ctx, u, st, states)
@@ -69,6 +81,9 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		ps := publicSource{URL: src.URL, Key: mask(src.Key), PublicURL: src.PublicURL, Extra: src.Extra, Enabled: src.Enabled, Configured: ss.Active, NeedsKey: store.NeedsKey(n)}
 		if ct, ok := connectable(n); ok {
 			ps.Pocket, ps.Service, ps.App, ps.Mode, ps.Via, ps.Detail, ps.KeySource = !ct.service, ct.service, ct.app, ss.Mode, ss.Via, ss.Detail, ss.KeySource
+		}
+		if n == "maloja" {
+			ps.Music = &publicMusic{Choice: src.Provider, Provider: ss.Provider, MusicVia: ss.MusicVia, MusicDetail: ss.MusicDetail, MalojaVia: ss.MalojaVia}
 		}
 		if n == "dawarich" {
 			ps.Location = &publicLocation{Choice: src.Provider, Provider: ss.Provider, MovementVia: ss.MovementVia, MovementDetail: ss.MovementDetail, DawarichVia: ss.DawarichVia}
@@ -256,6 +271,9 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		if name == "dawarich" && p.Provider != nil && (*p.Provider == "" || validLocationProvider(*p.Provider)) {
 			src.Provider = *p.Provider
 		}
+		if name == "maloja" && p.Provider != nil && (*p.Provider == "" || validMusicProvider(*p.Provider)) {
+			src.Provider = *p.Provider
+		}
 		cur.Sources[name] = src
 	}
 	if err := s.store.SaveSettings(r.Context(), u.ID, cur); err != nil {
@@ -307,6 +325,15 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 	}
 	var f sources.Fetcher
 	typed := in.Key != "" && !strings.Contains(in.Key, "••")
+	if in.Which == "music" {
+		msg, err := sources.NewPocketMusic(s.musicConn(u)).Test(ctx)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": strings.TrimPrefix(err.Error(), "not connected: ")})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg + " through Pocket Core"})
+		return
+	}
 	if in.Which == "movement" {
 		msg, err := sources.NewMovement(s.movementConn(u)).Test(ctx)
 		if err != nil {
