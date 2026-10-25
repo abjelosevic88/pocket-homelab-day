@@ -89,6 +89,9 @@ type Spend struct {
 	Destination string   `json:"destination,omitempty"`
 	Source      string   `json:"source,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
+	// where it was paid (a scanned receipt's shop in Pocket Money)
+	Lat *float64 `json:"lat,omitempty"`
+	Lng *float64 `json:"lng,omitempty"`
 }
 
 // Money is the day's spending.
@@ -126,6 +129,8 @@ func (f *Firefly) Fetch(ctx context.Context, date string, loc *time.Location) (*
 						Source      *string  `json:"source_name"`
 						Destination *string  `json:"destination_name"`
 						Tags        []string `json:"tags"`
+						Latitude    *float64 `json:"latitude"`
+						Longitude   *float64 `json:"longitude"`
 					} `json:"transactions"`
 				} `json:"attributes"`
 			} `json:"data"`
@@ -146,6 +151,9 @@ func (f *Firefly) Fetch(ctx context.Context, date string, loc *time.Location) (*
 				}
 				amt, _ := strconv.ParseFloat(t.Amount, 64)
 				sp := Spend{ID: t.JournalID, Description: t.Description, Amount: amt, Currency: t.Currency, Tags: t.Tags}
+				if t.Latitude != nil && t.Longitude != nil && (*t.Latitude != 0 || *t.Longitude != 0) {
+					sp.Lat, sp.Lng = t.Latitude, t.Longitude
+				}
 				if ts, ok := ParseAny(t.Date); ok {
 					sp.Time = LocalClock(ts, loc)
 					if sp.Time == "00:00" {

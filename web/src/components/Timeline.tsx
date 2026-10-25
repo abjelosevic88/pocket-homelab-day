@@ -29,16 +29,51 @@ function sessions<T extends { time: string }>(list: T[], gap: number): T[][] {
   return out
 }
 
+const metres = (a: [number, number], b: [number, number]) => {
+  const r = Math.PI / 180, x = (b[1] - a[1]) * r * Math.cos(((a[0] + b[0]) / 2) * r), y = (b[0] - a[0]) * r
+  return Math.sqrt(x * x + y * y) * 6371000
+}
+
+/** Purchases with a place (Pocket Money receipts) by the stop they were paid
+ *  during: within ten minutes of the stay and 250 m of it. */
+function purchasesByStop(entries: Where['entries'], items: Money['items'], date: string): Map<number, Money['items']> {
+  const out = new Map<number, Money['items']>()
+  for (const sp of items) {
+    if (!sp.time || sp.lat == null || sp.lng == null) continue
+    const t = mins(sp.time)
+    let best = -1, bestD = Infinity
+    entries.forEach((e, i) => {
+      if (e.kind !== 'visit' || e.lat == null || e.lng == null) return
+      const from = (e.start_date || date) < date ? 0 : mins(e.start)
+      const to = (e.end_date || date) > date ? 24 * 60 : mins(e.end)
+      if (t < from - 10 || t > to + 10) return
+      const d = metres([e.lat, e.lng], [sp.lat!, sp.lng!])
+      if (d <= 250 && d < bestD) { best = i; bestD = d }
+    })
+    if (best >= 0) out.set(best, [...(out.get(best) || []), sp])
+  }
+  return out
+}
+
 function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' | 'mi', date: string, isToday: boolean): { timed: Item[]; untimed: Item[] } {
   const timed: Item[] = [], untimed: Item[] = []
   const p = <T,>(src: string) => (facts[src]?.payload ?? null) as T | null
   for (const m of moments) (m.time ? timed : untimed).push({ time: m.time, key: `m${m.id}`, icon: g(KIND_GLYPH[m.kind] || 'dot'), kind: 'moment', title: m.text, moment: m })
   const where = p<Where>('dawarich')
+  const money = p<Money>('firefly')
+  const paidAt = purchasesByStop(where?.entries || [], money?.items || [], date)
   for (const [i, e] of (where?.entries || []).entries()) {
     const timing = locationTime(e, date, isToday)
     const duration = e.minutes ? `${fmtMinutes(e.minutes)}${timing.crossesDay ? ' total' : ''}` : ''
     const when = { time: timing.time, sortKey: timing.sortKey, continued: timing.continued, sub: [timing.range, duration].filter(Boolean).join(' · ') }
-    if (e.kind === 'visit') timed.push({ ...when, key: `v${i}`, icon: g('pin'), kind: 'place', title: e.name || 'A stop' })
+    if (e.kind === 'visit') {
+      // a stop you paid during is named after the shop when it has no name
+      const paid = paidAt.get(i) || []
+      const shop = paid.length ? (paid[0].destination || paid[0].description) : ''
+      const named = e.name && !/^unknown location$/i.test(e.name) ? e.name : shop || 'A stop'
+      const spent = paid.map(s => `paid ${fmtAmount(s.amount, s.currency)}${s.destination && s.destination !== named ? ` at ${s.destination}` : ''}`)
+      timed.push({ ...when, sub: [when.sub, ...spent].filter(Boolean).join(' · '), key: `v${i}`, icon: g('pin'), kind: 'place', title: named })
+    }
     else if ((e.distance_km || 0) >= 0.3) timed.push({ ...when, key: `j${i}`, icon: g(MODE_GLYPH[e.mode || ''] || 'route'), kind: 'move', title: `${MODE_VERB[e.mode || ''] || 'Moved'} ${fmtKm(e.distance_km || 0, unit)}` })
   }
   const photos = p<Photos>('immich')
@@ -57,7 +92,6 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const w of watched?.items || []) timed.push({ time: w.time, key: `w${w.item_id || w.title}`, icon: src('jellystat'), kind: 'watch', title: w.series || w.title, sub: [w.series ? w.title : '', fmtMinutes(w.minutes)].filter(Boolean).join(' · ') })
   const reading = p<Reading>('bookshelf')
   for (const [i, r] of (reading?.sessions || []).entries()) timed.push({ time: r.time, end: r.end !== r.time ? r.end : undefined, key: `r${i}`, icon: src('bookshelf'), kind: 'read', title: `Read ${r.title}`, sub: `${r.pages ? `${r.pages} pages` : `${r.percent || 1}% of the book`} in ${r.estimated ? '~' : ''}${fmtMinutes(r.minutes)}` })
-  const money = p<Money>('firefly')
   for (const s of money?.items || []) (s.time ? timed : untimed).push({ time: s.time, key: `t${s.id}`, icon: src('firefly'), kind: 'money', title: s.description, sub: fmtAmount(s.amount, s.currency) })
   for (const source of Object.keys(ACTIVITY)) {
     const a = p<Activity>(source)

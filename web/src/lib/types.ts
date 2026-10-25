@@ -52,7 +52,7 @@ export interface Listen { time: string; artist: string; title: string; album?: s
 export interface Music { listens: number; minutes: number; artists: Count[]; tracks: Count[]; albums: Count[]; first: string; last: string; items: Listen[] }
 export interface Play { title: string; series?: string; kind: 'episode' | 'movie'; minutes: number; time: string; client?: string; user?: string; item_id: string; plays: number }
 export interface Watched { count: number; episodes: number; movies: number; minutes: number; items: Play[] }
-export interface Spend { id: string; time: string; description: string; amount: number; currency: string; category?: string; budget?: string; destination?: string; source?: string; tags?: string[] }
+export interface Spend { id: string; time: string; description: string; amount: number; currency: string; category?: string; budget?: string; destination?: string; source?: string; tags?: string[]; lat?: number; lng?: number }
 export interface Money { count: number; totals: Record<string, number>; categories: Count[]; biggest?: Spend; items: Spend[]; main_currency: string }
 export interface HabitRow { id: number; name: string; color: string; status: number; scheduled: boolean; streak: number }
 export interface TrackerRow { id: number; name: string; unit: string; kind: string; value: number | null; min?: number; max?: number; higher_is_better?: boolean; previous?: number; defaulted?: boolean }
