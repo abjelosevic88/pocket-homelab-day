@@ -5,7 +5,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay,
+  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -134,6 +134,20 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'still': {
+      const s = fact.payload as StillDay
+      if (!s.practices?.length) { body = empty('No practice this day.'); break }
+      const chips = [`${Math.round(s.minutes)} min`, `${s.sessions} ${s.sessions === 1 ? 'practice' : 'practices'}`]
+      if (s.streak > 1) chips.push(`day ${s.streak} of a streak`)
+      if (s.goal_met) chips.push('goal met')
+      body = <>
+        <div className="fact-head">{chips.map(c => <span key={c} className="badge">{c}</span>)}</div>
+        <div className="inline-list">{s.practices.map(x => <div key={x.id} className="li"><Icon name="sparkles" size={15} className="muted" /><span className="grow"><b>{x.title}</b><span className="muted"> · {x.time} · {fmtMinutes(Math.round(x.minutes))}{x.calm_before && x.calm_after ? ` · calm ${x.calm_before} → ${x.calm_after}` : ''}</span>{x.lesson && <div className="muted small">{x.lesson}</div>}</span>{link && <a className="btn ghost icon-only sm" href={`${link}/journal/${x.id}`} target="_blank" rel="noreferrer" title="Open in Pocket Still" aria-label="Open in Pocket Still"><Icon name="external" size={14} /></a>}</div>)}</div>
+        {s.lessons?.length ? <div className="muted small" style={{ marginTop: 6 }}>Lessons: {s.lessons.map(l => `${l.title} (${l.program})`).join(', ')}</div> : null}
+        {s.milestones?.length ? <div className="muted small" style={{ marginTop: 4 }}>Milestones: {s.milestones.join(', ')}</div> : null}
+      </>
+      break
+    }
     case 'garage': {
       const c = fact.payload as Car
       if (!c.items?.length) { body = empty('Nothing in the garage.'); break }
@@ -217,6 +231,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'travel': return len('trips') > 0
     case 'kitchen': return len('cooks') > 0
     case 'health': return n('steps') > 0 || len('workouts') > 0 || !!(v as { sleep?: unknown }).sleep
+    case 'still': return len('practices') > 0
     case 'garage': return len('items') > 0
   }
   return true

@@ -209,7 +209,7 @@ function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'k
 function Preview({ date, onClose }: { date: string; onClose: () => void }) {
   const { data, loading } = useAsync(() => api.get<DayPage>(`${V1}/days/${date}`), [date])
   const photos = (data?.facts?.immich?.payload as Photos | null)?.items?.filter(p => p.type === 'IMAGE').slice(0, 6) || []
-  const order = ['travel', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'nextcloud', 'tasks', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
+  const order = ['travel', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'nextcloud', 'tasks', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
   return (
     <aside className="cal2-panel">
       <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button type="button" className="btn ghost icon-only" onClick={onClose} aria-label="Close" title="Close"><Icon name="x" size={17} /></button></div>

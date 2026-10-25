@@ -43,7 +43,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -51,6 +51,7 @@ var pocketSources = map[string]pocketSource{
 	"projects":  {slug: "projects", app: "Pocket Projects", scope: "projects:read", reason: "Your work on issues, day by day, in your journal"},
 	"habits":    {slug: "habits", app: "Pocket Habits", scope: "habits:read", reason: "Your habits in the journal"},
 	"health":    {slug: "health", app: "Pocket Health", scope: "health:read", reason: "Steps, sleep, workouts, heart and weight in your journal"},
+	"still":     {slug: "still", app: "Pocket Still", scope: "mindfulness:read", reason: "Breathing and meditation practice in your journal"},
 	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
 	"travel":    {slug: "travel", app: "Pocket Travel", scope: "trips:read", reason: "Trips"},
 	"kitchen":   {slug: "kitchen", app: "Pocket Kitchen", scope: "cooklog:read", reason: "What you cooked"},
@@ -362,6 +363,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewHabits(conn)
 	case "health":
 		return sources.NewHealth(conn)
+	case "still":
+		return sources.NewStill(conn)
 	case "bookshelf":
 		return sources.NewBookshelf(conn)
 	case "travel":

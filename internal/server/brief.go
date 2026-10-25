@@ -206,6 +206,27 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 			add("Health", strings.Join(p, ", "))
 		}
 	}
+	var sd sources.StillDay
+	if get("still", &sd) && sd.Sessions > 0 {
+		var p []string
+		for _, x := range sd.Practices {
+			s := fmt.Sprintf("%s %.0f min", strings.ToLower(x.Title), x.Minutes)
+			if detail && x.CalmBefore != nil && x.CalmAfter != nil {
+				s += fmt.Sprintf(" (calm %d→%d)", *x.CalmBefore, *x.CalmAfter)
+			}
+			p = append(p, s)
+		}
+		if sd.Streak > 1 {
+			p = append(p, fmt.Sprintf("day %d of a streak", sd.Streak))
+		}
+		for _, l := range sd.Lessons {
+			p = append(p, "lesson \""+l.Title+"\"")
+		}
+		if detail && len(sd.Milestones) > 0 {
+			p = append(p, "milestones: "+strings.Join(sd.Milestones, ", "))
+		}
+		add("Practice", strings.Join(p, ", "))
+	}
 	var hb sources.Checkin
 	if get("habits", &hb) {
 		var s []string

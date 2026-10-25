@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
 import { DictateButton, useAI } from './ai'
@@ -111,6 +111,8 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   const health = p<HealthDay>('health')
   for (const w of health?.workouts || []) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })
+  const still = p<StillDay>('still')
+  for (const x of still?.practices || []) (x.time ? timed : untimed).push({ time: x.time || '', key: `st${x.id}`, icon: src('still'), kind: 'act', title: `${x.title} · ${fmtMinutes(Math.round(x.minutes))}`, sub: [x.calm_before && x.calm_after ? `calm ${x.calm_before} → ${x.calm_after}` : '', x.lesson || ''].filter(Boolean).join(' · ') || undefined })
   const cooked = p<Cooked>('kitchen')
   for (const c of cooked?.cooks || []) untimed.push({ time: '', key: `c${c.id}`, icon: src('kitchen'), kind: 'cook', title: `Cooked ${c.title}` })
   timed.sort((a, b) => timelineOrder(a, b, date))
