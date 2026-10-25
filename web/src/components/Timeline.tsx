@@ -35,20 +35,25 @@ const metres = (a: [number, number], b: [number, number]) => {
 }
 
 /** Purchases with a place (Pocket Money receipts) by the stop they were paid
- *  during: within ten minutes of the stay and 250 m of it. */
+ *  during: close by (250 m) and at most five minutes outside the stay, or —
+ *  a shop's pin comes from its address and can be a street or two off — up
+ *  to 1.5 km away when paid well inside the stay. */
 function purchasesByStop(entries: Where['entries'], items: Money['items'], date: string): Map<number, Money['items']> {
   const out = new Map<number, Money['items']>()
   for (const sp of items) {
     if (!sp.time || sp.lat == null || sp.lng == null) continue
     const t = mins(sp.time)
-    let best = -1, bestD = Infinity
+    let best = -1, bestScore = Infinity
     entries.forEach((e, i) => {
       if (e.kind !== 'visit' || e.lat == null || e.lng == null) return
       const from = (e.start_date || date) < date ? 0 : mins(e.start)
       const to = (e.end_date || date) > date ? 24 * 60 : mins(e.end)
-      if (t < from - 10 || t > to + 10) return
+      if (t < from - 5 || t > to + 5) return
       const d = metres([e.lat, e.lng], [sp.lat!, sp.lng!])
-      if (d <= 250 && d < bestD) { best = i; bestD = d }
+      const near = d <= 250, inside = t >= from && t <= to
+      if (!near && !(inside && d <= 1500)) return
+      const score = near ? d : 10000 + d
+      if (score < bestScore) { best = i; bestScore = score }
     })
     if (best >= 0) out.set(best, [...(out.get(best) || []), sp])
   }
@@ -70,9 +75,11 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
       // a stop you paid during is named after the shop when it has no name
       const paid = paidAt.get(i) || []
       const shop = paid.length ? (paid[0].destination || paid[0].description) : ''
-      const named = e.name && !/^unknown location$/i.test(e.name) ? e.name : shop || 'A stop'
+      // the shop says more than the street the stop was named after
+      const own = e.name && !/^unknown location$/i.test(e.name) ? e.name : ''
+      const named = shop || own || 'A stop'
       const spent = paid.map(s => `paid ${fmtAmount(s.amount, s.currency)}${s.destination && s.destination !== named ? ` at ${s.destination}` : ''}`)
-      timed.push({ ...when, sub: [when.sub, ...spent].filter(Boolean).join(' · '), key: `v${i}`, icon: g('pin'), kind: 'place', title: named })
+      timed.push({ ...when, sub: [shop && own ? own : '', when.sub, ...spent].filter(Boolean).join(' · '), key: `v${i}`, icon: g('pin'), kind: 'place', title: named })
     }
     else if ((e.distance_km || 0) >= 0.3) timed.push({ ...when, key: `j${i}`, icon: g(MODE_GLYPH[e.mode || ''] || 'route'), kind: 'move', title: `${MODE_VERB[e.mode || ''] || 'Moved'} ${fmtKm(e.distance_km || 0, unit)}` })
   }
