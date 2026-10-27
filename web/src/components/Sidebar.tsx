@@ -59,7 +59,7 @@ export function Sidebar({ onWrite, onNavigate, onPalette }: { onWrite: (k: Write
     <aside className="sidebar" aria-label="Day">
       <div className="sb-brand">
         <img src="/favicon.svg" alt={title} className="sb-logo" />
-        {status?.version && <span className="sb-version" title={`Version ${status.version}`}>{/^\d/.test(status.version) ? 'v' + status.version : status.version}</span>}
+        {status?.version && <span className="sb-version" title={`Version ${status.version}`}>{/^v?\d+\.\d+/.test(status.version) ? 'v' + status.version.replace(/^v/, '').replace(/[-+].*$/, '') : status.version}</span>}
       </div>
       <button type="button" className="btn primary create-btn" aria-haspopup="menu" aria-expanded={!!menu} onClick={e => setMenu(menu ? null : rectOf(e.currentTarget))}>
         <Icon name="pen" size={16} strokeWidth={2.1} />Write<Icon name="chevron-down" size={15} className="create-caret" />
