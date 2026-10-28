@@ -16,6 +16,9 @@ type Activity struct {
 	Qty     float64        `json:"qty,omitempty"` // e.g. commits across all repos
 	Top     []Count        `json:"top"`
 	Items   []ActivityItem `json:"items"`
+	// Provider names the app behind a source that can come from two
+	// (requests: "requests" = Pocket Requests; "" = the source's own app).
+	Provider string `json:"provider,omitempty"`
 }
 
 // ActivityItem is one thing that happened.
@@ -111,7 +114,7 @@ var Activities = map[string]ActivityMeta{
 	"podcasts":       {Label: "Podcasts", One: "episode", Many: "episodes", Unit: "min", Verb: "with podcasts", Group: "shows"},
 	"pinepods":       {Label: "Podcasts", One: "episode", Many: "episodes", Unit: "min", Verb: "with podcasts", Group: "shows"},
 	"audiobookshelf": {Label: "Audiobooks", One: "title", Many: "titles", Unit: "min", Verb: "with an audiobook", Group: "authors"},
-	"jellyseerr":     {Label: "Requests", One: "request", Many: "requests", Unit: "count", Verb: "with a film or show requested", Group: "kinds"},
+	"jellyseerr":     {Label: "Requests", One: "request", Many: "requests", Unit: "count", Verb: "with a film, show or album requested", Group: "kinds"},
 	"forgejo":        {Label: "Code", One: "repository", Many: "repositories", Unit: "qty", QtyOne: "commit", QtyMany: "commits", Verb: "with commits pushed", Group: "repositories"},
 	"nextcloud":      {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with tasks done", Group: "lists"},
 	"documents":      {Label: "Documents", One: "document", Many: "documents", Unit: "count", Verb: "with documents filed", Group: "types"},

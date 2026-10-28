@@ -72,6 +72,7 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 | inventory | `activity:read` | `GET /api/v1/activity` |
 | documents | `documents:read` | `GET /api/v1/documents?added_from=&added_to=&sort=added&limit=500&no_facets=1` |
 | money | `transactions:read` | `GET /firefly/api/v1/about`, `/firefly/api/v1/transactions` |
+| requests | `requests:read` | `GET /api/v1/day/{date}?tz=`, `/api/v1/requests?limit=1` — feeds the Requests source (id `jellyseerr`) when a person picks Pocket Requests (the default with Core); a connected Jellyseerr fills in while the link is off |
 
 plus `GET /api/v1/auth/me` (and the open `/healthz`) for “Test connection”. A link that is off — or a person Core does not let use the app — means the source is skipped for the day, not recorded as failed; Settings → Sources says why (“you switched the Day → Pocket Garage link off …”). If Core does not answer, sources in Pocket Core mode are skipped for that pull. **Disconnect** (Direct) clears the URL and token; values from the environment are copied into the owner's settings once, so a disconnected token stays gone after a restart.
 

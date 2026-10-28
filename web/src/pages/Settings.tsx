@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, RequestsState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
@@ -190,7 +190,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   podcasts: { what: 'Episodes and actual listening minutes recorded in Pocket Podcasts, including offline playback after it syncs.', key: 'Token from Pocket Podcasts → Settings → API tokens', url: 'http://pocket-podcasts:8080' },
   pinepods: { what: 'Podcast episodes played, with minutes per day. Episodes spread over several days count on each of them (from the day Pocket Day starts watching).', key: 'API key from PinePods → Settings → API keys', url: 'http://host.docker.internal:8136' },
   audiobookshelf: { what: 'Audiobooks you listened to, per title, with minutes — from Pocket Audiobooks, or Audiobookshelf’s sessions (its podcasts too). Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
-  jellyseerr: { what: 'Films and series requested, and requested titles that became available.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
+  jellyseerr: { what: 'Films, shows and albums you asked for, and the ones that arrived — from Pocket Requests or Jellyseerr.', key: 'API key from Jellyseerr → Settings → General', url: 'http://host.docker.internal:5055' },
   forgejo: { what: 'Your pushes per repository: commits, the latest message, new repositories, tags and pull requests.', key: 'A read-only access token (Settings → Applications, scopes read:user + read:repository)', url: 'http://host.docker.internal:3000', extra: 'User name (empty = the token’s owner)' },
   nextcloud: { what: 'Tasks completed (every task list), events and contact birthdays, over CalDAV.', key: 'An app password (Personal settings → Security)', url: 'http://host.docker.internal:8080', extra: 'Nextcloud user name' },
   documents: { what: 'Documents added that day, with correspondent and type, each linking to the document in Pocket Documents.', key: 'Token from Pocket Documents → Settings → API tokens', url: 'http://host.docker.internal:8183' },
@@ -220,7 +220,7 @@ function Sources() {
   }
   const bf = status?.backfill
   const core = !!f.core_connected
-  const title = (name: SourceName) => name === 'dawarich' ? <>Location <span className="muted">— where you were</span></> : <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
+  const title = (name: SourceName) => name === 'dawarich' ? <>Location <span className="muted">— where you were</span></> : name === 'jellyseerr' ? <>Requests <span className="muted">— what you asked for</span></> : <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
   const testBtn = (name: SourceName, src: Source) => <><button type="button" className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>
   return (
     <div className="stack loose">
@@ -252,12 +252,13 @@ function Sources() {
           // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
           const credExtra = name === 'nextcloud'
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
-          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : src.audiobooks ? booksBadge(src.audiobooks, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
+          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : src.audiobooks ? booksBadge(src.audiobooks, src.mode || 'off', src.via) : src.requests ? requestsBadge(src.requests, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
             {src.location && <LocationChoice loc={src.location} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('movement' as SourceName, src)} />}
             {src.music && <MusicChoice mus={src.music} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('music' as SourceName, src)} />}
             {src.audiobooks && <BooksChoice bk={src.audiobooks} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('audiobooks' as SourceName, src)} />}
+            {src.requests && <RequestsChoice rq={src.requests} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('requests' as SourceName, src)} />}
             {/* One source, one card: while Pocket Movement (or Pocket Music) answers, Dawarich's (Maloja's) connection stays out of the way. */}
-            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && !(src.audiobooks?.provider === 'audiobooks' && src.audiobooks.books_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
+            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && !(src.audiobooks?.provider === 'audiobooks' && src.audiobooks.books_via) && !(src.requests?.provider === 'requests' && src.requests.requests_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
               extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
@@ -425,6 +426,40 @@ function BooksChoice({ bk, core, onPick, test }: { bk: BooksState; core: boolean
     </div>
   )
 }
+
+// RequestsChoice is where the requests source's days come from: Pocket
+// Requests (the person's own films, shows and albums, through Pocket Core
+// only) or Jellyseerr (its connection below), which fills in when Pocket
+// Requests does not answer.
+function RequestsChoice({ rq, core, onPick, test }: { rq: RequestsState; core: boolean; onPick: (p: 'requests' | 'jellyseerr') => void; test: React.ReactNode }) {
+  const pocket = rq.provider === 'requests'
+  const fill = rq.seerr_via ? ' If it ever does not answer, your Jellyseerr fills in.' : ''
+  const line = pocket
+    ? (rq.requests_via ? `Your requests come from Pocket Requests, as you, through Pocket Core.${fill}` : `Pocket Requests is not connected: ${rq.requests_detail || 'unknown'}.${rq.seerr_via ? ' Jellyseerr below fills in meanwhile.' : ''}`)
+    : !core && rq.choice === 'requests' ? 'Pocket Requests was chosen, but this app is not connected to a Pocket Core, so your requests come from Jellyseerr below.'
+    : `Your requests come from Jellyseerr${rq.seerr_via ? '' : ' once its connection below works'}.`
+  const ok = pocket ? !!rq.requests_via : !!rq.seerr_via
+  return (
+    <div className="loc-block">
+      <span className="lbl">What you asked for, from</span>
+      <div className="conn-mode">
+        <Segmented size="sm" label="Requests source" value={rq.provider} onChange={p => onPick(p as 'requests' | 'jellyseerr')} options={[
+          { value: 'requests', label: 'Pocket Requests', disabled: !core, title: core ? 'Your own films, shows and albums, through Pocket Core' : 'Needs Pocket Core' },
+          { value: 'jellyseerr', label: 'Jellyseerr', title: 'Jellyseerr, connected below' },
+        ]} />
+      </div>
+      {!core && <CoreHint what="Pocket Requests" />}
+      <div className={`conn-status ${ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {pocket && <div className="row wrap">{test}</div>}
+      {!(pocket && rq.requests_via) && <span className="lbl">Jellyseerr connection{pocket ? ' (filling in meanwhile)' : ''}</span>}
+    </div>
+  )
+}
+
+const requestsBadge = (rq: RequestsState, mode: ConnMode, via: string) => rq.provider === 'requests' && rq.requests_via
+  ? <span className="badge ok">Pocket Requests</span>
+  : rq.provider === 'requests' && via ? <span className="badge warn">Jellyseerr (fallback)</span>
+  : connBadge(mode, via)
 
 const booksBadge = (bk: BooksState, mode: ConnMode, via: string) => bk.provider === 'audiobooks' && bk.books_via
   ? <span className="badge ok">Pocket Audiobooks</span>

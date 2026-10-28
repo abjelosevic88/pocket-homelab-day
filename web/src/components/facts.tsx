@@ -16,15 +16,17 @@ interface Props { source: string; fact?: Fact; link?: string; unit: 'km' | 'mi';
 /** One source's card on the day page. */
 export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date }: Props) {
   const title = <><SourceIcon source={source} size={22} />{SOURCE_LABEL[source] || cap(source)}</>
-  // the location source names where the day came from (Pocket Movement or Dawarich)
-  const app = source === 'dawarich' && (fact?.payload as Where | null)?.provider === 'movement' ? 'Pocket Movement' : SOURCE_APP[source] || source
+  // the location and requests sources name where the day came from (Pocket Movement or Dawarich, Pocket Requests or Jellyseerr)
+  const app = source === 'dawarich' && (fact?.payload as Where | null)?.provider === 'movement' ? 'Pocket Movement'
+    : source === 'jellyseerr' && (fact?.payload as Activity | null)?.provider === 'requests' ? 'Pocket Requests'
+    : SOURCE_APP[source] || source
   const actions = <>
     {fact?.error && <span className="badge warn" title={fact.error}>stale</span>}
     {link && <a className="btn ghost icon-only sm" href={link} target="_blank" rel="noreferrer" title={`Open ${app}`} aria-label={`Open ${app}`}><Icon name="external" size={14} /></a>}
   </>
   const empty = (msg: string) => <p className="muted small" style={{ margin: 0 }}>{msg}</p>
   if (!fact || fact.payload === null || fact.payload === undefined) {
-    return <Card title={title} actions={actions} className="fact-card">{empty(fact?.error ? `Couldn't reach ${SOURCE_APP[source]}: ${fact.error}` : `Nothing from ${SOURCE_APP[source] || source} for this day.`)}</Card>
+    return <Card title={title} actions={actions} className="fact-card">{empty(fact?.error ? `Couldn't reach ${app}: ${fact.error}` : `Nothing from ${app} for this day.`)}</Card>
   }
   const pinned = (ref: string) => pins.find(p => p.source === source && p.ref === ref)
   const PinBtn = ({ ref_, title, subtitle, image }: PinBtnProps) => {
@@ -162,7 +164,7 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
     default:
       if (isActivity(source)) {
         const a = fact.payload as Activity
-        if (!a.count) { body = empty(`Nothing in ${SOURCE_APP[source] || source} this day.`); break }
+        if (!a.count) { body = empty(`Nothing in ${app} this day.`); break }
         body = <ActivityBody source={source} a={a} link={link} PinBtn={PinBtn} />
         break
       }
