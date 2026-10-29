@@ -505,3 +505,46 @@ a.status-pill:hover { background: var(--surface-3); color: var(--text); }
 .c2-mood, .sb-day-mood, .pal-mood, .pv-mood, .tile .ti, .segmented button, .mb-row > span:first-child, .jbody .row > span[title], .li > span[title] {
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--font);
 }
+
+/* ---------- calendar: habits over time ---------- */
+.ht { --ht-good: color-mix(in srgb, #22c55e 16%, var(--surface)); --ht-ok: color-mix(in srgb, #eab308 16%, var(--surface)); --ht-bad: color-mix(in srgb, #ec4899 13%, var(--surface)); --ht-good-ink: #16a34a; --ht-ok-ink: #ca8a04; --ht-bad-ink: #dc2626; }
+.ht .card-head .layer-switch { margin: -4px 0; }
+.ht-note { margin: 0 0 12px; }
+.ht-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); gap: 12px; }
+.ht-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px 6px; min-width: 0; background: var(--surface); }
+.ht-habits { grid-column: 1 / -1; padding-bottom: 10px; }
+.ht-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; min-width: 0; }
+.ht-head b { font-size: 13.5px; }
+.ht-head small { font-size: 11.5px; }
+.ht-avg { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ht-delta { font-size: 11.5px; font-weight: 650; padding: 1px 7px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ht-delta.up { color: var(--green-ink); background: var(--success-soft); }
+.ht-delta.down { color: var(--red-ink); background: var(--danger-soft); }
+.ht-delta.flat { color: var(--muted); background: var(--surface-2); }
+.ht-chart { width: 100%; }
+.ht-chart svg { display: block; overflow: visible; }
+.ht-band.good { fill: var(--ht-good); } .ht-band.ok { fill: var(--ht-ok); } .ht-band.bad { fill: var(--ht-bad); }
+.ht-tick { font-size: 10px; fill: var(--faint); font-variant-numeric: tabular-nums; }
+.ht-prev line { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 4; opacity: .7; }
+.ht-line { fill: none; stroke: var(--text-2, var(--text)); stroke-width: 1.6; stroke-linejoin: round; opacity: .85; }
+.ht-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; cursor: pointer; }
+.ht-dot-faint { fill: var(--faint); opacity: .55; }
+.ht-bar { fill: var(--faint); } .ht-bar.good { fill: var(--ht-good-ink); } .ht-bar.bad { fill: var(--ht-bad-ink); }
+.ht-rows { display: grid; gap: 6px; margin-top: 6px; }
+.ht-row { display: grid; grid-template-columns: minmax(110px, 190px) minmax(0, 1fr) 42px 52px; gap: 10px; align-items: center; }
+.ht-name { display: flex; align-items: center; gap: 7px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ht-name i { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.ht-strip { display: grid; gap: 2px; height: 20px; align-items: end; }
+.ht-cell { height: 20px; border-radius: 3px; border: 0; padding: 0; background: var(--surface-2); cursor: pointer; min-width: 0; }
+.ht-cell.done { background: var(--ht-good-ink); } .ht-cell.missed { background: color-mix(in srgb, var(--ht-bad-ink) 75%, var(--surface)); }
+.ht-wk { height: 100%; display: flex; align-items: flex-end; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.ht-wk b { display: block; width: 100%; border-radius: 2px 2px 0 0; }
+.ht-rate { font-size: 13px; font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+.ht-d { text-align: left; }
+.ht-foot { margin: 10px 0 0; }
+[data-theme="dark"] .ht { --ht-good: color-mix(in srgb, #22c55e 14%, var(--surface)); --ht-ok: color-mix(in srgb, #eab308 12%, var(--surface)); --ht-bad: color-mix(in srgb, #ec4899 12%, var(--surface)); }
+@media (max-width: 640px) {
+  .ht .card-head { flex-wrap: wrap; }
+  .ht-row { grid-template-columns: minmax(0, 1fr) 40px 48px; row-gap: 3px; }
+  .ht-strip { grid-column: 1 / -1; grid-row: 2; }
+}

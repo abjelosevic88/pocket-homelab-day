@@ -281,6 +281,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/entries", s.handleQuickEntry)
 			r.Get("/tags", s.handleTags)
 			r.Get("/calendar", s.handleCalendar)
+			r.Get("/habits/trend", s.handleHabitTrend)
 			r.Get("/memories", s.handleMemories)
 			r.Get("/years", s.handleYears)
 			r.Get("/years/{year}", s.handleYear)

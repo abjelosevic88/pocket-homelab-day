@@ -7,12 +7,13 @@ import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, fmtHeadlineShort,
 import { Loading, useAsync } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
+import HabitTrends from '../components/HabitTrends'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr' | 'horoscope'
+type Layer = 'photos' | 'mood' | 'habits' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr' | 'horoscope'
 // icon: a stroke icon name; the source layers use their source's glyph
 const LAYERS: { id: Layer; label: string; icon: string }[] = [
-  { id: 'photos', label: 'Photos', icon: 'camera' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'horoscope', label: 'Sky', icon: 'moon' }, { id: 'dawarich', label: 'Distance', icon: 'map' },
+  { id: 'photos', label: 'Photos', icon: 'camera' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'habits', label: 'Habits', icon: 'habit' }, { id: 'horoscope', label: 'Sky', icon: 'moon' }, { id: 'dawarich', label: 'Distance', icon: 'map' },
   { id: 'maloja', label: 'Music', icon: 'music' }, { id: 'podcasts', label: 'Podcasts', icon: 'mic' }, { id: 'pinepods', label: 'PinePods', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
   { id: 'jellystat', label: 'Watched', icon: 'tv' }, { id: 'firefly', label: 'Spend', icon: 'wallet' }, { id: 'forgejo', label: 'Code', icon: 'code' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: 'check-square' }, { id: 'tasks', label: 'Pocket Tasks', icon: 'check-square' }, { id: 'jellyseerr', label: 'Requests', icon: 'film' },
 ]
@@ -131,6 +132,8 @@ export default function Calendar() {
         {wide && sel && <Preview date={sel} onClose={() => setSel('')} />}
       </div>}
 
+      {month <= today.slice(0, 7) && <HabitTrends month={month} today={today} />}
+
       {aiOn && month <= today.slice(0, 7) && <div className="mt"><StoryCard key={month} kind="month" period={month} label={`${MONTHS[m - 1]} ${y}`} /></div>}
     </div>
   )
@@ -160,6 +163,7 @@ function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string
     case 'maloja': return `${Math.round(v)} ♪`
     case 'jellystat': return fmtMinutes(Math.round(v)).replace(' min', 'm').replace(' h ', 'h')
     case 'firefly': return fmtAmount(Math.round(v), cur).replace(/[.,]00$/, '')
+    case 'habits': return `${Math.round(v)}%`
     case 'horoscope': return long ? `${Math.round(v)}/100` : String(Math.round(v))
   }
   if (isActivity(layer)) {

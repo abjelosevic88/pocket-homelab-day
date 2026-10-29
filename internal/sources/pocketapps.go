@@ -127,6 +127,136 @@ func (h *Habits) Fetch(ctx context.Context, date string, loc *time.Location) (*R
 	return &Result{Payload: c, Headline: headline, Summary: sum}, nil
 }
 
+// TrendHabit is one habit over a stretch of days: date → 1 done, -1 missed.
+type TrendHabit struct {
+	ID      int64          `json:"id"`
+	Name    string         `json:"name"`
+	Color   string         `json:"color"`
+	Entries map[string]int `json:"entries"`
+}
+
+// TrendTracker is one tracker over a stretch of days: date → value.
+type TrendTracker struct {
+	ID             int64              `json:"id"`
+	Name           string             `json:"name"`
+	Kind           string             `json:"kind"`
+	Unit           string             `json:"unit"`
+	Min            *float64           `json:"min,omitempty"`
+	Max            *float64           `json:"max,omitempty"`
+	HigherIsBetter *bool              `json:"higher_is_better,omitempty"`
+	Entries        map[string]float64 `json:"entries"`
+}
+
+// Trend is the habits and trackers over several months, in Habits' order.
+type Trend struct {
+	Habits   []*TrendHabit   `json:"habits"`
+	Trackers []*TrendTracker `json:"trackers"`
+}
+
+// Months reads whole months (YYYY-MM, oldest first) from Pocket Habits.
+// Defaulted tracker values (nothing entered) are left out.
+func (h *Habits) Months(ctx context.Context, months []string) (*Trend, error) {
+	cl, err := h.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	t := &Trend{Habits: []*TrendHabit{}, Trackers: []*TrendTracker{}}
+	hs, ts := map[int64]*TrendHabit{}, map[int64]*TrendTracker{}
+	for _, m := range months {
+		var page struct {
+			Habits []struct {
+				ID      int64          `json:"id"`
+				Name    string         `json:"name"`
+				Color   string         `json:"color"`
+				Entries map[string]int `json:"entries"`
+			} `json:"habits"`
+			Trackers []struct {
+				ID             int64              `json:"id"`
+				Name           string             `json:"name"`
+				Kind           string             `json:"kind"`
+				Unit           string             `json:"unit"`
+				Min            *float64           `json:"min_value"`
+				Max            *float64           `json:"max_value"`
+				HigherIsBetter *bool              `json:"higher_is_better"`
+				Entries        map[string]float64 `json:"entries"`
+				Defaulted      map[string]bool    `json:"defaulted"`
+			} `json:"trackers"`
+		}
+		if err := cl.Get(ctx, "/api/v1/months/"+m, nil, &page); err != nil {
+			return nil, err
+		}
+		for _, x := range page.Habits {
+			th := hs[x.ID]
+			if th == nil {
+				th = &TrendHabit{ID: x.ID, Entries: map[string]int{}}
+				hs[x.ID] = th
+				t.Habits = append(t.Habits, th)
+			}
+			th.Name, th.Color = x.Name, x.Color // the newest month names it
+			for d, v := range x.Entries {
+				if v != 0 {
+					th.Entries[d] = v
+				}
+			}
+		}
+		for _, x := range page.Trackers {
+			tt := ts[x.ID]
+			if tt == nil {
+				tt = &TrendTracker{ID: x.ID, Entries: map[string]float64{}}
+				ts[x.ID] = tt
+				t.Trackers = append(t.Trackers, tt)
+			}
+			tt.Name, tt.Kind, tt.Unit, tt.Min, tt.Max, tt.HigherIsBetter = x.Name, x.Kind, x.Unit, x.Min, x.Max, x.HigherIsBetter
+			for d, v := range x.Entries {
+				if !x.Defaulted[d] {
+					tt.Entries[d] = v
+				}
+			}
+		}
+	}
+	return t, nil
+}
+
+// TrendFromCheckins builds the same trend from stored day check-ins
+// (date → Checkin), for when Pocket Habits can't be asked.
+func TrendFromCheckins(days map[string]Checkin) *Trend {
+	t := &Trend{Habits: []*TrendHabit{}, Trackers: []*TrendTracker{}}
+	hs, ts := map[int64]*TrendHabit{}, map[int64]*TrendTracker{}
+	dates := make([]string, 0, len(days))
+	for d := range days {
+		dates = append(dates, d)
+	}
+	sort.Strings(dates)
+	for _, d := range dates {
+		c := days[d]
+		for _, x := range c.Habits {
+			th := hs[x.ID]
+			if th == nil {
+				th = &TrendHabit{ID: x.ID, Entries: map[string]int{}}
+				hs[x.ID] = th
+				t.Habits = append(t.Habits, th)
+			}
+			th.Name, th.Color = x.Name, x.Color
+			if x.Status != 0 {
+				th.Entries[d] = x.Status
+			}
+		}
+		for _, x := range c.Trackers {
+			tt := ts[x.ID]
+			if tt == nil {
+				tt = &TrendTracker{ID: x.ID, Entries: map[string]float64{}}
+				ts[x.ID] = tt
+				t.Trackers = append(t.Trackers, tt)
+			}
+			tt.Name, tt.Kind, tt.Unit, tt.Min, tt.Max, tt.HigherIsBetter = x.Name, x.Kind, x.Unit, x.Min, x.Max, x.HigherIsBetter
+			if x.Value != nil && !x.Defaulted {
+				tt.Entries[d] = *x.Value
+			}
+		}
+	}
+	return t
+}
+
 func trim(s string, n int) string {
 	s = strings.TrimSpace(s)
 	if len(s) <= n {
