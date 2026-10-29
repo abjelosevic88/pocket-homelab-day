@@ -227,6 +227,25 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Practice", strings.Join(p, ", "))
 	}
+	var hd2 sources.HoroscopeDay
+	if get("horoscope", &hd2) && hd2.MoonSign != "" {
+		p := []string{hd2.MoonWords()}
+		for _, e := range hd2.Events {
+			if e.Kind != "ingress" {
+				p = append(p, e.Title)
+			}
+		}
+		if hd2.Headline != "" {
+			p = append(p, fmt.Sprintf("horoscope \"%s\" (%d/100)", hd2.Headline, hd2.Overall))
+		}
+		if detail && len(hd2.Transits) > 0 {
+			p = append(p, "transits: "+strings.Join(hd2.Transits, ", "))
+		}
+		if c := hd2.Checkin; c != nil && (c.Mood > 0 || c.Energy > 0) {
+			p = append(p, fmt.Sprintf("checked in mood %d/5, energy %d/5", c.Mood, c.Energy))
+		}
+		add("Sky", strings.Join(p, ", "))
+	}
 	var hb sources.Checkin
 	if get("habits", &hb) {
 		var s []string

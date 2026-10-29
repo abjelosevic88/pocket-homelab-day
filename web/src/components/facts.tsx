@@ -5,7 +5,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay,
+  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -136,6 +136,23 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'horoscope': {
+      const h = fact.payload as HoroscopeDay
+      if (!h.moon_sign) { body = empty('No sky for this day.'); break }
+      const phase: Record<string, string> = { new: '🌑 New Moon', waxing_crescent: '🌒 Waxing crescent', first_quarter: '🌓 First quarter', waxing_gibbous: '🌔 Waxing gibbous', full: '🌕 Full Moon', waning_gibbous: '🌖 Waning gibbous', last_quarter: '🌗 Last quarter', waning_crescent: '🌘 Waning crescent' }
+      const sign = h.moon_sign[0].toUpperCase() + h.moon_sign.slice(1)
+      const chips = [`${phase[h.phase] || 'Moon'} in ${sign}`, `${Math.round(h.illumination * 100)}% lit`]
+      if (h.overall) chips.push(`your day ${h.overall}/100`)
+      const faces = ['', '😞', '🙁', '😐', '🙂', '😄']
+      body = <>
+        <div className="fact-head">{chips.map(c => <span key={c} className="badge">{c}</span>)}</div>
+        {h.headline && <div className="li"><Icon name="moon" size={15} className="muted" /><span className="grow"><b>{h.headline}</b>{h.scores && Object.keys(h.scores).length > 0 && <span className="muted"> · {['love', 'work', 'mood', 'energy'].filter(k => h.scores[k] !== undefined).map(k => `${k} ${h.scores[k]}`).join(' · ')}</span>}</span>{h.url && <a className="btn ghost icon-only sm" href={h.url} target="_blank" rel="noreferrer" title="Open in Pocket Horoscope" aria-label="Open in Pocket Horoscope"><Icon name="external" size={14} /></a>}</div>}
+        {h.events?.length ? <div className="inline-list">{h.events.map((e, i) => <div key={i} className="li"><span className="muted" style={{ width: 15, textAlign: 'center' }}>{e.icon || '✦'}</span><span className="grow"><b>{e.title}</b>{e.time && <span className="muted"> · {e.time}</span>}</span></div>)}</div> : null}
+        {h.transits?.length ? <div className="muted small" style={{ marginTop: 6 }}>Your transits: {h.transits.slice(0, 4).join(', ')}</div> : null}
+        {h.checkin && (h.checkin.mood > 0 || h.checkin.energy > 0 || h.checkin.note) ? <div className="muted small" style={{ marginTop: 4 }}>Check-in: {h.checkin.mood > 0 ? `${faces[h.checkin.mood]} mood ${h.checkin.mood}/5` : ''}{h.checkin.energy > 0 ? ` · energy ${h.checkin.energy}/5` : ''}{h.checkin.note ? ` · “${h.checkin.note}”` : ''}</div> : null}
+      </>
+      break
+    }
     case 'still': {
       const s = fact.payload as StillDay
       if (!s.practices?.length) { body = empty('No practice this day.'); break }
@@ -234,6 +251,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'kitchen': return len('cooks') > 0
     case 'health': return n('steps') > 0 || len('workouts') > 0 || !!(v as { sleep?: unknown }).sleep
     case 'still': return len('practices') > 0
+    case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }
   return true

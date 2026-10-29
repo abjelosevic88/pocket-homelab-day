@@ -27,6 +27,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"habits:read":      {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
 	"health:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"mindfulness:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"horoscope:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -340,6 +341,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","metrics":{"steps":{"value":9123,"unit":"count","name":"Steps"},"sleep_asleep":{"value":408,"unit":"min","name":"Time asleep"}},"workouts":[{"id":1,"kind":"running","name":"Running","start_at":"` + d + `T07:00:00Z","duration_s":2100,"distance_m":5200,"energy_kcal":310,"avg_hr":151}],"sleep":[{"start_at":"` + d + `T23:10:00Z","end_at":"` + d + `T06:40:00Z","asleep_s":24480,"in_bed_s":27000,"deep_s":3960,"rem_s":5040}],"goals_met":["steps"],"summary":"9123 steps · slept 6h 48m"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "still":
 			write(`{"date":"` + d + `","minutes":15,"sessions":2,"streak":4,"goal_min":10,"goal_met":true,"practices":[{"id":7,"kind":"breath","kind_name":"Breathing","title":"Box breathing","started_at":"` + d + `T07:10:00Z","minutes":5,"calm_before":2,"calm_after":4},{"id":8,"kind":"meditation","kind_name":"Meditation","title":"Silent sit","started_at":"` + d + `T21:00:00Z","minutes":10}],"lessons":[{"program":"The Path","stage":"Arrive","title":"Just three minutes"}],"milestones":["A full week"],"summary":"15 min of practice: box breathing, silent sit (day 4 of a streak)"}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "horoscope":
+			write(`{"date":"` + d + `","url":"https://horoscope.x/?date=` + d + `","moon":{"sign":"taurus","phase":"full","illumination":0.99},"events":[{"kind":"eclipse","time":"` + d + `T20:12:00+02:00","title":"Total lunar eclipse in Taurus","icon":"🌘"}],"headline":"A day to get moving","summary":"x","scores":{"love":60,"work":70,"mood":55,"energy":80},"overall":66,"transits":["Venus trine your Sun"],"journal":{"mood":4,"energy":3,"note":"fine","tags":["work"]}}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "projects":
 			write(`{"issues":[{"identifier":"AS-6","title":"Rules","url":"https://projects.x/issue/AS-6","project":"Relaunch","done":true,"minutes":80,"first":"10:00","last":"15:00","summary":"done (Done) · 1 commit","events":[{"time":"10:00","kind":"created","text":"Created the issue"}]}],"projects":[]}`)
 		case p == "/api/v1/tasks":
@@ -518,7 +521,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -552,6 +555,9 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 		if f, ok := facts[n]; !ok || f.Error != "" || f.Summary == "" {
 			t.Errorf("fact %s: %+v", n, f)
 		}
+	}
+	if f := facts["horoscope"]; f.Headline != 66 || !strings.Contains(f.Summary, "Full Moon in Taurus") || !strings.Contains(f.Summary, "lunar eclipse") {
+		t.Errorf("horoscope fact: %+v", f)
 	}
 	if f := facts["still"]; f.Headline != 15 || !strings.Contains(f.Summary, "box breathing") {
 		t.Errorf("still fact: %+v", f)

@@ -11,7 +11,7 @@ import { FactCard, WeatherChip, factHasContent, type PinFn } from '../components
 import { Timeline } from '../components/Timeline'
 import { DictateButton, useAI } from '../components/ai'
 
-const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'nextcloud', 'tasks', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
+const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'horoscope', 'nextcloud', 'tasks', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
 
 export default function Day() {
   const params = useParams()

@@ -44,7 +44,7 @@ export default function Journal() {
 }
 
 function EntryRow({ e, sums }: { e: Entry; sums?: Record<string, string> }) {
-  const order = ['travel', 'dawarich', 'immich', 'maloja', 'jellystat', 'bookshelf', 'kitchen', 'firefly', 'habits', 'health', 'still', 'weather']
+  const order = ['travel', 'dawarich', 'immich', 'maloja', 'jellystat', 'bookshelf', 'kitchen', 'firefly', 'habits', 'health', 'still', 'horoscope', 'weather']
   return (
     <Link to={`/day/${e.date}`} className="jrow" style={{ color: 'inherit' }}>
       <div className="jdate"><div className="d">{e.date.slice(8)}</div><div className="m">{monthShort(e.date)} {e.date.slice(0, 4) !== String(new Date().getFullYear()) ? e.date.slice(0, 4) : ''}</div><div className="muted small">{weekday(e.date)}</div></div>
