@@ -9,13 +9,17 @@ import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr'
+type Layer = 'photos' | 'mood' | 'dawarich' | 'maloja' | 'jellystat' | 'firefly' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'forgejo' | 'nextcloud' | 'tasks' | 'jellyseerr' | 'horoscope'
 // icon: a stroke icon name; the source layers use their source's glyph
 const LAYERS: { id: Layer; label: string; icon: string }[] = [
-  { id: 'photos', label: 'Photos', icon: 'camera' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'dawarich', label: 'Distance', icon: 'map' },
+  { id: 'photos', label: 'Photos', icon: 'camera' }, { id: 'mood', label: 'Mood', icon: 'smile' }, { id: 'horoscope', label: 'Sky', icon: 'moon' }, { id: 'dawarich', label: 'Distance', icon: 'map' },
   { id: 'maloja', label: 'Music', icon: 'music' }, { id: 'podcasts', label: 'Podcasts', icon: 'mic' }, { id: 'pinepods', label: 'PinePods', icon: 'mic' }, { id: 'audiobookshelf', label: 'Audiobooks', icon: 'headphones' },
   { id: 'jellystat', label: 'Watched', icon: 'tv' }, { id: 'firefly', label: 'Spend', icon: 'wallet' }, { id: 'forgejo', label: 'Code', icon: 'code' }, { id: 'nextcloud', label: 'Nextcloud Tasks', icon: 'check-square' }, { id: 'tasks', label: 'Pocket Tasks', icon: 'check-square' }, { id: 'jellyseerr', label: 'Requests', icon: 'film' },
 ]
+const MOON_EMOJI: Record<string, string> = { new: '🌑', waxing_crescent: '🌒', first_quarter: '🌓', waxing_gibbous: '🌔', full: '🌕', waning_gibbous: '🌖', last_quarter: '🌗', waning_crescent: '🌘' }
+const MOON_NAME: Record<string, string> = { new: 'New Moon', waxing_crescent: 'Waxing crescent', first_quarter: 'First quarter', waxing_gibbous: 'Waxing gibbous', full: 'Full Moon', waning_gibbous: 'Waning gibbous', last_quarter: 'Last quarter', waning_crescent: 'Waning crescent' }
+/** A horoscope score (0–100) as a colour: low warm, high cool-green. */
+const skyColor = (v: number) => v >= 65 ? '#16a34a' : v >= 45 ? '#6a3fb5' : v >= 30 ? '#d97706' : '#dc2626'
 const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
 const daysIn = (y: number, m: number) => new Date(y, m, 0).getDate()
 
@@ -156,6 +160,7 @@ function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string
     case 'maloja': return `${Math.round(v)} ♪`
     case 'jellystat': return fmtMinutes(Math.round(v)).replace(' min', 'm').replace(' h ', 'h')
     case 'firefly': return fmtAmount(Math.round(v), cur).replace(/[.,]00$/, '')
+    case 'horoscope': return long ? `${Math.round(v)}/100` : String(Math.round(v))
   }
   if (isActivity(layer)) {
     const m = ACTIVITY[layer]
@@ -176,6 +181,9 @@ function Cell({ d, layer, max, today, selected, unit, cur, onClick }: { d: Calen
       style = d.cover.startsWith('demo-') ? { backgroundImage: `linear-gradient(135deg, hsl(${(n * 37) % 360} 45% 35%), hsl(${(n * 37 + 60) % 360} 45% 22%))` } : { backgroundImage: `url(${V1}/photos/${d.cover}/thumb)` }
     } else if (layer === 'mood' && d.mood) {
       style = { background: `color-mix(in srgb, ${MOOD_COLOR[d.mood]} 32%, var(--surface))` }
+    } else if (layer === 'horoscope' && d.headlines?.horoscope) {
+      const v = d.headlines.horoscope
+      style = { background: `color-mix(in srgb, ${skyColor(v)} ${Math.round(10 + 26 * Math.abs(v - 50) / 50)}%, var(--surface))` }
     } else if (layer !== 'photos' && layer !== 'mood' && d.headlines?.[layer]) {
       const pct = Math.round(12 + 58 * Math.min(1, (d.headlines[layer] || 0) / max))
       style = { background: `color-mix(in srgb, var(--accent) ${pct}%, var(--surface))` }
@@ -190,9 +198,10 @@ function Cell({ d, layer, max, today, selected, unit, cur, onClick }: { d: Calen
         <span className="spacer" />
         {d.pinned && <span title="Kept" style={{ display: 'inline-grid', color: photo ? '#fde68a' : 'var(--star)' }}><Icon name="star" size={12} strokeWidth={2.2} /></span>}
         {d.mood > 0 && <span className="c2-mood" title={MOODS[d.mood]}>{MOOD_ICON[d.mood]}</span>}
-        {!future && d.weather && <span className="c2-w" title={d.t_max != null ? `${Math.round(d.t_max)} °C` : d.weather}>{WEATHER_ICON[d.weather]}</span>}
+        {!future && layer === 'horoscope' && d.moon && <span className="c2-w" title={`${MOON_NAME[d.moon] || d.moon}${d.moon_sign ? ` in ${d.moon_sign[0].toUpperCase()}${d.moon_sign.slice(1)}` : ''}`}>{MOON_EMOJI[d.moon]}</span>}
+        {!future && layer !== 'horoscope' && d.weather && <span className="c2-w" title={d.t_max != null ? `${Math.round(d.t_max)} °C` : d.weather}>{WEATHER_ICON[d.weather]}</span>}
       </span>
-      {d.highlight && <span className="c2-hl">{d.highlight}</span>}
+      {d.highlight ? <span className="c2-hl">{d.highlight}</span> : layer === 'horoscope' && d.sky && !future ? <span className="c2-hl c2-sky">{d.sky}</span> : null}
       <span className="c2-foot">{d.moments > 0 && !val && <span className="c2-mom">{d.moments} moment{d.moments === 1 ? '' : 's'}</span>}<span className="spacer" />{val && <span className="c2-val">{val}</span>}</span>
     </button>
   )
@@ -200,6 +209,7 @@ function Cell({ d, layer, max, today, selected, unit, cur, onClick }: { d: Calen
 
 function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'km' | 'mi'; cur: string }) {
   if (layer === 'photos') return <p className="cal2-legend">Each day shows its favourite photo, or one from the middle of the day.</p>
+  if (layer === 'horoscope') return <p className="cal2-legend"><span><i style={{ background: '#dc2626' }} />tough</span><span><i style={{ background: '#d97706' }} />mixed</span><span><i style={{ background: '#6a3fb5' }} />steady</span><span><i style={{ background: '#16a34a' }} />good</span><span className="muted">· your day's horoscope score, the Moon's phase in the corner (Pocket Horoscope)</span></p>
   if (layer === 'mood') return <p className="cal2-legend">{[1, 2, 3, 4, 5].map(i => <span key={i}><i style={{ background: MOOD_COLOR[i] }} />{MOODS[i]}</span>)}</p>
   const fake: CalendarDay = { date: '', entry: false, mood: 0, highlight: '', pinned: false, moments: 0, headlines: { [layer]: max } }
   return <p className="cal2-legend"><span className="grad" /> less → more, up to {layerValue(fake, layer, unit, cur, true)} a day</p>

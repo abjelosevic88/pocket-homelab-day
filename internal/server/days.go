@@ -315,6 +315,9 @@ type calendarDay struct {
 	TMax      *float64           `json:"t_max,omitempty"`
 	Cover     string             `json:"cover,omitempty"`   // Immich asset id for the cell background
 	Summary   string             `json:"summary,omitempty"` // the day in one line, from the facts
+	Moon      string             `json:"moon,omitempty"`    // the Moon's phase that day (Pocket Horoscope)
+	MoonSign  string             `json:"moon_sign,omitempty"`
+	Sky       string             `json:"sky,omitempty"` // the horoscope headline, or an eclipse / station that day
 }
 
 // pickCover chooses the photo that represents a day: a favourite, else a
@@ -368,6 +371,7 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 	weather := map[string]string{}
 	tmax := map[string]*float64{}
 	covers := map[string]string{}
+	moons := map[string]sources.HoroscopeDay{}
 	sums := map[string]map[string]store.Fact{}
 	if fs, err := s.store.FactsRange(ctx, u.ID, from, to); err == nil {
 		for _, f := range fs {
@@ -384,6 +388,11 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 				if jsonUnmarshal(f.Payload, &d) == nil {
 					weather[f.Date], tmax[f.Date] = d.Condition, d.TMax
 				}
+			case "horoscope":
+				var h sources.HoroscopeDay
+				if jsonUnmarshal(f.Payload, &h) == nil {
+					moons[f.Date] = h
+				}
 			case "immich":
 				var p sources.Photos
 				if jsonUnmarshal(f.Payload, &p) == nil {
@@ -397,6 +406,15 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 		cd := calendarDay{Date: d, Moments: moments[d], Headlines: heads[d], Weather: weather[d], TMax: tmax[d], Cover: covers[d], Summary: summaryLine(sums[d], 3)}
 		if cd.Headlines == nil {
 			cd.Headlines = map[string]float64{}
+		}
+		if h, ok := moons[d]; ok {
+			cd.Moon, cd.MoonSign, cd.Sky = h.Phase, h.MoonSign, h.Headline
+			for _, e := range h.Events {
+				if e.Kind == "eclipse" || e.Kind == "station" || (e.Kind == "phase" && strings.Contains(e.Title, "Full")) || (e.Kind == "phase" && strings.Contains(e.Title, "New")) {
+					cd.Sky = e.Title
+					break
+				}
+			}
 		}
 		if e, ok := entries[d]; ok {
 			cd.Entry, cd.Mood, cd.Highlight, cd.Pinned = true, e.Mood, e.Highlight, e.Pinned
