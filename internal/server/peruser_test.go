@@ -351,3 +351,24 @@ func TestAutoCreatedAccountsAreMembers(t *testing.T) {
 		t.Errorf("auto-created member could create users: %d", code)
 	}
 }
+
+// TestPullAgainDropsSwitchedOffSources: what a source stored for a day before it
+// was switched off goes when that day is pulled again; other days keep theirs.
+func TestPullAgainDropsSwitchedOffSources(t *testing.T) {
+	e := newPerUserEnv(t)
+	ctx := context.Background()
+	for _, d := range []string{"2026-10-02", "2026-10-03"} {
+		if err := e.st.PutFact(ctx, e.member.ID, &store.Fact{Date: d, Source: "nextcloud", Payload: json.RawMessage(`{"items":[]}`), Headline: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if code, body := e.do(e.memberTok, http.MethodPost, "/days/2026-10-02/refresh", ""); code != 200 {
+		t.Fatalf("refresh = %d %s", code, clipStr(body))
+	}
+	if fs, _ := e.st.FactsForDay(ctx, e.member.ID, "2026-10-02"); len(fs) != 0 {
+		t.Errorf("switched-off source still on the pulled day: %v", fs)
+	}
+	if fs, _ := e.st.FactsForDay(ctx, e.member.ID, "2026-10-03"); len(fs) != 1 {
+		t.Errorf("another day lost its facts: %v", fs)
+	}
+}

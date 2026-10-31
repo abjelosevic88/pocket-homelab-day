@@ -137,6 +137,12 @@ func (s *Store) DeleteFacts(ctx context.Context, userID int64, date string) erro
 	return err
 }
 
+// DeleteFactSource drops one source's cached facts for a date.
+func (s *Store) DeleteFactSource(ctx context.Context, userID int64, date, source string) error {
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM facts WHERE user_id = ? AND date = ? AND source = ?`, userID, date, source)
+	return err
+}
+
 // FactDates returns distinct dates with facts, newest first.
 func (s *Store) FactDates(ctx context.Context, userID int64) ([]string, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT DISTINCT date FROM facts WHERE user_id = ? AND payload <> '' ORDER BY date DESC`, userID)
