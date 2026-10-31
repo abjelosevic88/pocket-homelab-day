@@ -429,6 +429,7 @@ func (s *Server) handleRefreshDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := userFrom(r.Context())
+	s.dropSwitchedOff(r.Context(), u, date)
 	errs, ran := s.pullDay(r.Context(), u.ID, date, true)
 	if !ran {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "already refreshing"})
@@ -508,5 +509,18 @@ func (s *Server) BackfillSync(ctx context.Context, from, to string, force bool) 
 			continue
 		}
 		fmt.Printf("%s: backfilled %d of %d days (%s .. %s)\n", u.Email, st.Done, st.Total, st.From, st.To)
+	}
+}
+
+// dropSwitchedOff removes, for one day, what sources that are now switched off
+// stored before: "Pull again" then shows only the sources that are on. Only the
+// day being pulled again changes; other days keep what they recorded.
+func (s *Server) dropSwitchedOff(ctx context.Context, u *store.User, date string) {
+	st, _ := s.store.GetSettings(ctx, u.ID)
+	fs := s.fetchers(ctx, u, st)
+	for _, name := range store.SourceNames {
+		if _, on := fs[name]; !on {
+			_ = s.store.DeleteFactSource(ctx, u.ID, date, name)
+		}
 	}
 }
