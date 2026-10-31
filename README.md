@@ -74,6 +74,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Pocket Travel** | the trip the day fell in, and which day of it | Pocket Core link, or URL + token |
 | **Pocket Kitchen** | what was cooked | Pocket Core link, or URL + token |
 | **Pocket Garage** | fill-ups and service records | Pocket Core link, or URL + token |
+| **Pocket Contacts** | birthdays and anniversaries of the day, with the age they turn | Pocket Core link, or URL + token |
 | **PinePods** | podcast episodes and minutes per day (spread-out episodes count on each day) | Pocket Core service, or URL + API key |
 | **Audiobooks** | audiobooks you listened to, per title, with minutes — from **Pocket Audiobooks** (its history of every Audiobookshelf app, through a Pocket Core link `listening:read`; the default with Core) or Audiobookshelf's own sessions (its podcasts too), which also fill in while Pocket Audiobooks' link is off | Pocket Core link, or a Pocket Core service (your own ABS account, or the box's admin key for an admin), or URL + admin API key |
 | **Requests** | films, shows and albums you asked for, and when they arrived — from **Pocket Requests** (through a Pocket Core link `requests:read`; the default with Core) or Jellyseerr, which also fills in while Pocket Requests' link is off | Pocket Core link, or a Pocket Core service, or URL + API key |

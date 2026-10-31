@@ -199,6 +199,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   split: { what: 'Shared expenses dated that day, across every group.', key: 'Token from Pocket Split → Settings → API', url: 'http://host.docker.internal:8172' },
   tasks: { what: 'Tasks completed on each day.', key: 'Token from Pocket Tasks → Settings → API tokens', url: 'http://pocket-tasks:8080' },
   inventory: { what: 'Things added, used up or restocked.', key: 'Token from Pocket Inventory → Settings → API tokens', url: 'http://host.docker.internal:8170' },
+  birthdays: { what: 'Birthdays and anniversaries that fall on each day, from your contacts, with the age they turn.', key: 'Token from Pocket Contacts → Settings → API tokens', url: 'http://host.docker.internal:8191' },
   projects: { what: 'Your work on issues: what you created, moved, commented and tracked, the commits and pull requests that landed on them, and project updates — one line per issue, each opening in Pocket Projects.', key: 'Token from Pocket Projects → Settings → API tokens', url: 'http://host.docker.internal:8196' },
 }
 

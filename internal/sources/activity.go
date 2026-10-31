@@ -122,6 +122,7 @@ var Activities = map[string]ActivityMeta{
 	"split":          {Label: "Shared costs", One: "expense", Many: "expenses", Unit: "amount", Verb: "with shared costs", Group: "groups"},
 	"tasks":          {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with completed tasks", Group: "lists"},
 	"inventory":      {Label: "Inventory", One: "change", Many: "changes", Unit: "count", Verb: "with inventory changes", Group: "items"},
+	"birthdays":      {Label: "Birthdays", One: "birthday", Many: "birthdays", Unit: "count", Verb: "with birthdays", Group: "people"},
 	"projects":       {Label: "Work", One: "issue", Many: "issues", Unit: "count", Verb: "with work on issues", Group: "projects"},
 }
 

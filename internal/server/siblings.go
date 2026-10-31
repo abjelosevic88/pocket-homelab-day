@@ -43,11 +43,12 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
 	"tasks":     {slug: "tasks", app: "Pocket Tasks", scope: "tasks:read", reason: "Tasks you completed in your journal"},
+	"birthdays": {slug: "contacts", app: "Pocket Contacts", scope: "contacts:read", reason: "Birthdays and anniversaries of the day in your journal"},
 	"projects":  {slug: "projects", app: "Pocket Projects", scope: "projects:read", reason: "Your work on issues, day by day, in your journal"},
 	"habits":    {slug: "habits", app: "Pocket Habits", scope: "habits:read", reason: "Your habits in the journal"},
 	"health":    {slug: "health", app: "Pocket Health", scope: "health:read", reason: "Steps, sleep, workouts, heart and weight in your journal"},
@@ -367,6 +368,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewPodcasts(conn)
 	case "tasks":
 		return sources.NewTasks(conn)
+	case "birthdays":
+		return sources.NewBirthdays(conn)
 	case "projects":
 		return sources.NewProjects(conn)
 	case "habits":

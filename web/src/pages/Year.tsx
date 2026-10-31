@@ -5,7 +5,7 @@ import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
 import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
 
-const ACT_ORDER = ['podcasts', 'pinepods', 'audiobookshelf', 'projects', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'invoicing', 'split', 'inventory']
+const ACT_ORDER = ['podcasts', 'pinepods', 'audiobookshelf', 'projects', 'forgejo', 'nextcloud', 'tasks', 'birthdays', 'jellyseerr', 'documents', 'invoicing', 'split', 'inventory']
 import { Card, Empty, Loading, useAsync } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
