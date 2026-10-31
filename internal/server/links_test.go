@@ -23,6 +23,7 @@ import (
 var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"history:read":     {regexp.MustCompile(`^/api/v1/listens(/dates)?$`)},
 	"tasks:read":       {regexp.MustCompile(`^/api/v1/tasks$`)},
+	"contacts:read":    {regexp.MustCompile(`^/api/v1/birthdays$`)},
 	"projects:read":    {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"habits:read":      {regexp.MustCompile(`^/api/v1/habits(/\d+)?$`), regexp.MustCompile(`^/api/v1/days/\d{4}-\d\d-\d\d$`)},
 	"health:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
@@ -345,6 +346,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","url":"https://horoscope.x/?date=` + d + `","moon":{"sign":"taurus","phase":"full","illumination":0.99},"events":[{"kind":"eclipse","time":"` + d + `T20:12:00+02:00","title":"Total lunar eclipse in Taurus","icon":"🌘"}],"headline":"A day to get moving","summary":"x","scores":{"love":60,"work":70,"mood":55,"energy":80},"overall":66,"transits":["Venus trine your Sun"],"journal":{"mood":4,"energy":3,"note":"fine","tags":["work"]}}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "projects":
 			write(`{"issues":[{"identifier":"AS-6","title":"Rules","url":"https://projects.x/issue/AS-6","project":"Relaunch","done":true,"minutes":80,"first":"10:00","last":"15:00","summary":"done (Done) · 1 commit","events":[{"time":"10:00","kind":"created","text":"Created the issue"}]}],"projects":[]}`)
+		case p == "/api/v1/birthdays":
+			write(`[{"contact":{"id":12,"fn":"Marko"},"kind":"birthday","date":"` + d + `","age":38}]`)
 		case p == "/api/v1/tasks":
 			write(`{"tasks":[{"id":1,"title":"Fix the shelf","completed_at":"` + d + `T12:00:00Z"}],"total":1}`)
 		case p == "/api/v1/auth/me":
@@ -521,7 +524,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
