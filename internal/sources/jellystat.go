@@ -103,6 +103,8 @@ type Watched struct {
 	Movies   int    `json:"movies"`
 	Minutes  int    `json:"minutes"`
 	Items    []Play `json:"items"`
+	// Provider names the app behind the day ("watch" = Pocket Watch; "" = Jellystat).
+	Provider string `json:"provider,omitempty"`
 }
 
 // Fetch implements Fetcher.
@@ -111,7 +113,6 @@ func (c *Jellystat) Fetch(ctx context.Context, date string, loc *time.Location) 
 	if err != nil {
 		return nil, err
 	}
-	w := Watched{Items: []Play{}}
 	byItem := map[string]*Play{}
 	var order []string
 	done := false
@@ -167,7 +168,13 @@ func (c *Jellystat) Fetch(ctx context.Context, date string, loc *time.Location) 
 			break
 		}
 	}
-	// oldest first
+	return watchedResult(byItem, order, ""), nil
+}
+
+// watchedResult turns the day's plays (order = item keys, newest first) into
+// the watched payload, oldest first; provider names the app behind it.
+func watchedResult(byItem map[string]*Play, order []string, provider string) *Result {
+	w := Watched{Items: []Play{}, Provider: provider}
 	for i := len(order) - 1; i >= 0; i-- {
 		pl := byItem[order[i]]
 		w.Items = append(w.Items, *pl)
@@ -193,5 +200,5 @@ func (c *Jellystat) Fetch(ctx context.Context, date string, loc *time.Location) 
 			sum += " · " + HoursMinutes(w.Minutes)
 		}
 	}
-	return &Result{Payload: w, Headline: float64(w.Minutes), Summary: sum}, nil
+	return &Result{Payload: w, Headline: float64(w.Minutes), Summary: sum}
 }

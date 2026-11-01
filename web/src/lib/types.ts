@@ -6,12 +6,14 @@ export type ConnMode = 'core' | 'direct' | 'off'
 // pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
 // service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
 // via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; audiobooks?: BooksState; requests?: RequestsState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' | 'audiobooks' | 'audiobookshelf' | 'requests' | 'jellyseerr' }
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; audiobooks?: BooksState; requests?: RequestsState; watch?: WatchState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' | 'audiobooks' | 'audiobookshelf' | 'requests' | 'jellyseerr' | 'watch' | 'jellystat' }
 /** Where the location source's days come from: Pocket Movement (through Pocket Core only) or Dawarich. */
 export interface LocationState { choice: '' | 'movement' | 'dawarich'; provider: 'movement' | 'dawarich'; movement_via: '' | 'core'; movement_detail?: string; dawarich_via: '' | 'core' | 'direct' }
 /** Where the music source's days come from: Pocket Music (through Pocket Core only) or Maloja. */
 /** Where the audiobooks source's days come from: Pocket Audiobooks (through Pocket Core only) or Audiobookshelf. */
 export interface BooksState { choice: '' | 'audiobooks' | 'audiobookshelf'; provider: 'audiobooks' | 'audiobookshelf'; books_via: '' | 'core'; books_detail?: string; abs_via: '' | 'core' | 'direct' }
+/** Where the watched source's days come from: Pocket Watch (through Pocket Core only) or Jellystat. */
+export interface WatchState { choice: '' | 'watch' | 'jellystat'; provider: 'watch' | 'jellystat'; watch_via: '' | 'core'; watch_detail?: string; jellystat_via: '' | 'core' | 'direct' }
 export interface RequestsState { choice: '' | 'requests' | 'jellyseerr'; provider: 'requests' | 'jellyseerr'; requests_via: '' | 'core'; requests_detail?: string; seerr_via: '' | 'core' | 'direct' }
 export interface MusicState { choice: '' | 'music' | 'maloja'; provider: 'music' | 'maloja'; music_via: '' | 'core'; music_detail?: string; maloja_via: '' | 'core' | 'direct' }
 export type SourceName = 'dawarich' | 'immich' | 'maloja' | 'jellystat' | 'firefly' | 'habits' | 'health' | 'still' | 'horoscope' | 'bookshelf' | 'travel' | 'kitchen' | 'garage' | 'weather' | 'podcasts' | 'pinepods' | 'audiobookshelf' | 'jellyseerr' | 'forgejo' | 'nextcloud' | 'documents' | 'invoicing' | 'split' | 'inventory' | 'tasks' | 'birthdays' | 'projects'
@@ -52,7 +54,7 @@ export interface Count { name: string; count: number }
 export interface Listen { time: string; artist: string; title: string; album?: string }
 export interface Music { listens: number; minutes: number; artists: Count[]; tracks: Count[]; albums: Count[]; first: string; last: string; items: Listen[] }
 export interface Play { title: string; series?: string; kind: 'episode' | 'movie'; minutes: number; time: string; client?: string; user?: string; item_id: string; plays: number }
-export interface Watched { count: number; episodes: number; movies: number; minutes: number; items: Play[] }
+export interface Watched { count: number; episodes: number; movies: number; minutes: number; items: Play[]; provider?: string }
 export interface Spend { id: string; time: string; description: string; amount: number; currency: string; category?: string; budget?: string; destination?: string; source?: string; tags?: string[]; lat?: number; lng?: number }
 export interface Money { count: number; totals: Record<string, number>; categories: Count[]; biggest?: Spend; items: Spend[]; main_currency: string }
 export interface HabitRow { id: number; name: string; color: string; status: number; scheduled: boolean; streak: number }

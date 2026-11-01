@@ -67,7 +67,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Dawarich** | distance, moving time, distance per mode, recognised stops | Pocket Core service, or URL + API key |
 | **Immich** | photos and videos of the day as a thumbnail grid (proxied), places | Pocket Core service, or URL + API key |
 | **Maloja** | listens, top artists, full track list | Pocket Core service, or URL |
-| **Jellystat** | episodes and films watched, minutes (optionally one Jellyfin user) | Pocket Core service, or URL + API key |
+| **Watched** | episodes and films watched, with minutes — from **Pocket Watch** (your Jellyfin history, through a Pocket Core link `watching:read`; the default with Core) or Jellystat (optionally one Jellyfin user), which also fills in while Pocket Watch's link is off | Pocket Core link, or a Pocket Core service, or URL + API key |
 | **Pocket Money** | withdrawals with categories, totals per currency, read from its Firefly-compatible API; with Pocket Money's webhook a booking shows up within seconds (`MONEY_WEBHOOK_SECRET`) | Pocket Core link, or its `/firefly` URL + an API token (a Firefly III URL + personal access token works too) |
 | **Pocket Habits** | habits done, tracker values, the journal line — and on a day with nothing written here, its journal *is* the entry | Pocket Core link, or URL + token |
 | **Pocket Bookshelf** | books being read, started, finished | Pocket Core link, or URL + token |

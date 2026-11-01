@@ -49,6 +49,18 @@ type publicSource struct {
 	Music    *publicMusic    `json:"music,omitempty"`
 	Books    *publicBooks    `json:"audiobooks,omitempty"`
 	Requests *publicRequests `json:"requests,omitempty"`
+	Watch    *publicWatch    `json:"watch,omitempty"`
+}
+
+// publicWatch is where the watched source's days come from: the saved
+// choice ("" = not chosen), the provider in effect, and how Pocket Watch and
+// Jellystat each stand.
+type publicWatch struct {
+	Choice       string `json:"choice"`
+	Provider     string `json:"provider"`
+	WatchVia     string `json:"watch_via"`
+	WatchDetail  string `json:"watch_detail,omitempty"`
+	JellystatVia string `json:"jellystat_via"`
 }
 
 // publicRequests is where the requests source's days come from: the saved
@@ -108,6 +120,9 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		}
 		if n == "audiobookshelf" {
 			ps.Books = &publicBooks{Choice: src.Provider, Provider: ss.Provider, BooksVia: ss.AudiobooksVia, BooksDetail: ss.AudiobooksDetail, ABSVia: ss.ABSVia}
+		}
+		if n == "jellystat" {
+			ps.Watch = &publicWatch{Choice: src.Provider, Provider: ss.Provider, WatchVia: ss.WatchVia, WatchDetail: ss.WatchDetail, JellystatVia: ss.JellystatVia}
 		}
 		if n == "jellyseerr" {
 			ps.Requests = &publicRequests{Choice: src.Provider, Provider: ss.Provider, RequestsVia: ss.RequestsVia, RequestsDetail: ss.RequestsDetail, SeerrVia: ss.SeerrVia}
@@ -310,6 +325,9 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		if name == "jellyseerr" && p.Provider != nil && (*p.Provider == "" || validRequestsProvider(*p.Provider)) {
 			src.Provider = *p.Provider
 		}
+		if name == "jellystat" && p.Provider != nil && (*p.Provider == "" || validWatchProvider(*p.Provider)) {
+			src.Provider = *p.Provider
+		}
 		cur.Sources[name] = src
 	}
 	if err := s.store.SaveSettings(r.Context(), u.ID, cur); err != nil {
@@ -363,6 +381,15 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 	typed := in.Key != "" && !strings.Contains(in.Key, "••")
 	if in.Which == "audiobooks" {
 		msg, err := sources.NewPocketAudiobooks(s.audiobooksConn(u)).Test(ctx)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": strings.TrimPrefix(err.Error(), "not connected: ")})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg + " through Pocket Core"})
+		return
+	}
+	if in.Which == "watch" {
+		msg, err := sources.NewPocketWatch(s.watchConn(u)).Test(ctx)
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": strings.TrimPrefix(err.Error(), "not connected: ")})
 			return

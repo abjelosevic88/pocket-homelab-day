@@ -78,11 +78,12 @@ func pocketUses() []core.Use {
 	}
 	// Pocket Movement is not a source of its own: it feeds the location source (movement.go).
 	// Pocket Music feeds the music source the same way (music.go), Pocket Audiobooks the audiobooks one (audiobooks.go),
-	// Pocket Requests the requests one (requests.go).
+	// Pocket Requests the requests one (requests.go), Pocket Watch the watched one (watch.go).
 	return append(out, core.Use{App: movementApp.slug, Scopes: []string{movementApp.scope}, Reason: movementApp.reason},
 		core.Use{App: musicApp.slug, Scopes: []string{musicApp.scope}, Reason: musicApp.reason},
 		core.Use{App: audiobooksApp.slug, Scopes: []string{audiobooksApp.scope}, Reason: audiobooksApp.reason},
-		core.Use{App: requestsApp.slug, Scopes: []string{requestsApp.scope}, Reason: requestsApp.reason})
+		core.Use{App: requestsApp.slug, Scopes: []string{requestsApp.scope}, Reason: requestsApp.reason},
+		core.Use{App: watchApp.slug, Scopes: []string{watchApp.scope}, Reason: watchApp.reason})
 }
 
 // Connection modes.
@@ -195,6 +196,10 @@ type sourceState struct {
 	RequestsVia    string
 	RequestsDetail string
 	SeerrVia       string
+	// The watched source (watch.go): Pocket Watch's and Jellystat's connections.
+	WatchVia     string
+	WatchDetail  string
+	JellystatVia string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -309,6 +314,9 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 		if n == "jellyseerr" {
 			applyRequests(&ss, src, coreOK && u != nil, u, getLinks)
 		}
+		if n == "jellystat" {
+			applyWatch(&ss, src, coreOK && u != nil, u, getLinks)
+		}
 		out[n] = ss
 	}
 	return out
@@ -414,6 +422,11 @@ func (s *Server) sourceLink(ctx context.Context, u *store.User, name string, src
 	if name == "jellyseerr" && ss.RequestsVia != "" {
 		// the days come from Pocket Requests: open it (the public URL set is Jellyseerr's)
 		_, public := s.resolveSiblingFull(ctx, requestsApp.slug)
+		return public
+	}
+	if name == "jellystat" && ss.WatchVia != "" {
+		// the days come from Pocket Watch: open it (the public URL set is Jellystat's)
+		_, public := s.resolveSiblingFull(ctx, watchApp.slug)
 		return public
 	}
 	if name == "maloja" && ss.MusicVia != "" {

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, RequestsState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, RequestsState, WatchState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
@@ -177,7 +177,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   dawarich: { what: 'Distance, moving time, how you moved and the stops of the day, from Pocket Movement or Dawarich.', key: 'API key from Dawarich → Account', url: 'https://dawarich.example.com' },
   immich: { what: 'Photos and videos taken that day, with a thumbnail grid proxied through this app.', key: 'API key from Immich → Account settings → API keys', url: 'http://host.docker.internal:2283' },
   maloja: { what: 'What played: listens, top artists, the full track list — from Pocket Music or Maloja.', key: 'no key needed (read API is open)', url: 'http://host.docker.internal:42010' },
-  jellystat: { what: 'What you watched in Jellyfin: episodes, films, minutes.', key: 'API key from Jellystat → Settings → API keys', url: 'http://host.docker.internal:3000', extra: 'Jellyfin user name to keep (empty = everyone)' },
+  jellystat: { what: 'What you watched in Jellyfin: episodes, films, minutes — from Pocket Watch or Jellystat.', key: 'API key from Jellystat → Settings → API keys', url: 'http://host.docker.internal:3000', extra: 'Jellyfin user name to keep (empty = everyone)' },
   firefly: { what: 'Withdrawals of the day with categories and totals per currency, read from Pocket Money’s Firefly-compatible API.', key: 'Direct: a token from Pocket Money → Settings → API tokens with the URL ending in /firefly (a Firefly III URL with its personal access token works too)', url: 'http://host.docker.internal:8178/firefly' },
   habits: { what: 'The check-in: habits done, tracker values, the journal line.', key: 'Token from Pocket Habits → Settings → API tokens', url: 'http://host.docker.internal:8169' },
   horoscope: { what: 'The Moon (sign and phase), new and full Moons, eclipses and planets turning, your daily horoscope with its scores, and your mood check-in.', key: 'Token from Pocket Horoscope → Settings → API & shortcuts', url: 'http://host.docker.internal:8215' },
@@ -222,7 +222,7 @@ function Sources() {
   }
   const bf = status?.backfill
   const core = !!f.core_connected
-  const title = (name: SourceName) => name === 'dawarich' ? <>Location <span className="muted">— where you were</span></> : name === 'jellyseerr' ? <>Requests <span className="muted">— what you asked for</span></> : <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
+  const title = (name: SourceName) => name === 'dawarich' ? <>Location <span className="muted">— where you were</span></> : name === 'jellyseerr' ? <>Requests <span className="muted">— what you asked for</span></> : name === 'jellystat' ? <>Watched <span className="muted">— films and episodes</span></> : <>{SOURCE_APP[name]} <span className="muted">— {SOURCE_LABEL[name].toLowerCase()}</span></>
   const testBtn = (name: SourceName, src: Source) => <><button type="button" className="btn sm" onClick={() => run(name, src)}>Test connection</button>{stat(name)}</>
   return (
     <div className="stack loose">
@@ -254,13 +254,14 @@ function Sources() {
           // Non-credential settings (user filters, the Forgejo user) apply in every mode; the Nextcloud user name is part of the credential.
           const credExtra = name === 'nextcloud'
           const extraField = help.extra && !credExtra ? <Field label={help.extra}><input value={src.extra} onChange={e => upd(name, { extra: e.target.value })} /></Field> : null
-          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : src.audiobooks ? booksBadge(src.audiobooks, src.mode || 'off', src.via) : src.requests ? requestsBadge(src.requests, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
+          return <Section key={name} source={name} title={title(name)} sub={help.what} actions={src.location ? locationBadge(src.location, src.mode || 'off', src.via) : src.music ? musicBadge(src.music, src.mode || 'off', src.via) : src.audiobooks ? booksBadge(src.audiobooks, src.mode || 'off', src.via) : src.requests ? requestsBadge(src.requests, src.mode || 'off', src.via) : src.watch ? watchBadge(src.watch, src.mode || 'off', src.via) : connBadge(src.mode || 'off', src.via)}>
             {src.location && <LocationChoice loc={src.location} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('movement' as SourceName, src)} />}
             {src.music && <MusicChoice mus={src.music} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('music' as SourceName, src)} />}
             {src.audiobooks && <BooksChoice bk={src.audiobooks} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('audiobooks' as SourceName, src)} />}
             {src.requests && <RequestsChoice rq={src.requests} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('requests' as SourceName, src)} />}
+            {src.watch && <WatchChoice wt={src.watch} core={core} onPick={p => saveSource(name, { provider: p })} test={testBtn('watch' as SourceName, src)} />}
             {/* One source, one card: while Pocket Movement (or Pocket Music) answers, Dawarich's (Maloja's) connection stays out of the way. */}
-            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && !(src.audiobooks?.provider === 'audiobooks' && src.audiobooks.books_via) && !(src.requests?.provider === 'requests' && src.requests.requests_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
+            {!(src.location?.provider === 'movement' && src.location.movement_via) && !(src.music?.provider === 'music' && src.music.music_via) && !(src.audiobooks?.provider === 'audiobooks' && src.audiobooks.books_via) && !(src.requests?.provider === 'requests' && src.requests.requests_via) && !(src.watch?.provider === 'watch' && src.watch.watch_via) && <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
               service keySource={src.key_source || ''} keyless={!src.needs_key}
               onMode={m => saveSource(name, { mode: m })} onDisconnect={() => saveSource(name, { url: '', key: '', public_url: '', ...(credExtra ? { extra: '' } : {}) })}
               extra={extraField ? <><div className="two-col tight">{extraField}</div><div><button type="button" className="btn sm" onClick={() => saveSource(name, { extra: src.extra })} disabled={busy}>Save</button></div></> : undefined}
@@ -457,6 +458,39 @@ function RequestsChoice({ rq, core, onPick, test }: { rq: RequestsState; core: b
     </div>
   )
 }
+
+// WatchChoice is where the watched source's days come from: Pocket Watch
+// (the person's own Jellyfin history, through Pocket Core only) or Jellystat
+// (its connection below), which fills in when Pocket Watch does not answer.
+function WatchChoice({ wt, core, onPick, test }: { wt: WatchState; core: boolean; onPick: (p: 'watch' | 'jellystat') => void; test: React.ReactNode }) {
+  const pocket = wt.provider === 'watch'
+  const fill = wt.jellystat_via ? ' If it ever does not answer, your Jellystat fills in.' : ''
+  const line = pocket
+    ? (wt.watch_via ? `What you watched comes from Pocket Watch, as you, through Pocket Core.${fill}` : `Pocket Watch is not connected: ${wt.watch_detail || 'unknown'}.${wt.jellystat_via ? ' Jellystat below fills in meanwhile.' : ''}`)
+    : !core && wt.choice === 'watch' ? 'Pocket Watch was chosen, but this app is not connected to a Pocket Core, so what you watched comes from Jellystat below.'
+    : `What you watched comes from Jellystat${wt.jellystat_via ? '' : ' once its connection below works'}.`
+  const ok = pocket ? !!wt.watch_via : !!wt.jellystat_via
+  return (
+    <div className="loc-block">
+      <span className="lbl">What you watched, from</span>
+      <div className="conn-mode">
+        <Segmented size="sm" label="Watched source" value={wt.provider} onChange={p => onPick(p as 'watch' | 'jellystat')} options={[
+          { value: 'watch', label: 'Pocket Watch', disabled: !core, title: core ? 'Your own Jellyfin history, through Pocket Core' : 'Needs Pocket Core' },
+          { value: 'jellystat', label: 'Jellystat', title: 'Jellystat, connected below' },
+        ]} />
+      </div>
+      {!core && <CoreHint what="Pocket Watch" />}
+      <div className={`conn-status ${ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {pocket && <div className="row wrap">{test}</div>}
+      {!(pocket && wt.watch_via) && <span className="lbl">Jellystat connection{pocket ? ' (filling in meanwhile)' : ''}</span>}
+    </div>
+  )
+}
+
+const watchBadge = (wt: WatchState, mode: ConnMode, via: string) => wt.provider === 'watch' && wt.watch_via
+  ? <span className="badge ok">Pocket Watch</span>
+  : wt.provider === 'watch' && via ? <span className="badge warn">Jellystat (fallback)</span>
+  : connBadge(mode, via)
 
 const requestsBadge = (rq: RequestsState, mode: ConnMode, via: string) => rq.provider === 'requests' && rq.requests_via
   ? <span className="badge ok">Pocket Requests</span>

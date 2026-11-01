@@ -16,9 +16,10 @@ interface Props { source: string; fact?: Fact; link?: string; unit: 'km' | 'mi';
 /** One source's card on the day page. */
 export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date }: Props) {
   const title = <><SourceIcon source={source} size={22} />{SOURCE_LABEL[source] || cap(source)}</>
-  // the location and requests sources name where the day came from (Pocket Movement or Dawarich, Pocket Requests or Jellyseerr)
+  // the location, requests and watched sources name where the day came from (Pocket Movement or Dawarich, Pocket Requests or Jellyseerr, Pocket Watch or Jellystat)
   const app = source === 'dawarich' && (fact?.payload as Where | null)?.provider === 'movement' ? 'Pocket Movement'
     : source === 'jellyseerr' && (fact?.payload as Activity | null)?.provider === 'requests' ? 'Pocket Requests'
+    : source === 'jellystat' && (fact?.payload as Watched | null)?.provider === 'watch' ? 'Pocket Watch'
     : SOURCE_APP[source] || source
   const actions = <>
     {fact?.error && <span className="badge warn" title={fact.error}>stale</span>}

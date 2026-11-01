@@ -45,6 +45,12 @@ func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings)
 			}
 			continue
 		}
+		if name == "jellystat" {
+			if f := s.watchSource(u, src, ss); f != nil {
+				out[name] = f
+			}
+			continue
+		}
 		if name == "maloja" {
 			if f := s.musicSource(u, src, ss); f != nil {
 				out[name] = f
