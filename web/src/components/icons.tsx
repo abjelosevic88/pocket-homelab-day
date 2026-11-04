@@ -137,7 +137,7 @@ export const SOURCE_GLYPH: Record<string, string> = {
   forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', split: 'users', tasks: 'check-square', birthdays: 'users', inventory: 'package', projects: 'kanban',
 }
 export const SOURCE_COLOR: Record<string, string> = {
-  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#b7791f', horoscope: '#6a3fb5', bookshelf: '#b45309',
+  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', horoscope: '#6a3fb5', bookshelf: '#b45309',
   travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', podcasts: '#9333ea', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
   forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
 }
