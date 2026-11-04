@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -178,6 +178,14 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'wealth': {
+      const wd = fact.payload as WealthDay
+      if (!wd.items?.length) { body = empty('Nothing bought, sold or updated.'); break }
+      body = <div className="inline-list">
+        {wd.items.map(it => <div key={`${it.type}${it.id}`} className="li"><Icon name={it.type === 'activity' ? 'trending-up' : 'edit'} size={15} className="muted" /><span className="grow"><b>{it.title}</b>{it.asset && !it.title.includes(it.asset) && <span className="muted"> · {it.asset}</span>}</span>{it.type === 'activity' && it.amount ? <span className="money">{fmtAmount(it.amount / 100, it.currency)}</span> : null}{(link || it.url) && <a className="btn ghost icon-only sm" href={link ? `${link}/a/${it.asset_id}` : it.url} target="_blank" rel="noreferrer" title="Open in Pocket Wealth" aria-label="Open in Pocket Wealth"><Icon name="external" size={14} /></a>}</div>)}
+      </div>
+      break
+    }
     case 'renewals': {
       const r = fact.payload as RenewalsDay
       if (!r.renewed?.length && !r.expired?.length) { body = empty('Nothing renewed, nothing ran out.'); break }
@@ -275,6 +283,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'still': return len('practices') > 0
     case 'home': return len('work') + len('readings') > 0
     case 'renewals': return len('renewed') + len('expired') > 0
+    case 'wealth': return len('items') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }

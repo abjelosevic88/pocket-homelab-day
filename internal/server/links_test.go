@@ -31,6 +31,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"horoscope:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"home:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"renewals:read":    {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"wealth:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -346,6 +347,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","minutes":15,"sessions":2,"streak":4,"goal_min":10,"goal_met":true,"practices":[{"id":7,"kind":"breath","kind_name":"Breathing","title":"Box breathing","started_at":"` + d + `T07:10:00Z","minutes":5,"calm_before":2,"calm_after":4},{"id":8,"kind":"meditation","kind_name":"Meditation","title":"Silent sit","started_at":"` + d + `T21:00:00Z","minutes":10}],"lessons":[{"program":"The Path","stage":"Arrive","title":"Just three minutes"}],"milestones":["A full week"],"summary":"15 min of practice: box breathing, silent sit (day 4 of a streak)"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "home":
 			write(`{"date":"` + d + `","records":[{"id":3,"kind":"repair","title":"Replaced the kitchen tap","thing_name":"Kitchen sink","home_name":"House","pro_name":"Marko","cost":8900,"currency":"EUR"}],"readings":[{"meter_id":1,"meter":"Electricity","kind":"electricity","unit":"kWh","value":48230.5,"usage":312.4,"days":31}],"due":[]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "wealth":
+			write(`{"date":"` + d + `","items":[{"type":"activity","id":3,"kind":"buy","title":"Bought 2.5 Vanguard FTSE All-World","amount":30000,"currency":"EUR","asset_id":4,"asset":"Broker account","url":"https://wealth.x/a/4"},{"type":"valuation","id":9,"title":"Pension updated","amount":1960000,"currency":"EUR","asset_id":6,"asset":"Pension","url":"https://wealth.x/a/6"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "renewals":
 			write(`{"date":"` + d + `","expires":[{"id":12,"title":"ID card","kind":"id_card","holder":"Luka","provider":"","expires_on":"` + d + `","status":"expired","open_url":"https://renewals.x/r/12"}],"renewed":[{"id":4,"renewal_id":7,"title":"Car insurance","renewed_on":"` + d + `","old_expires":"2026-01-05","new_expires":"2027-01-05","cost":41200,"currency":"EUR","note":"","source":"manual"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "horoscope":
@@ -530,7 +533,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read wealth=wealth:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
