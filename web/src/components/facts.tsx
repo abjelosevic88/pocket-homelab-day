@@ -5,7 +5,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -168,6 +168,15 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'home': {
+      const h = fact.payload as HomeDay
+      if (!h.work?.length && !h.readings?.length) { body = empty('Nothing done on the house.'); break }
+      body = <div className="inline-list">
+        {(h.work || []).map(w => <div key={`w${w.id}`} className="li"><Icon name="wrench" size={15} className="muted" /><span className="grow"><b>{w.title}</b><span className="muted">{[w.thing, w.pro].filter(Boolean).map(x => ` · ${x}`).join('')}</span></span>{w.cost ? <span className="money">{fmtAmount(w.cost / 100, w.currency)}</span> : null}{link && <a className="btn ghost icon-only sm" href={`${link}/log/${w.id}`} target="_blank" rel="noreferrer" title="Open in Pocket Home" aria-label="Open in Pocket Home"><Icon name="external" size={14} /></a>}</div>)}
+        {(h.readings || []).map(r => <div key={`r${r.meter_id}`} className="li"><Icon name="activity" size={15} className="muted" /><span className="grow"><b>{r.meter}</b><span className="muted"> · {r.value.toLocaleString()} {r.unit}{r.usage != null ? ` · +${Math.round(r.usage).toLocaleString()} ${r.unit} in ${r.days} days` : ''}</span></span></div>)}
+      </div>
+      break
+    }
     case 'garage': {
       const c = fact.payload as Car
       if (!c.items?.length) { body = empty('Nothing in the garage.'); break }
@@ -252,6 +261,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'kitchen': return len('cooks') > 0
     case 'health': return n('steps') > 0 || len('workouts') > 0 || !!(v as { sleep?: unknown }).sleep
     case 'still': return len('practices') > 0
+    case 'home': return len('work') + len('readings') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }
