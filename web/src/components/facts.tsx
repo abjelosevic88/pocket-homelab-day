@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { V1 } from '../lib/api'
 import { locationTime } from '../lib/locationTime'
+import { fmtDate } from '../lib/format'
 import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -177,6 +178,17 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'renewals': {
+      const r = fact.payload as RenewalsDay
+      if (!r.renewed?.length && !r.expired?.length) { body = empty('Nothing renewed, nothing ran out.'); break }
+      const open = (id: number, url?: string) => link ? `${link}/r/${id}` : url
+      const go = (href?: string) => href && <a className="btn ghost icon-only sm" href={href} target="_blank" rel="noreferrer" title="Open in Pocket Renewals" aria-label="Open in Pocket Renewals"><Icon name="external" size={14} /></a>
+      body = <div className="inline-list">
+        {(r.renewed || []).map(h => <div key={`n${h.id}`} className="li"><Icon name="refresh" size={15} className="muted" /><span className="grow"><b>Renewed: {h.title}</b><span className="muted">{[h.new_expires ? `now until ${fmtDate(h.new_expires)}` : '', h.auto ? 'renewed by itself' : '', h.note || ''].filter(Boolean).map(x => ` · ${x}`).join('')}</span></span>{h.cost ? <span className="money">{fmtAmount(h.cost / 100, h.currency)}</span> : null}{go(open(h.renewal_id))}</div>)}
+        {(r.expired || []).map(e => <div key={`x${e.id}`} className="li"><Icon name="hourglass" size={15} className="muted" /><span className="grow"><b>Ran out: {e.title}</b><span className="muted">{[e.holder, e.provider].filter(Boolean).map(x => ` · ${x}`).join('')}</span></span>{go(open(e.id, e.url))}</div>)}
+      </div>
+      break
+    }
     case 'garage': {
       const c = fact.payload as Car
       if (!c.items?.length) { body = empty('Nothing in the garage.'); break }
@@ -262,6 +274,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'health': return n('steps') > 0 || len('workouts') > 0 || !!(v as { sleep?: unknown }).sleep
     case 'still': return len('practices') > 0
     case 'home': return len('work') + len('readings') > 0
+    case 'renewals': return len('renewed') + len('expired') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }
