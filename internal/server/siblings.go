@@ -43,7 +43,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -58,6 +58,7 @@ var pocketSources = map[string]pocketSource{
 	"wealth":    {slug: "wealth", app: "Pocket Wealth", scope: "wealth:read", reason: "What you bought, sold or earned from your investments and the values you updated, in your journal"},
 	"pets":      {slug: "pets", app: "Pocket Pets", scope: "pets:read", reason: "Vet visits, vaccines, grooming, weighings and birthdays of your pets in your journal"},
 	"sign":      {slug: "sign", app: "Pocket Sign", scope: "signing:read", reason: "Documents you sent for signing, who signed them, what everyone finished signing and what you signed, in your journal"},
+	"places":    {slug: "places", app: "Pocket Places", scope: "places:read", reason: "Where you ate, drank and went (with whom, how you liked it, what it cost), what you planned and the places you saved, in your journal"},
 	"parcels":   {slug: "parcels", app: "Pocket Parcels", scope: "parcels:read", reason: "Parcels delivered, sent, ordered, waiting to be picked up or in trouble, in your journal"},
 	"horoscope": {slug: "horoscope", app: "Pocket Horoscope", scope: "horoscope:read", reason: "The Moon, sky events and your daily horoscope and mood check-in in your journal"},
 	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
@@ -402,6 +403,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewPets(conn)
 	case "sign":
 		return sources.NewSign(conn)
+	case "places":
+		return sources.NewPlaces(conn)
 	case "parcels":
 		return sources.NewParcels(conn)
 	case "horoscope":
