@@ -119,6 +119,7 @@ const P: Record<string, string> = {
   route: 'M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 15V9a4 4 0 0 1 4-4h2M18 9v6a4 4 0 0 1-4 4h-2',
   archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
   dumbbell: 'M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12',
+  apple: 'M12 7c-1.5-1-5-1.5-6.5 1.5S5 16 7 19s3.5 2.5 5 1.5c1.5 1 3 1.5 5-1.5s2-7.5.5-10.5S13.5 6 12 7zM12 7c0-2 1-3.5 3-4',
   ticket: 'M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2zM13 5v2M13 17v2M13 11v2',
 }
 
@@ -137,12 +138,12 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75, titl
 
 /** Each source's glyph and colour. */
 export const SOURCE_GLYPH: Record<string, string> = {
-  dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', voice: 'wave', wallet: 'ticket', fitness: 'dumbbell', horoscope: 'moon', bookshelf: 'book',
+  dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', voice: 'wave', wallet: 'ticket', fitness: 'dumbbell', nutrition: 'apple', horoscope: 'moon', bookshelf: 'book',
   travel: 'plane', kitchen: 'utensils', garage: 'car', weather: 'cloud-sun', podcasts: 'mic', pinepods: 'mic', audiobookshelf: 'headphones', jellyseerr: 'film',
   forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', split: 'users', tasks: 'check-square', birthdays: 'users', inventory: 'package', projects: 'kanban',
 }
 export const SOURCE_COLOR: Record<string, string> = {
-  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', voice: '#c2255c', wallet: '#b4235a', fitness: '#d9480f', horoscope: '#6a3fb5', bookshelf: '#b45309',
+  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', voice: '#c2255c', wallet: '#b4235a', fitness: '#d9480f', nutrition: '#5f8c0e', horoscope: '#6a3fb5', bookshelf: '#b45309',
   travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', podcasts: '#9333ea', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
   forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
 }

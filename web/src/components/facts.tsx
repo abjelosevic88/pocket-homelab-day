@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -255,6 +255,35 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'nutrition': {
+      const nd = fact.payload as NutritionDay
+      if (!nd.entries && !nd.water_ml) { body = empty('Nothing logged this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      const dayUrl = base ? `${base}/?date=${date}` : ''
+      const n = (v: number) => Math.round(v).toLocaleString()
+      const water = (ml: number) => ml >= 1000 ? `${(Math.round(ml / 100) / 10).toLocaleString()} l` : `${ml} ml`
+      const left = nd.budget ? nd.budget - nd.kcal : 0
+      const head = nd.entries ? `${n(nd.kcal)} kcal` : 'No food logged'
+      const chips = nd.entries ? [
+        `protein ${n(nd.protein)}${nd.protein_goal ? ` of ${nd.protein_goal}` : ''} g`,
+        `carbs ${n(nd.carbs)}${nd.carbs_goal ? ` of ${nd.carbs_goal}` : ''} g`,
+        `fat ${n(nd.fat)}${nd.fat_goal ? ` of ${nd.fat_goal}` : ''} g`,
+      ] : []
+      if (nd.water_ml) chips.push(`water ${water(nd.water_ml)}${nd.water_goal ? ` of ${water(nd.water_goal)}` : ''}`)
+      body = <>
+        <div className="fact-head"><b>{dayUrl ? <a href={dayUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open the day in Pocket Nutrition">{head}</a> : head}</b>
+          {nd.entries > 0 && nd.budget ? <span className="muted" title={nd.burned ? `${n(nd.budget - nd.burned)} kcal goal + ${n(nd.burned)} kcal burned` : undefined}> of {n(nd.budget)} · {left >= 0 ? `${n(left)} left` : `${n(-left)} over`}</span> : null}</div>
+        {chips.length > 0 && <div className="chips">{chips.map(c => <span key={c} className="chip">{c}</span>)}</div>}
+        {nd.meals?.length ? <div className="inline-list mt-sm">{nd.meals.map(m => <div key={m.meal} className="li act-li">
+          <span className="muted mono small act-t">{m.time || ''}</span>
+          <span className="grow act-body"><b>{m.label}</b><span className="muted"> · {m.foods.join(', ')}</span></span>
+          {m.kcal > 0 && <span className="muted small">{n(m.kcal)} kcal</span>}
+          <PinBtn ref_={`meal:${m.meal}`} title={`${m.label}: ${m.foods.join(', ')}`} subtitle={m.kcal ? `${n(m.kcal)} kcal` : 'meal'} />
+        </div>)}</div> : null}
+        {nd.note && <div className="muted small" style={{ marginTop: 6 }}>“{nd.note}”</div>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -408,6 +437,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'voice': return len('memos') > 0
     case 'wallet': return len('passes') > 0
     case 'fitness': return len('workouts') > 0
+    case 'nutrition': return n('entries') > 0 || n('water_ml') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

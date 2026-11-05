@@ -39,6 +39,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"voice:read":       {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"wallet:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"fitness:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"nutrition:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -383,6 +384,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","visits":[{"id":1,"place_id":1,"date":"` + d + `","time":"19:30","planned":false,"rating":5,"notes":"","with_whom":"Ana","minutes":0,"spent":6800,"currency":"BAM","place_name":"Kibe Mahala","place_kind":"restaurant","city":"Sarajevo","trip_name":""}],"planned":[],"added":[{"id":1,"name":"Kibe Mahala","kind":"restaurant","cuisine":"Bosnian","city":"Sarajevo","status":"been"},{"id":5,"name":"Zlatna Ribica","kind":"bar","cuisine":"","city":"Sarajevo","status":"want"}],"spent":[{"currency":"BAM","total":6800,"visits":1}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "fitness":
 			write(`{"date":"` + d + `","workouts":[{"id":96,"name":"Pull day","started_at":"` + d + `T16:55:00Z","duration_min":72,"sets":15,"volume_kg":5072.5,"records":2,"feel":4,"notes":"","url":"https://fitness.example.org/workouts/96","exercises":[{"exercise":"Deadlift (Barbell)","exercise_id":10,"records":3,"sets":"115 kg × 5, 115 kg × 5, 115 kg × 5"}]}],"other":[{"id":7,"name":"Morning run","kind":"running","minutes":31,"distance_m":5200,"health":true}],"planned":null,"text":"Pull day (72 min, 15 sets); Morning run (31 min)."}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "nutrition":
+			write(`{"date":"` + d + `","meals":[{"meal":"breakfast","label":"Breakfast","totals":{"kcal":520.4,"protein":18,"carbs":80,"fat":12},"entries":[{"id":1,"name":"Oats","kcal":380,"created_at":"` + d + `T06:40:00Z"},{"id":2,"name":"Banana","kcal":105,"created_at":"` + d + `T06:41:00Z"},{"id":3,"name":"Coffee","kcal":35.4,"created_at":"` + d + `T06:41:30Z"}]},{"meal":"lunch","label":"Lunch","totals":{"kcal":0},"entries":[]},{"meal":"dinner","label":"Dinner","totals":{"kcal":1329.6,"protein":94,"carbs":110,"fat":52},"entries":[{"id":4,"name":"Ćevapi","kcal":1329.6,"created_at":"` + d + `T18:30:00Z"}]},{"meal":"snacks","label":"Snacks","totals":{"kcal":0},"entries":[]}],"totals":{"kcal":1850,"protein":112.3,"carbs":190,"fat":64},"entries":4,"water_ml":1500,"goals":{"kcal":2300,"protein":140,"carbs":250,"fat":75,"fiber":30,"water":2000,"burned":0,"budget":2300},"remaining":{"kcal":450},"note":"Ate late.","text":"1,850 kcal of 2,300; protein 112.3 g, carbs 190 g, fat 64 g. Breakfast: oats, banana, coffee. Dinner: ćevapi."}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "wallet":
 			write(`{"date":"` + d + `","passes":[{"id":14,"kind":"ticket","kind_label":"Ticket","name":"Dubioza kolektiv","issuer":"Entrio","path":"/cards/14","starts_at":"` + d + `T20:00","venue":"Zetra Olympic Hall","has_code":true}],"url":"https://wallet.example.org"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "voice":
@@ -587,7 +590,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read fitness=fitness:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read fitness=fitness:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -645,6 +648,12 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Pull day (72 min, 15 sets, 2 records): Deadlift (Barbell) 3 sets of 115 kg × 5 (a record)") || strings.Contains(l, "Morning run") {
 		t.Errorf("the AI's training line:\n%s", l)
+	}
+	if f := facts["nutrition"]; f.Headline != 1850 || f.Summary != "1,850 kcal of 2,300 (protein 112 g, carbs 190 g, fat 64 g)" {
+		t.Errorf("nutrition fact: %+v", f)
+	}
+	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Food: 1,850 kcal of 2,300 (protein 112 g, carbs 190 g, fat 64 g), water 1.5 l of 2 l | Breakfast: oats, banana, coffee (520 kcal) | Dinner: ćevapi (1,330 kcal)") || strings.Contains(l, "Ate late") {
+		t.Errorf("the AI's food line:\n%s", l)
 	}
 	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
 		t.Errorf("voice fact (the memo still being written out left out): %+v", f)

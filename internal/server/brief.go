@@ -243,6 +243,30 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Training", strings.Join(p, " | "))
 	}
+	var nd sources.NutritionDay
+	if get("nutrition", &nd) && nd.Entries > 0 {
+		s := nd.Line
+		if nd.WaterMl > 0 {
+			s += ", water " + sources.WaterWords(nd.WaterMl)
+			if nd.WaterGoal > 0 {
+				s += " of " + sources.WaterWords(nd.WaterGoal)
+			}
+		}
+		if detail {
+			var m []string
+			for _, x := range nd.Meals {
+				y := x.Label + ": " + strings.Join(x.Foods, ", ")
+				if x.Kcal > 0 {
+					y += " (" + sources.Thousands(x.Kcal) + " kcal)"
+				}
+				m = append(m, y)
+			}
+			if len(m) > 0 {
+				s += " | " + strings.Join(m, " | ")
+			}
+		}
+		add("Food", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string
