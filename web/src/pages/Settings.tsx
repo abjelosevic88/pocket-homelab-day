@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, RequestsState, WatchState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
+import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, RequestsState, WatchState, WeatherState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
 import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
@@ -147,7 +147,7 @@ function General() {
         <SettingRow title="Distances"><Segmented value={f.distance_unit} onChange={v => setF({ ...f, distance_unit: v as 'km' | 'mi' })} options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'miles' }]} size="sm" /></SettingRow>
       </Section>
       <Section title="Home & weather">
-        <SettingRow title="Home location" help="Weather for days spent near home; days Dawarich places far away get the weather there." stack>
+        <SettingRow title="Home location" help="Weather for days spent near home; days your location source places far away get the weather there. With Pocket Weather connected, its home place is used and this one only fills in." stack>
           <div>
             <input value={q} onChange={e => setQ(e.target.value)} placeholder={f.home_place ? `${f.home_place} (${f.home_lat.toFixed(3)}, ${f.home_lon.toFixed(3)}) — type to change` : 'Search a town…'} aria-label="Search a town" />
             {hits.length > 0 && <div className="geo-hits">{hits.map((h, i) => <button type="button" key={i} className="geo-hit" onClick={() => { setF({ ...f, home_place: h.name, home_lat: h.lat, home_lon: h.lon }); setQ(''); setHits([]) }}><Icon name="pin" size={15} className="muted" /><span className="grow">{h.name}</span><span className="muted small">{h.region}</span></button>)}</div>}
@@ -196,7 +196,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   travel: { what: 'Which trip the day fell in, and which day of it.', key: 'Token from Pocket Travel → Settings → API', url: 'http://host.docker.internal:8174' },
   kitchen: { what: 'What was cooked.', key: 'Token from Pocket Kitchen → Settings → API & apps', url: 'http://host.docker.internal:8176' },
   garage: { what: 'Fill-ups and service records.', key: 'Token from Pocket Garage → Settings → API', url: 'http://host.docker.internal:8175' },
-  weather: { what: 'Daily weather from Open-Meteo for the home location, or where your location source says you were.', key: 'no key needed', url: '' },
+  weather: { what: 'The day’s weather at home, or where your location source says you were: from Pocket Weather (your home place there, your weather diary with your notes, today’s warnings) when it is connected through Pocket Core, otherwise straight from Open-Meteo for the home location under General.', key: 'no key needed', url: '' },
   podcasts: { what: 'Episodes and actual listening minutes recorded in Pocket Podcasts, including offline playback after it syncs.', key: 'Token from Pocket Podcasts → Settings → API tokens', url: 'http://pocket-podcasts:8080' },
   pinepods: { what: 'Podcast episodes played, with minutes per day. Episodes spread over several days count on each of them (from the day Pocket Day starts watching).', key: 'API key from PinePods → Settings → API keys', url: 'http://host.docker.internal:8136' },
   audiobookshelf: { what: 'Audiobooks you listened to, per title, with minutes — from Pocket Audiobooks, or Audiobookshelf’s sessions (its podcasts too). Sessions under a minute are ignored.', key: 'An admin API key (Settings → API Keys) so every user’s sessions are visible', url: 'http://host.docker.internal:13378', extra: 'Only these users (comma separated; empty = everyone)' },
@@ -285,12 +285,14 @@ function Sources() {
               </>} />}
           </Section>
         }
-        return <Section key={name} source={name} title={title(name)} sub={help.what}
-          actions={<span className={`badge ${src.configured ? 'ok' : ''}`}>{src.configured ? 'connected' : 'set a home location'}</span>}>
-          <SettingRow title="Pull the weather" help={!f.home_lat && !f.home_lon ? 'Set the home location under General first.' : 'Saved with “Save sources” below.'}>
+        const wx: WeatherState = src.weather || { via: '', home: !!(f.home_lat || f.home_lon) }
+        return <Section key={name} source={name} title={<>Weather <span className="muted">— the day’s weather</span></>} sub={help.what}
+          actions={weatherBadge(src.enabled, wx)}>
+          <WeatherFrom wx={wx} core={core} on={src.enabled} />
+          <SettingRow title="Pull the weather" help={!wx.via && !wx.home ? 'Set the home location under General first, or connect Pocket Weather.' : 'Saved with “Save sources” below.'}>
             <Switch checked={src.enabled} onChange={v => upd(name, { enabled: v })} label="Pull the weather" />
           </SettingRow>
-          <div className="row"><button type="button" className="btn sm" onClick={() => run(name, src)} disabled={!f.home_lat && !f.home_lon}>Test</button>{stat(name)}</div>
+          <div className="row"><button type="button" className="btn sm" onClick={() => run(name, src)} disabled={!wx.via && !wx.home && !core}>Test</button>{stat(name)}</div>
         </Section>
       })}
       <div className="row wrap"><button type="button" className="btn primary" onClick={() => save()} disabled={busy}>Save sources</button><span className="muted small">A newly connected source is pulled for today on the next tick; use Backfill for the past.</span></div>
@@ -520,6 +522,33 @@ const locationBadge = (loc: LocationState, mode: ConnMode, via: string) => loc.p
   ? <span className="badge ok">Pocket Movement</span>
   : loc.provider === 'movement' && via ? <span className="badge warn">Dawarich (fallback)</span>
   : connBadge(mode, via)
+
+const weatherBadge = (on: boolean, wx: WeatherState) => !on ? <span className="badge">off</span>
+  : wx.via ? <span className="badge ok">Pocket Weather</span>
+  : wx.home ? <span className="badge ok">Open-Meteo</span>
+  : <span className="badge">set a home location</span>
+
+// WeatherFrom says where the weather comes from: Pocket Weather through
+// Pocket Core while the Day → Pocket Weather link is on (greyed out without
+// Pocket Core, never hidden), else straight from Open-Meteo for the home
+// location under General, which also fills in if Pocket Weather is not there.
+function WeatherFrom({ wx, core, on }: { wx: WeatherState; core: boolean; on: boolean }) {
+  const pocketLine = !core ? 'Pocket Weather: needs Pocket Core.'
+    : wx.via ? 'From Pocket Weather, as you, through Pocket Core: your home place there, your weather diary with your notes, and today’s warnings.'
+    : !on ? 'Pocket Weather: the weather is switched off below.'
+    : `Pocket Weather is not connected: ${wx.detail || 'switch on the Day → Pocket Weather link in Pocket Core'}.`
+  const directLine = wx.home
+    ? (wx.via ? 'Straight from Open-Meteo for your home location: fills in if Pocket Weather is ever not there.' : 'Straight from Open-Meteo for your home location (General).')
+    : 'Straight from Open-Meteo: set a home location under General first.'
+  return (
+    <div className="loc-block">
+      <span className="lbl">The weather, from</span>
+      <div className={`conn-status ${!core ? 'off' : wx.via ? 'ok' : on ? 'bad' : ''}`}><span className="dot" />{pocketLine}</div>
+      {!core && <CoreHint what="Pocket Weather" />}
+      <div className={`conn-status ${wx.via ? 'off' : wx.home && on ? 'ok' : 'bad'}`}><span className="dot" />{directLine}</div>
+    </div>
+  )
+}
 
 const connBadge = (mode: ConnMode, via: string) => mode === 'off' ? <span className="badge">off</span>
   : via ? <span className="badge ok">{via === 'core' ? 'Pocket Core' : 'direct'}</span>

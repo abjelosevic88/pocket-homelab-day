@@ -88,7 +88,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Nextcloud** | tasks completed (every list), events and contact birthdays, over CalDAV | Pocket Core service, or URL + user + app password |
 | **Pocket Documents** | documents added, with correspondent and type, each linking to the document | Pocket Core link, or URL + token |
 | **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | Pocket Core link, or URL + token |
-| **Open-Meteo** | weather at home, or where Dawarich says you were | a home location |
+| **Weather** | the day's weather at home, or where your location source says you were — from **Pocket Weather** while its link is on (your home place there, your weather diary with your own note on the day, and today's warnings: “Warning: Strong wind; Rain, 3–8 °C, 3 mm”), else straight from Open-Meteo, which also fills in when Pocket Weather is not connected or has no place for you yet | Pocket Core link (`weather:read`), or a home location (Open-Meteo, no key) |
 
 All optional. A day only shows the sources you connected. With **Pocket Core** on the box: registers itself, publishes `day.entry_written`, `day.moment_created` and `day.story_created`, accepts paired-phone tokens, and shows “Sign in with Pocket Core” on the login page with no OIDC configuration at all.
 

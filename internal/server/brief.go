@@ -50,6 +50,15 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		if wd.Place != "" {
 			s += " in " + wd.Place
 		}
+		for _, w := range wd.Warnings {
+			s += "; " + w.Level + " out: " + w.Title
+			if detail && w.Detail != "" {
+				s += " (" + w.Detail + ")"
+			}
+		}
+		if wd.Note != "" {
+			s += "; their own note in the weather diary: “" + wd.Note + "”"
+		}
 		add("Weather", s)
 	}
 	var wh sources.Where

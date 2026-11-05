@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	core "github.com/abjelosevic88/pocket-homelab-core/sdk"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/ai"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/sources"
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
@@ -50,6 +51,17 @@ type publicSource struct {
 	Books    *publicBooks    `json:"audiobooks,omitempty"`
 	Requests *publicRequests `json:"requests,omitempty"`
 	Watch    *publicWatch    `json:"watch,omitempty"`
+	// The weather source only (weather.go).
+	Weather *publicWeather `json:"weather,omitempty"`
+}
+
+// publicWeather is how the weather source gets the days: Pocket Weather's
+// link (via "core" when it is on, else why not) and whether Day has a home
+// location for the weather straight from Open-Meteo.
+type publicWeather struct {
+	Via    string `json:"via"`
+	Detail string `json:"detail,omitempty"`
+	Home   bool   `json:"home"`
 }
 
 // publicWatch is where the watched source's days come from: the saved
@@ -129,6 +141,9 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		}
 		if n == "maloja" {
 			ps.Music = &publicMusic{Choice: src.Provider, Provider: ss.Provider, MusicVia: ss.MusicVia, MusicDetail: ss.MusicDetail, MalojaVia: ss.MalojaVia}
+		}
+		if n == "weather" {
+			ps.Weather = &publicWeather{Via: ss.WeatherVia, Detail: ss.WeatherDetail, Home: hasHome(st)}
 		}
 		if n == "dawarich" {
 			ps.Location = &publicLocation{Choice: src.Provider, Provider: ss.Provider, MovementVia: ss.MovementVia, MovementDetail: ss.MovementDetail, DawarichVia: ss.DawarichVia}
@@ -435,7 +450,17 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 	}
 	switch in.Which {
 	case "weather":
-		f = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
+		// Pocket Weather when its link is on (Open-Meteo behind it), else Open-Meteo for the home location.
+		wsrc := st.Sources["weather"]
+		wsrc.Enabled = true
+		var ss sourceState
+		applyWeather(&ss, wsrc, st, s.core.Configured(), func() (map[string]core.LinkState, error) { return s.linkStates(ctx, u.Email) })
+		wf := s.weatherSource(u, st, ss)
+		if wf == nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "Set a home location under General first" + map[bool]string{true: ", or switch on the Day → Pocket Weather link in Pocket Core", false: ""}[s.core.Configured()]})
+			return
+		}
+		f = wf
 	case "ai":
 		base, k, model := strings.TrimRight(strings.TrimSpace(in.URL), "/"), in.Key, strings.TrimSpace(in.Extra)
 		if base == "" {
@@ -474,7 +499,7 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 	}
 	msg, err := f.Test(ctx)
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": strings.TrimPrefix(err.Error(), "not connected: ")})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg})

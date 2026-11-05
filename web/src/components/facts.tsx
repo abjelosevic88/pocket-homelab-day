@@ -288,7 +288,13 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
     }
     case 'weather': {
       const w = fact.payload as WeatherDay
-      body = <div className="fact-head"><span style={{ fontSize: 22 }}>{WEATHER_ICON[w.condition] || '🌡'}</span> <b>{cap(w.condition || 'weather')}</b>{w.t_min !== null && w.t_max !== null && <span className="muted"> · {Math.round(w.t_min)}–{Math.round(w.t_max)} °C</span>}{w.precip_mm ? <span className="muted"> · {w.precip_mm} mm</span> : null}{w.sunshine_h ? <span className="muted"> · {w.sunshine_h} h sun</span> : null}{w.place && <span className="muted"> · {w.place}</span>}</div>
+      body = <>
+        <div className="fact-head"><span style={{ fontSize: 22 }}>{WEATHER_ICON[w.condition] || '🌡'}</span> <b>{cap(w.condition || 'weather')}</b>{w.t_min !== null && w.t_max !== null && <span className="muted"> · {Math.round(w.t_min)}–{Math.round(w.t_max)} °C</span>}{w.precip_mm ? <span className="muted"> · {w.precip_mm} mm</span> : null}{w.sunshine_h ? <span className="muted"> · {w.sunshine_h} h sun</span> : null}{w.place && <span className="muted"> · {w.place}</span>}</div>
+        {(w.warnings?.length || w.note) ? <div className="inline-list">
+          {(w.warnings || []).map((x, i) => <div key={`w${i}`} className="li"><span style={{ display: 'inline-flex', color: x.level === 'warning' ? 'var(--warning)' : 'var(--muted)' }}><Icon name="alert" size={15} /></span><span className="grow"><b>{x.title}</b><span className="muted">{[x.level === 'warning' ? 'Warning' : 'Advisory', x.from && x.until ? `${x.from}–${x.until}` : x.from ? `from ${x.from}` : x.until ? `until ${x.until}` : '', x.place || '', x.detail || ''].filter(Boolean).map(s => ` · ${s}`).join('')}</span></span></div>)}
+          {w.note && <div className="li"><Icon name="edit" size={15} className="muted" /><span className="grow"><span className="muted">Your note in Pocket Weather: </span>{w.note}</span></div>}
+        </div> : null}
+      </>
       break
     }
     default:
@@ -341,7 +347,11 @@ function PhotoGrid({ p, date, link, PinBtn }: { p: Photos; date: string; link?: 
 export function WeatherChip({ fact }: { fact?: Fact }) {
   if (!fact || !fact.payload) return null
   const w = fact.payload as WeatherDay
-  return <span className="status-pill" title={w.place}>{WEATHER_ICON[w.condition] || '🌡'} {w.t_min !== null && w.t_max !== null ? `${Math.round(w.t_min)}–${Math.round(w.t_max)} °C` : cap(w.condition)}</span>
+  const warn = w.warnings?.length ? w.warnings.map(x => x.title).join(', ') : ''
+  return <>
+    <span className="status-pill" title={[w.place, w.note].filter(Boolean).join(' · ')}>{WEATHER_ICON[w.condition] || '🌡'} {w.t_min !== null && w.t_max !== null ? `${Math.round(w.t_min)}–${Math.round(w.t_max)} °C` : cap(w.condition)}</span>
+    {warn && <span className="status-pill" title={w.warnings!.map(x => [x.title, x.detail].filter(Boolean).join(': ')).join('\n')}><Icon name="alert" size={13} />{warn}</span>}
+  </>
 }
 
 /** Whether a source recorded anything worth a card on this day. */

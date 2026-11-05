@@ -11,13 +11,18 @@ import (
 	"time"
 )
 
-// The day's weather comes from Open-Meteo (free, no key): the forecast API
-// answers the last three months, the archive API anything older.
+// The day's weather comes from Pocket Weather when Day has a link to it
+// (pocketweather.go), else straight from Open-Meteo (free, no key): the
+// forecast API answers the last three months, the archive API anything older.
+// (Variables so the tests can point them at a fake.)
+var (
+	OpenMeteoForecast = "https://api.open-meteo.com/v1/forecast"
+	OpenMeteoArchive  = "https://archive-api.open-meteo.com/v1/archive"
+)
+
 const (
-	openMeteoForecast = "https://api.open-meteo.com/v1/forecast"
-	openMeteoArchive  = "https://archive-api.open-meteo.com/v1/archive"
-	openMeteoGeocode  = "https://geocoding-api.open-meteo.com/v1/search"
-	dailyVars         = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration,wind_speed_10m_max"
+	openMeteoGeocode = "https://geocoding-api.open-meteo.com/v1/search"
+	dailyVars        = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration,wind_speed_10m_max"
 )
 
 // Weather fetches one place's daily summary.
@@ -52,6 +57,13 @@ type Day struct {
 	Place     string   `json:"place"`
 	Lat       float64  `json:"lat"`
 	Lon       float64  `json:"lon"`
+	// From Pocket Weather only: From is "pocket", Note the person's own note
+	// on the day in their weather diary, Diary whether the day is one the
+	// diary kept, Warnings the warnings out for today (today's pull only).
+	From     string           `json:"from,omitempty"`
+	Note     string           `json:"note,omitempty"`
+	Diary    bool             `json:"diary,omitempty"`
+	Warnings []WeatherWarning `json:"warnings,omitempty"`
 }
 
 // Test implements Fetcher.
@@ -86,24 +98,13 @@ func (c *Weather) FetchAt(ctx context.Context, date string, lat, lon float64, pl
 	if d == nil {
 		return nil, errors.New("open-meteo has nothing for that day yet")
 	}
-	sum := ConditionLabel(d.Condition)
-	if d.TMax != nil && d.TMin != nil {
-		sum += fmt.Sprintf(", %.0f–%.0f °C", *d.TMin, *d.TMax)
-	}
-	if d.PrecipMM != nil && *d.PrecipMM >= 1 {
-		sum += fmt.Sprintf(", %.0f mm", *d.PrecipMM)
-	}
-	h := 0.0
-	if d.TMax != nil {
-		h = *d.TMax
-	}
-	return &Result{Payload: d, Headline: h, Summary: sum}, nil
+	return &Result{Payload: d, Headline: dayHeadline(d), Summary: daySummary(d)}, nil
 }
 
 func (c *Weather) fetchAt(ctx context.Context, lat, lon float64, place, date string) (*Day, error) {
-	base := openMeteoForecast
+	base := OpenMeteoForecast
 	if date < time.Now().AddDate(0, 0, -85).Format("2006-01-02") {
-		base = openMeteoArchive
+		base = OpenMeteoArchive
 	}
 	q := url.Values{}
 	q.Set("latitude", fmt.Sprintf("%.4f", lat))

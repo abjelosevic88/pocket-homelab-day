@@ -90,12 +90,14 @@ func pocketUses() []core.Use {
 	}
 	// Pocket Movement is not a source of its own: it feeds the location source (movement.go).
 	// Pocket Music feeds the music source the same way (music.go), Pocket Audiobooks the audiobooks one (audiobooks.go),
-	// Pocket Requests the requests one (requests.go), Pocket Watch the watched one (watch.go).
+	// Pocket Requests the requests one (requests.go), Pocket Watch the watched one (watch.go),
+	// Pocket Weather the weather one (weather.go).
 	return append(out, core.Use{App: movementApp.slug, Scopes: []string{movementApp.scope}, Reason: movementApp.reason},
 		core.Use{App: musicApp.slug, Scopes: []string{musicApp.scope}, Reason: musicApp.reason},
 		core.Use{App: audiobooksApp.slug, Scopes: []string{audiobooksApp.scope}, Reason: audiobooksApp.reason},
 		core.Use{App: requestsApp.slug, Scopes: []string{requestsApp.scope}, Reason: requestsApp.reason},
-		core.Use{App: watchApp.slug, Scopes: []string{watchApp.scope}, Reason: watchApp.reason})
+		core.Use{App: watchApp.slug, Scopes: []string{watchApp.scope}, Reason: watchApp.reason},
+		core.Use{App: weatherApp.slug, Scopes: []string{weatherApp.scope}, Reason: weatherApp.reason})
 }
 
 // Connection modes.
@@ -146,7 +148,8 @@ type connTarget struct {
 }
 
 // connectable returns how a source is reached through Pocket Core; false for
-// the sources that never are (weather).
+// the sources that never are (weather: Pocket Weather feeds it through its
+// own link, see weather.go, and Open-Meteo needs no connection).
 func connectable(name string) (connTarget, bool) {
 	if ps, ok := pocketSources[name]; ok {
 		return connTarget{target: ps.slug, scope: ps.scope, app: ps.app}, true
@@ -216,6 +219,10 @@ type sourceState struct {
 	// the person's dictation ("core" | "direct" | "") and why not.
 	DictationVia    string
 	DictationDetail string
+	// The weather source (weather.go): whether Pocket Weather's link is on
+	// ("core" | "") and why not.
+	WeatherVia    string
+	WeatherDetail string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -278,11 +285,11 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 		src := st.Sources[n]
 		ct, ok := connectable(n)
 		if !ok {
-			active := src.Configured(n)
+			ss := sourceState{Active: src.Configured(n)}
 			if n == "weather" {
-				active = src.Enabled && (st.HomeLat != 0 || st.HomeLon != 0)
+				applyWeather(&ss, src, st, coreOK && u != nil, getLinks)
 			}
-			out[n] = sourceState{Active: active}
+			out[n] = ss
 			continue
 		}
 		ss := sourceState{Mode: connMode(n, src, coreOK)}

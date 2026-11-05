@@ -67,7 +67,9 @@ func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings)
 		}
 		switch name {
 		case "weather":
-			out[name] = sources.NewWeather(st.HomeLat, st.HomeLon, st.HomePlace, s.cfg.UserAgent)
+			if f := s.weatherSource(u, st, ss); f != nil {
+				out[name] = f
+			}
 		}
 	}
 	return out
@@ -187,7 +189,7 @@ func (s *Server) pullDayOnly(ctx context.Context, userID int64, date string, for
 		s.syncHabitsEntry(ctx, userID, date)
 	}
 	// Weather at the place the day actually happened, when Dawarich knows it.
-	if wf, ok := fs["weather"].(*sources.Weather); ok {
+	if wf, ok := fs["weather"].(weatherAt); ok {
 		if lat, lon, place := s.dayLocation(ctx, userID, date, st); lat != 0 || lon != 0 {
 			if res, err := wf.FetchAt(ctx, date, lat, lon, place); err == nil {
 				b, _ := json.Marshal(res.Payload)
@@ -215,10 +217,19 @@ func (s *Server) dayLocation(ctx context.Context, userID int64, date string, st 
 	}
 	lat := (w.Bounds[0] + w.Bounds[2]) / 2
 	lon := (w.Bounds[1] + w.Bounds[3]) / 2
+	// Home is the one set in Day, or the home place in Pocket Weather when the
+	// day's weather came from there (what the home weather was for).
+	homeLat, homeLon := st.HomeLat, st.HomeLon
+	if wf, ok := facts["weather"]; ok && wf.Error == "" {
+		var wd sources.Day
+		if json.Unmarshal(wf.Payload, &wd) == nil && wd.From == "pocket" && (wd.Lat != 0 || wd.Lon != 0) {
+			homeLat, homeLon = wd.Lat, wd.Lon
+		}
+	}
 	// within ~40 km of home: use home (its name is nicer and the weather is the same)
-	if st.HomeLat != 0 || st.HomeLon != 0 {
-		dlat := (lat - st.HomeLat) * 111
-		dlon := (lon - st.HomeLon) * 78
+	if homeLat != 0 || homeLon != 0 {
+		dlat := (lat - homeLat) * 111
+		dlon := (lon - homeLon) * 78
 		if dlat*dlat+dlon*dlon < 40*40 {
 			return 0, 0, ""
 		}

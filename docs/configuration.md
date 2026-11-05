@@ -82,6 +82,7 @@ Day declares its uses in the manifest, one read-only scope per app — plus `voi
 | documents | `documents:read` | `GET /api/v1/documents?added_from=&added_to=&sort=added&limit=500&no_facets=1` |
 | money | `transactions:read` | `GET /firefly/api/v1/about`, `/firefly/api/v1/transactions` |
 | requests | `requests:read` | `GET /api/v1/day/{date}?tz=`, `/api/v1/requests?limit=1` — feeds the Requests source (id `jellyseerr`) when a person picks Pocket Requests (the default with Core); a connected Jellyseerr fills in while the link is off |
+| weather | `weather:read` | `GET /api/v1/day/{date}` (with `?lat=&lon=` for a day the location source places more than ~40 km from home), and for today `GET /api/v1/warnings` (the active ones whose `day` is today) — feeds the weather source while the link is on: Pocket Weather's home place, the diary day with the person's own note, today's warnings. Open-Meteo for the home location in Day answers instead while the link is off, when it is refused at fetch time, and when Pocket Weather has no place for the person yet (404); other errors are the day's error |
 | watch | `watching:read` | `GET /api/v1/history?from=&to=&limit=500` (a day either side, times decide), `/api/v1/history?limit=1` — feeds the Watched source (id `jellystat`) when a person picks Pocket Watch (the default with Core); a connected Jellystat fills in while the link is off |
 
 plus `GET /api/v1/auth/me` (and the open `/healthz`) for “Test connection”. A link that is off — or a person Core does not let use the app — means the source is skipped for the day, not recorded as failed; Settings → Sources says why (“you switched the Day → Pocket Garage link off …”). If Core does not answer, sources in Pocket Core mode are skipped for that pull. **Disconnect** (Direct) clears the URL and token; values from the environment are copied into the owner's settings once, so a disconnected token stays gone after a restart.
@@ -127,7 +128,7 @@ Inside Docker, reach sibling containers by service name or `http://host.docker.i
 - A failed fetch keeps the earlier payload and marks the card *stale*.
 - The first start (and each restart) runs a background **backfill** of `BACKFILL_DAYS` for every account with their own sources, one day every 1.5 s, skipping days that already have every source.
 - **Habits journal as the entry:** on a day with no words written in Pocket Day (a mood or tags alone do not count), the person's own Pocket Habits journal (from their own Habits source) becomes their entry — the “good thing” line as the highlight, the important note and the “bad thing” line as the text. It follows Habits until you edit it here (then it is yours) and stays gone if you remove it. It counts as written: streaks, the calendar, memories, the AI and the evening push see it.
-- Weather: the home location, unless the day's Dawarich bounds are more than ~40 km away — then the centre of that day's movement.
+- Weather: the home location, unless the day's Dawarich bounds are more than ~40 km away — then the centre of that day's movement. Home is Pocket Weather's home place while the Day → Pocket Weather link is on, else the home location in Day (Open-Meteo, straight).
 
 ## AI
 | Variable | Default | |

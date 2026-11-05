@@ -6,7 +6,7 @@ export type ConnMode = 'core' | 'direct' | 'off'
 // pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
 // service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
 // via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; audiobooks?: BooksState; requests?: RequestsState; watch?: WatchState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' | 'audiobooks' | 'audiobookshelf' | 'requests' | 'jellyseerr' | 'watch' | 'jellystat' }
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; audiobooks?: BooksState; requests?: RequestsState; watch?: WatchState; weather?: WeatherState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' | 'audiobooks' | 'audiobookshelf' | 'requests' | 'jellyseerr' | 'watch' | 'jellystat' }
 /** Where the location source's days come from: Pocket Movement (through Pocket Core only) or Dawarich. */
 export interface LocationState { choice: '' | 'movement' | 'dawarich'; provider: 'movement' | 'dawarich'; movement_via: '' | 'core'; movement_detail?: string; dawarich_via: '' | 'core' | 'direct' }
 /** Where the music source's days come from: Pocket Music (through Pocket Core only) or Maloja. */
@@ -109,7 +109,11 @@ export interface PlacesDay { visits: PlacesVisit[]; planned: PlacesVisit[]; save
 export interface ParcelsDay { delivered: ParcelsItem[]; sent: ParcelsItem[]; ordered: ParcelsItem[]; steps: ParcelsStep[]; expected: ParcelsItem[] }
 export interface Fill { vehicle: string; kind: string; title: string; volume?: number; cost: number; currency: string; odometer?: number; station?: string }
 export interface Car { items: Fill[] }
-export interface WeatherDay { code: number; condition: string; t_max: number | null; t_min: number | null; precip_mm: number | null; sunshine_h: number | null; daylight_h: number | null; wind_max: number | null; place: string }
+export interface WeatherWarning { level: 'advisory' | 'warning' | string; kind?: string; title: string; detail?: string; place?: string; from?: string; until?: string }
+/** A day's weather; from, note, diary and warnings come only from Pocket Weather. */
+export interface WeatherDay { code: number; condition: string; t_max: number | null; t_min: number | null; precip_mm: number | null; sunshine_h: number | null; daylight_h: number | null; wind_max: number | null; place: string; from?: 'pocket'; note?: string; diary?: boolean; warnings?: WeatherWarning[] }
+/** How the weather source gets the days: Pocket Weather's link (via core) and whether Day has a home location for Open-Meteo. */
+export interface WeatherState { via: '' | 'core'; detail?: string; home: boolean }
 
 export interface MonthRecap { month: string; entries: number; moments: number; mood: number; photos: number; km: number; listens: number; watch_min: number; spend: Record<string, number>; books: number; cooked: number; habits_pct: number; days: number; sunny_pct: number }
 export interface YearRecap {
