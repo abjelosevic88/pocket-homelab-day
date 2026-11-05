@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -197,6 +197,16 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'sign': {
+      const sd = fact.payload as SignDay
+      const rows = [...(sd.completed || []), ...(sd.signed_by_me || []), ...(sd.sent || []), ...(sd.signed || [])]
+      if (!rows.length) { body = empty('Nothing signed today.'); break }
+      const go = (it: SignDay['sent'][number]) => link && <a className="btn ghost icon-only sm" href={it.recipient_id ? `${link}/inbox/${it.recipient_id}` : `${link}/documents/${it.document_id}`} target="_blank" rel="noreferrer" title="Open in Pocket Sign" aria-label="Open in Pocket Sign"><Icon name="external" size={14} /></a>
+      body = <div className="inline-list">
+        {rows.map(it => <div key={`${it.document_id}${it.recipient_id || ''}${it.line}`} className="li"><Icon name="pen" size={15} className="muted" /><span className="grow"><b>{it.line}</b>{it.time && <span className="muted"> · {it.time}</span>}</span>{go(it)}</div>)}
+      </div>
+      break
+    }
     case 'parcels': {
       const pd = fact.payload as ParcelsDay
       const rows = [...(pd.delivered || []), ...(pd.sent || []), ...(pd.ordered || [])]
@@ -308,6 +318,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'renewals': return len('renewed') + len('expired') > 0
     case 'wealth': return len('items') > 0
     case 'pets': return len('entries') + len('weights') + len('birthdays') > 0
+    case 'sign': return len('completed') + len('signed_by_me') + len('sent') + len('signed') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

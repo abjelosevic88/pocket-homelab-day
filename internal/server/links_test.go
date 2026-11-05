@@ -34,6 +34,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"wealth:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"pets:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"parcels:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"signing:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -353,6 +354,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","items":[{"type":"activity","id":3,"kind":"buy","title":"Bought 2.5 Vanguard FTSE All-World","amount":30000,"currency":"EUR","asset_id":4,"asset":"Broker account","url":"https://wealth.x/a/4"},{"type":"valuation","id":9,"title":"Pension updated","amount":1960000,"currency":"EUR","asset_id":6,"asset":"Pension","url":"https://wealth.x/a/6"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "pets":
 			write(`{"date":"` + d + `","records":[{"id":11,"pet_id":1,"pet_name":"Luna","pet_species":"dog","kind":"vet_visit","title":"Limping on the front left leg","notes":"","valid_until":"","cost":4500,"currency":"BAM","pro_name":"Dr. Hodžić","care_title":"","date":"` + d + `"},{"id":12,"pet_id":2,"pet_name":"Mici","pet_species":"cat","kind":"purchase","title":"Food","cost":6900,"currency":"BAM","date":"` + d + `"}],"weights":[{"id":4,"pet_id":2,"pet_name":"Mici","weighed_on":"` + d + `","kg":4.9,"change":-0.04}],"due":[],"birthdays":[{"pet_id":1,"name":"Luna","turns":5}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "sign":
+			write(`{"sent":[{"id":1,"title":"NDA — Acme","sent_at":"` + d + `T08:00:00Z","recipients":[{"name":"Ana Kovač","email":"ana@example.com","role":"signer"}]}],"completed":[{"id":3,"title":"Ugovor o zakupu","completed_at":"` + d + `T14:30:00Z"}],"signed":[{"document_id":3,"title":"Ugovor o zakupu","name":"Marko Marić","at":"` + d + `T14:30:00Z"}],"signed_by_me":[]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "parcels":
 			write(`{"date":"` + d + `","delivered":[{"id":5,"title":"Running shoes","shop":"Decathlon","carrier_name":"GLS","direction":"in","delivered_at":"` + d + `T13:20:00Z","days":3,"price":7999,"currency":"EUR"}],"sent":[{"id":6,"title":"Birthday present for Ana","shop":"Ana","direction":"out","ordered_on":"` + d + `"}],"added":[{"id":7,"title":"USB-C hub","shop":"AliExpress","direction":"in","ordered_on":"2026-01-01"}],"expected":[],"steps":[{"parcel_id":8,"title":"Phone case","at":"` + d + `T09:00:00Z","status":"pickup","description":"Ready for pick-up","location":"Pošta Sarajevo"},{"parcel_id":5,"title":"Running shoes","at":"` + d + `T08:00:00Z","status":"out_for_delivery","description":"Out for delivery"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "renewals":
@@ -539,7 +542,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read parcels=parcels:read pets=pets:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read wealth=wealth:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read parcels=parcels:read pets=pets:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read wealth=wealth:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -582,6 +585,9 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if f := facts["parcels"]; f.Headline != 1 || f.Summary != "Delivered: Running shoes (Decathlon); Sent: Birthday present for Ana; Ready to pick up: Phone case (Pošta Sarajevo)" {
 		t.Errorf("parcels fact (ordered earlier, out for delivery left out): %+v", f)
+	}
+	if f := facts["sign"]; f.Headline != 1 || f.Summary != "Everyone signed: Ugovor o zakupu; Sent for signing: NDA — Acme (to Ana Kovač)" {
+		t.Errorf("sign fact (Marko's signature is in \"everyone signed\"): %+v", f)
 	}
 	if f := facts["pets"]; f.Headline != 1 || f.Summary != "Luna turned 5; Luna at the vet: limping on the front left leg — Dr. Hodžić; Mici weighed 4.9 kg (−0.04)" {
 		t.Errorf("pets fact (no food purchase, nothing due): %+v", f)

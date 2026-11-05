@@ -68,6 +68,7 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 | wealth | `wealth:read` | `GET /api/v1/day/{date}` |
 | pets | `pets:read` | `GET /api/v1/day/{date}` — vet visits, vaccines, treatments, grooming and symptoms, weighings and birthdays; food bought and care that was only due stay out |
 | parcels | `parcels:read` | `GET /api/v1/day/{date}` — delivered (with the time and days on the way), sent, ordered, ready to pick up, problems and sent back; parcels only expected that day are in the card, not the summary |
+| sign | `signing:read` | `GET /api/v1/day/{date}` — sent for signing (to whom), signed by others, everyone signed, and what you signed (approved, read) yourself |
 | bookshelf | `books:read` | `GET /api/v1/books` |
 | travel | `trips:read` | `GET /api/v1/trips` |
 | kitchen | `cooklog:read` | `GET /api/v1/cooklog` |
