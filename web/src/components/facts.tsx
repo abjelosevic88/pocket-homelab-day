@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -197,6 +197,18 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'parcels': {
+      const pd = fact.payload as ParcelsDay
+      const rows = [...(pd.delivered || []), ...(pd.sent || []), ...(pd.ordered || [])]
+      if (!rows.length && !pd.steps?.length && !pd.expected?.length) { body = empty('No parcels today.'); break }
+      const go = (id: number) => link && <a className="btn ghost icon-only sm" href={`${link}/parcels/${id}`} target="_blank" rel="noreferrer" title="Open in Pocket Parcels" aria-label="Open in Pocket Parcels"><Icon name="external" size={14} /></a>
+      body = <div className="inline-list">
+        {rows.map(it => <div key={`${it.id}${it.line}`} className="li"><Icon name="package" size={15} className="muted" /><span className="grow"><b>{it.line}</b>{(it.time || it.carrier) && <span className="muted">{[it.time, it.carrier, it.days != null && it.line.startsWith('Delivered') ? `${it.days} ${it.days === 1 ? 'day' : 'days'} on the way` : ''].filter(Boolean).map(x => ` · ${x}`).join('')}</span>}</span>{it.price != null && it.currency && it.line.startsWith('Delivered') ? <span className="money">{fmtAmount(it.price / 100, it.currency)}</span> : null}{go(it.id)}</div>)}
+        {(pd.steps || []).map(s => <div key={`s${s.parcel_id}${s.status}`} className="li"><Icon name={s.status === 'pickup' ? 'pin' : 'alert'} size={15} className="muted" /><span className="grow"><b>{s.line}</b>{s.time && <span className="muted"> · {s.time}</span>}</span>{go(s.parcel_id)}</div>)}
+        {(pd.expected || []).map(it => <div key={`x${it.id}`} className="li"><Icon name="clock" size={15} className="muted" /><span className="grow"><span className="muted">{it.line}</span></span>{go(it.id)}</div>)}
+      </div>
+      break
+    }
     case 'renewals': {
       const r = fact.payload as RenewalsDay
       if (!r.renewed?.length && !r.expired?.length) { body = empty('Nothing renewed, nothing ran out.'); break }
@@ -296,6 +308,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'renewals': return len('renewed') + len('expired') > 0
     case 'wealth': return len('items') > 0
     case 'pets': return len('entries') + len('weights') + len('birthdays') > 0
+    case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }
