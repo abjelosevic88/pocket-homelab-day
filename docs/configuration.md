@@ -66,6 +66,7 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 | home | `home:read` | `GET /api/v1/day/{date}` |
 | renewals | `renewals:read` | `GET /api/v1/day/{date}` |
 | wealth | `wealth:read` | `GET /api/v1/day/{date}` |
+| pets | `pets:read` | `GET /api/v1/day/{date}` — vet visits, vaccines, treatments, grooming and symptoms, weighings and birthdays; food bought and care that was only due stay out |
 | bookshelf | `books:read` | `GET /api/v1/books` |
 | travel | `trips:read` | `GET /api/v1/trips` |
 | kitchen | `cooklog:read` | `GET /api/v1/cooklog` |
