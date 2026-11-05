@@ -32,6 +32,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"home:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"renewals:read":    {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"wealth:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"pets:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -349,6 +350,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","records":[{"id":3,"kind":"repair","title":"Replaced the kitchen tap","thing_name":"Kitchen sink","home_name":"House","pro_name":"Marko","cost":8900,"currency":"EUR"}],"readings":[{"meter_id":1,"meter":"Electricity","kind":"electricity","unit":"kWh","value":48230.5,"usage":312.4,"days":31}],"due":[]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "wealth":
 			write(`{"date":"` + d + `","items":[{"type":"activity","id":3,"kind":"buy","title":"Bought 2.5 Vanguard FTSE All-World","amount":30000,"currency":"EUR","asset_id":4,"asset":"Broker account","url":"https://wealth.x/a/4"},{"type":"valuation","id":9,"title":"Pension updated","amount":1960000,"currency":"EUR","asset_id":6,"asset":"Pension","url":"https://wealth.x/a/6"}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "pets":
+			write(`{"date":"` + d + `","records":[{"id":11,"pet_id":1,"pet_name":"Luna","pet_species":"dog","kind":"vet_visit","title":"Limping on the front left leg","notes":"","valid_until":"","cost":4500,"currency":"BAM","pro_name":"Dr. Hodžić","care_title":"","date":"` + d + `"},{"id":12,"pet_id":2,"pet_name":"Mici","pet_species":"cat","kind":"purchase","title":"Food","cost":6900,"currency":"BAM","date":"` + d + `"}],"weights":[{"id":4,"pet_id":2,"pet_name":"Mici","weighed_on":"` + d + `","kg":4.9,"change":-0.04}],"due":[],"birthdays":[{"pet_id":1,"name":"Luna","turns":5}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "renewals":
 			write(`{"date":"` + d + `","expires":[{"id":12,"title":"ID card","kind":"id_card","holder":"Luka","provider":"","expires_on":"` + d + `","status":"expired","open_url":"https://renewals.x/r/12"}],"renewed":[{"id":4,"renewal_id":7,"title":"Car insurance","renewed_on":"` + d + `","old_expires":"2026-01-05","new_expires":"2027-01-05","cost":41200,"currency":"EUR","note":"","source":"manual"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "horoscope":
@@ -533,7 +536,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read wealth=wealth:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read pets=pets:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read wealth=wealth:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -573,6 +576,9 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if f := facts["still"]; f.Headline != 15 || !strings.Contains(f.Summary, "box breathing") {
 		t.Errorf("still fact: %+v", f)
+	}
+	if f := facts["pets"]; f.Headline != 1 || f.Summary != "Luna turned 5; Luna at the vet: limping on the front left leg — Dr. Hodžić; Mici weighed 4.9 kg (−0.04)" {
+		t.Errorf("pets fact (no food purchase, nothing due): %+v", f)
 	}
 	if f := facts["firefly"]; f.Summary != "12.50 BAM in 1 transaction" || f.Headline != 12.5 {
 		t.Errorf("money fact under the old id: %+v", f)
