@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -131,6 +131,8 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const v of places?.visits || []) (v.time ? timed : untimed).push({ time: v.time || '', key: `plv${v.id}`, icon: src('places'), kind: 'act', title: v.line, sub: [v.trip, v.notes].filter(Boolean).join(' · ') || undefined })
   for (const v of places?.planned || []) (v.time ? timed : untimed).push({ time: v.time || '', key: `plp${v.id}`, icon: src('places'), kind: 'act', title: v.line })
   for (const sv of places?.saved || []) untimed.push({ time: '', key: `pls${sv.id}`, icon: src('places'), kind: 'act', title: sv.line, sub: [sv.cuisine, sv.city].filter(Boolean).join(' · ') || undefined })
+  const wallet = p<WalletDay>('wallet')
+  for (const ps of wallet?.passes || []) (ps.time ? timed : untimed).push({ time: ps.time || '', key: `wp${ps.id}`, icon: src('wallet'), kind: 'act', title: ps.line, sub: [ps.until && `until ${ps.until}`, ps.gate && `gate ${ps.gate}`, ps.trip].filter(Boolean).join(' · ') || undefined })
   const voice = p<VoiceDay>('voice')
   for (const m of voice?.memos || []) {
     const journal = m.kind === 'journal'

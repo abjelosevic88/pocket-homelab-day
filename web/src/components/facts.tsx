@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -221,6 +221,15 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'wallet': {
+      const wd = fact.payload as WalletDay
+      if (!wd.passes?.length) { body = empty('No tickets or boarding passes for this day.'); break }
+      const base = (link || wd.url || '').replace(/\/+$/, '')
+      body = <div className="inline-list">
+        {wd.passes.map(ps => <div key={ps.id} className="li"><Icon name={ps.kind === 'boarding' ? 'plane' : 'ticket'} size={15} className="muted" /><span className="grow"><b>{ps.line}</b>{(ps.time || ps.gate || ps.booking || ps.holder || ps.trip) && <span className="muted">{[ps.time && (ps.until ? `${ps.time}–${ps.until}` : ps.time), ps.gate && `gate ${ps.gate}`, ps.booking && `booking ${ps.booking}`, ps.holder, ps.trip].filter(Boolean).map(x => ` · ${x}`).join('')}</span>}</span>{base && <a className="btn ghost icon-only sm" href={`${base}${ps.path}`} target="_blank" rel="noreferrer" title="Open in Pocket Wallet" aria-label="Open in Pocket Wallet"><Icon name="external" size={14} /></a>}</div>)}
+      </div>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -362,6 +371,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'sign': return len('completed') + len('signed_by_me') + len('sent') + len('signed') > 0
     case 'places': return len('visits') + len('planned') + len('saved') > 0
     case 'voice': return len('memos') > 0
+    case 'wallet': return len('passes') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

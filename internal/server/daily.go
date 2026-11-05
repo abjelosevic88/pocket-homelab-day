@@ -18,7 +18,7 @@ func timeNow() time.Time { return time.Now() }
 // summaryLine joins the one-line summaries of a day's facts, most telling first.
 func summaryLine(facts map[string]store.Fact, max int) string {
 	var parts []string
-	for _, n := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "still", "garage", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "horoscope", "weather"} {
+	for _, n := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "still", "garage", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "horoscope", "weather"} {
 		f, ok := facts[n]
 		if !ok || f.Error != "" || f.Summary == "" {
 			continue
