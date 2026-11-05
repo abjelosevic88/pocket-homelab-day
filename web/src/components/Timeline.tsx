@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -121,6 +121,10 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const e of ren?.expired || []) untimed.push({ time: '', key: `rx${e.id}`, icon: src('renewals'), kind: 'act', title: `Ran out: ${e.title}`, sub: [e.holder, e.provider].filter(Boolean).join(' · ') || undefined })
   const wl = p<WealthDay>('wealth')
   for (const it of wl?.items || []) untimed.push({ time: '', key: `wl${it.type}${it.id}`, icon: src('wealth'), kind: 'act', title: it.title, sub: [it.type === 'activity' ? fmtAmount(it.amount / 100, it.currency) : '', it.asset && !it.title.includes(it.asset) ? it.asset : ''].filter(Boolean).join(' · ') || undefined })
+  const pets = p<PetsDay>('pets')
+  for (const b of pets?.birthdays || []) untimed.push({ time: '', key: `pb${b.pet_id}`, icon: src('pets'), kind: 'act', title: b.line })
+  for (const e of pets?.entries || []) untimed.push({ time: '', key: `pe${e.id}`, icon: src('pets'), kind: 'act', title: e.line, sub: e.notes || undefined })
+  for (const w of pets?.weights || []) untimed.push({ time: '', key: `pw${w.id}`, icon: src('pets'), kind: 'act', title: w.line })
   const sky = p<HoroscopeDay>('horoscope')
   for (const [i, e] of (sky?.events || []).entries()) if (e.kind !== 'ingress' || e.title.startsWith('Sun')) (e.time ? timed : untimed).push({ time: e.time || '', key: `sky${i}`, icon: src('horoscope'), kind: 'act', title: e.title })
   const cooked = p<Cooked>('kitchen')

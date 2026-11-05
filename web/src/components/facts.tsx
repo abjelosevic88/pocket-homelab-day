@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -186,6 +186,17 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'pets': {
+      const pd = fact.payload as PetsDay
+      if (!pd.entries?.length && !pd.weights?.length && !pd.birthdays?.length) { body = empty('Nothing with the pets.'); break }
+      const go = (path: string) => link && <a className="btn ghost icon-only sm" href={`${link}${path}`} target="_blank" rel="noreferrer" title="Open in Pocket Pets" aria-label="Open in Pocket Pets"><Icon name="external" size={14} /></a>
+      body = <div className="inline-list">
+        {(pd.birthdays || []).map(b => <div key={`b${b.pet_id}`} className="li"><Icon name="sparkles" size={15} className="muted" /><span className="grow"><b>{b.line}</b></span>{go(`/pets/${b.pet_id}`)}</div>)}
+        {(pd.entries || []).map(e => <div key={`e${e.id}`} className="li"><Icon name="paw" size={15} className="muted" /><span className="grow"><b>{e.line}</b>{(e.notes || e.valid_until) && <span className="muted">{[e.valid_until ? `valid until ${fmtDate(e.valid_until)}` : '', e.notes || ''].filter(Boolean).map(x => ` · ${x}`).join('')}</span>}</span>{e.cost ? <span className="money">{fmtAmount(e.cost / 100, e.currency)}</span> : null}{go(`/log/${e.id}`)}</div>)}
+        {(pd.weights || []).map(w => <div key={`w${w.id}`} className="li"><Icon name="activity" size={15} className="muted" /><span className="grow"><b>{w.line}</b></span>{go(`/pets/${w.pet_id}`)}</div>)}
+      </div>
+      break
+    }
     case 'renewals': {
       const r = fact.payload as RenewalsDay
       if (!r.renewed?.length && !r.expired?.length) { body = empty('Nothing renewed, nothing ran out.'); break }
@@ -284,6 +295,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'home': return len('work') + len('readings') > 0
     case 'renewals': return len('renewed') + len('expired') > 0
     case 'wealth': return len('items') > 0
+    case 'pets': return len('entries') + len('weights') + len('birthdays') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }
