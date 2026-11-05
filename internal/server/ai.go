@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -208,11 +209,20 @@ Reply as JSON: {"highlight": "...", "tags": ["..."], "mood": 0, "why": "..."}`
 
 // ---- dictation ----
 
+// handleAITranscribe writes out a recording: by Pocket Voice on the box when
+// Day may use it for the person, else by their OpenAI endpoint (dictation.go).
 func (s *Server) handleAITranscribe(w http.ResponseWriter, r *http.Request) {
-	st, _ := s.store.GetSettings(r.Context(), actorID(r.Context()))
+	ctx := r.Context()
+	u := userFrom(ctx)
+	st, _ := s.store.GetSettings(ctx, actorID(ctx))
+	vc, err := s.voiceDictation(ctx, u, st)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "Pocket Core did not answer, so the recording was not sent anywhere; try again in a moment ("+err.Error()+")")
+		return
+	}
 	c := ai.New(st.AIBaseURL, st.AIKey, st.AIModel, st.AITranscribeModel)
-	if c.Key == "" {
-		writeErr(w, 400, "Dictation requires your OpenAI key in Settings → AI")
+	if vc == nil && c.Key == "" {
+		writeErr(w, 400, "Dictation needs Pocket Voice on your server (its Day link switched on in Pocket Core, or its URL and token in Settings → Sources) or your OpenAI key in Settings → AI")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 25<<20)
@@ -239,8 +249,18 @@ func (s *Server) handleAITranscribe(w http.ResponseWriter, r *http.Request) {
 	if name == "" || !strings.Contains(name, ".") {
 		name = "dictation.webm"
 	}
-	text, err := c.Transcribe(r.Context(), buf, name, r.FormValue("language"))
-	s.logUsage(r.Context(), userFrom(r.Context()).ID, "dictation", ai.Usage{Model: c.TranscribeModel})
+	if vc != nil {
+		text, engine, err := voiceTranscribe(ctx, vc, buf, "dictation"+filepath.Ext(name), hdr.Header.Get("Content-Type"), r.FormValue("language"))
+		s.logUsage(ctx, u.ID, "dictation", ai.Usage{Model: strings.TrimSpace("Pocket Voice " + engine)})
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, voiceError(err))
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"text": text, "by": "voice"})
+		return
+	}
+	text, err := c.Transcribe(ctx, buf, name, r.FormValue("language"))
+	s.logUsage(ctx, u.ID, "dictation", ai.Usage{Model: c.TranscribeModel})
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, err.Error())
 		return

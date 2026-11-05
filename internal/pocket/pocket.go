@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"strings"
 	"time"
@@ -51,6 +53,20 @@ func (c *Client) Configured() bool { return c != nil && c.BaseURL != "" && c.Tok
 // ErrNotFound is a 404 from the sibling app.
 var ErrNotFound = errors.New("not found")
 
+// HTTPError is a sibling app's answer other than 401 and 404: the status and
+// its {"error": "..."} message, if any.
+type HTTPError struct {
+	Status  int
+	Message string
+}
+
+func (e *HTTPError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("HTTP %d: %s", e.Status, e.Message)
+	}
+	return fmt.Sprintf("HTTP %d", e.Status)
+}
+
 // Do performs a JSON request.
 func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body any, v any) error {
 	if !c.Configured() {
@@ -81,6 +97,55 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 	if err != nil {
 		return err
 	}
+	return decodeAnswer(res, v)
+}
+
+// PostFile sends one file as the multipart field "file", with any other form
+// fields, and decodes the JSON answer (Pocket Voice's dictation).
+func (c *Client) PostFile(ctx context.Context, path, filename, contentType string, data []byte, fields map[string]string, v any) error {
+	if !c.Configured() {
+		return errors.New("not configured")
+	}
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, val := range fields {
+		if val != "" {
+			_ = mw.WriteField(k, val)
+		}
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", `form-data; name="file"; filename="`+strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(filename)+`"`)
+	h.Set("Content-Type", contentType)
+	fw, err := mw.CreatePart(h)
+	if err != nil {
+		return err
+	}
+	if _, err := fw.Write(data); err != nil {
+		return err
+	}
+	if err := mw.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+path, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	return decodeAnswer(res, v)
+}
+
+// decodeAnswer reads a Pocket app's answer: the JSON into v, or its
+// {"error": "..."} as the error.
+func decodeAnswer(res *http.Response, v any) error {
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusUnauthorized {
 		return errors.New("token rejected (401)")
@@ -94,10 +159,7 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 		}
 		b, _ := io.ReadAll(io.LimitReader(res.Body, 2000))
 		_ = json.Unmarshal(b, &e)
-		if e.Error != "" {
-			return fmt.Errorf("HTTP %d: %s", res.StatusCode, e.Error)
-		}
-		return fmt.Errorf("HTTP %d", res.StatusCode)
+		return &HTTPError{Status: res.StatusCode, Message: e.Error}
 	}
 	if v == nil || res.StatusCode == http.StatusNoContent {
 		return nil

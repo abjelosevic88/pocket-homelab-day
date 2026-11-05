@@ -53,14 +53,14 @@ Everything belongs to the caller and nobody else sees it, admins included: entri
 | POST | `/notify/test` · `/notify/run` `{which: evening\|morning}` | |
 
 ## AI
-Needs an OpenAI key (Settings → AI); otherwise these return 400.
+Needs an OpenAI key (Settings → AI) or Pocket AI; otherwise these return 400. Dictation needs Pocket Voice (the Day → Pocket Voice `voice:transcribe` link on in Pocket Core, or the Pocket Voice source on Direct) or an OpenAI key.
 
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/ai/days/{date}/draft` | `{highlight, text}` — first-person draft; when the day already has text, only what it is missing |
 | GET | `/ai/days/{date}/question?refresh=1` | `{question}` — cached 3 h for today, for good on older days |
 | POST | `/ai/days/{date}/suggest` | `{highlight, text}` in → `{highlight, tags, mood, why}` |
-| POST | `/ai/transcribe` | multipart `file` (webm, m4a, mp3, wav; ≤ 25 MB), optional `language` → `{text}` |
+| POST | `/ai/transcribe` | multipart `file` (webm, m4a, mp3, wav; ≤ 25 MB), optional `language` → `{text, by?}`: written out by Pocket Voice on the box (`by: "voice"`) when Day may use it, else by OpenAI; 502 when Pocket Voice could not, or Pocket Core did not answer (the recording then goes nowhere) |
 | GET/POST/DELETE | `/ai/stories/{week\|month\|year}/{period}` | period `2026-W42`, `2026-10`, `2026`; GET returns the cached story or `null`, POST (re)writes it |
 | GET | `/ai/stories` | every story written, newest first |
 | POST | `/ai/asks` | `{question}` → `{answer, dates, scope}`; GET `/ai/asks` history, DELETE `/ai/asks/{id}` (`0` = all) |

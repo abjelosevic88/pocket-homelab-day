@@ -40,10 +40,13 @@ type pocketSource struct {
 	scope  string // what Day asks for
 	reason string // why, shown in Pocket Core
 	prefix string // path under the app's URL the source talks to
+	// more are further scopes the same use declares, for what Day does with
+	// the app besides the source (Pocket Voice: writing out dictation).
+	more []string
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -59,6 +62,7 @@ var pocketSources = map[string]pocketSource{
 	"pets":      {slug: "pets", app: "Pocket Pets", scope: "pets:read", reason: "Vet visits, vaccines, grooming, weighings and birthdays of your pets in your journal"},
 	"sign":      {slug: "sign", app: "Pocket Sign", scope: "signing:read", reason: "Documents you sent for signing, who signed them, what everyone finished signing and what you signed, in your journal"},
 	"places":    {slug: "places", app: "Pocket Places", scope: "places:read", reason: "Where you ate, drank and went (with whom, how you liked it, what it cost), what you planned and the places you saved, in your journal"},
+	"voice":     {slug: "voice", app: "Pocket Voice", scope: "voice:read", reason: "Your voice memos of the day (what you said, a summary, where you sent it), in your journal, and your dictation written out on your server", more: []string{voiceTranscribeScope}},
 	"parcels":   {slug: "parcels", app: "Pocket Parcels", scope: "parcels:read", reason: "Parcels delivered, sent, ordered, waiting to be picked up or in trouble, in your journal"},
 	"horoscope": {slug: "horoscope", app: "Pocket Horoscope", scope: "horoscope:read", reason: "The Moon, sky events and your daily horoscope and mood check-in in your journal"},
 	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
@@ -81,7 +85,7 @@ func pocketUses() []core.Use {
 	out := make([]core.Use, 0, len(pocketSourceOrder))
 	for _, n := range pocketSourceOrder {
 		ps := pocketSources[n]
-		out = append(out, core.Use{App: ps.slug, Scopes: []string{ps.scope}, Reason: ps.reason})
+		out = append(out, core.Use{App: ps.slug, Scopes: append([]string{ps.scope}, ps.more...), Reason: ps.reason})
 	}
 	// Pocket Movement is not a source of its own: it feeds the location source (movement.go).
 	// Pocket Music feeds the music source the same way (music.go), Pocket Audiobooks the audiobooks one (audiobooks.go),
@@ -207,6 +211,10 @@ type sourceState struct {
 	WatchVia     string
 	WatchDetail  string
 	JellystatVia string
+	// The Pocket Voice source (dictation.go): whether Pocket Voice writes out
+	// the person's dictation ("core" | "direct" | "") and why not.
+	DictationVia    string
+	DictationDetail string
 }
 
 // linkStates asks Pocket Core, once, for every link Day has for the person
@@ -324,6 +332,9 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 		if n == "jellystat" {
 			applyWatch(&ss, src, coreOK && u != nil, u, getLinks)
 		}
+		if n == "voice" {
+			applyDictation(&ss, coreOK && u != nil, getLinks)
+		}
 		out[n] = ss
 	}
 	return out
@@ -405,6 +416,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewSign(conn)
 	case "places":
 		return sources.NewPlaces(conn)
+	case "voice":
+		return sources.NewVoice(conn)
 	case "parcels":
 		return sources.NewParcels(conn)
 	case "horoscope":

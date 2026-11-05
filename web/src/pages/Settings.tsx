@@ -186,6 +186,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   pets: { what: 'Your pets’ day: vet visits, vaccines, treatments, grooming and symptoms from the health log, weighings and birthdays (not food bought or care that was only due).', key: 'Token from Pocket Pets → Settings → API & shortcuts', url: 'http://host.docker.internal:8232' },
   sign: { what: 'Your signing: documents you sent for signing, who signed them, what everyone finished signing, and what you signed yourself, each linking back.', key: 'Token from Pocket Sign → Settings → API & shortcuts', url: 'http://host.docker.internal:8234' },
   places: { what: 'Where you went: meals, coffees, drinks and sights with whom, how you liked them and what they cost, what you planned for the day and the places you saved, each linking back.', key: 'Token from Pocket Places → Settings → API & shortcuts', url: 'http://host.docker.internal:8236' },
+  voice: { what: 'Your voice memos: when you recorded them and how long they ran, what a journal memo said (its summary and your words), the others’ titles and summaries, and where each went — tasks, a calendar event, a note, an expense — each linking back to the memo. Memos still being written out come in with the next pull. The same connection can write out your dictation (Settings → AI).', key: 'Token from Pocket Voice → Settings → API & shortcuts', url: 'http://host.docker.internal:8237' },
   parcels: { what: 'Your deliveries: what arrived (and how long it took), what you sent, what you ordered, what waits at a pick-up point and what went wrong. Parcels only expected that day show in the card, not the summary.', key: 'Token from Pocket Parcels → Settings → API & shortcuts', url: 'http://host.docker.internal:8233' },
   wealth: { what: 'What you bought, sold or earned from your investments that day, and the values you updated (savings, pension, the flat).', key: 'Token from Pocket Wealth → Settings → API & shortcuts', url: 'http://host.docker.internal:8231' },
   still: { what: 'Breathing and meditation: minutes, practices, how calm you felt, lessons and milestones.', key: 'Token from Pocket Still → Settings → API & tokens', url: 'http://host.docker.internal:8206' },
@@ -571,6 +572,16 @@ function AISettings() {
     setTest('testing…')
     try { const r = await api.post<{ ok: boolean; message?: string; error?: string }>(`${V1}/integrations/test`, { which: 'ai', url: f.ai_base_url, key: f.ai_key, extra: f.ai_model }); setTest(r.ok ? `✓ ${r.message}` : `✕ ${r.error}`) } catch (e) { setTest(`✕ ${(e as Error).message}`) }
   }
+  // Who writes out dictation: Pocket Voice (on the box) when Day may use it, else OpenAI.
+  const dict = f.dictation || { provider: f.ai_transcribe_configured ? 'openai' : '' }
+  const voiceOff = dict.detail ? ` Pocket Voice does not, because ${dict.detail}.` : ''
+  const dictLine = dict.provider === 'voice'
+    ? `Dictation is written out by Pocket Voice on your server${dict.via === 'direct' ? ', with your own Pocket Voice URL and token (Settings → Sources)' : ', through Pocket Core'}, with the speech settings you chose there. Nothing is kept.`
+    : !f.core_connected
+      ? (dict.provider === 'openai' ? 'Dictation is written out by OpenAI with your key.' : 'Dictation is off: add your OpenAI key below.')
+      : `${dict.provider === 'openai' ? 'Dictation is written out by OpenAI with your key.' : 'Dictation is off.'}${voiceOff} ${dict.mode === 'direct'
+        ? 'To have it written out on your server, add the Pocket Voice URL and token under Settings → Sources, or switch Pocket Voice to Pocket Core there.'
+        : 'To have it written out on your server, switch on the Day → Pocket Voice “Write out speech on this server” link in Pocket Core → Links (new links arrive switched off).'}`
   const tot = (rows: UsageRow[] = []) => rows.reduce((a, r) => ({ calls: a.calls + r.calls, p: a.p + r.prompt_tokens, c: a.c + r.completion_tokens }), { calls: 0, p: 0, c: 0 })
   const m30 = tot(usage?.last_30_days), all = tot(usage?.all_time)
   return (
@@ -592,17 +603,23 @@ function AISettings() {
           <Field label="Write in" help="Empty = the language of your own entries."><input value={f.ai_language} onChange={e => setF({ ...f, ai_language: e.target.value })} placeholder="e.g. Serbian (Latin script)" /></Field>
         </div>
       </Section>
-      <Section title="Dictation" icon="mic" sub="Voice transcription uses OpenAI separately from text generation. Pocket AI does not transcribe audio.">
-        <button type="button" className="btn sm" aria-expanded={showDictation} aria-controls="dictation-settings" onClick={() => setShowDictation(v => !v)}>{showDictation ? 'Hide dictation settings' : 'Configure dictation'}</button>
-        {showDictation && <div id="dictation-settings" className="stack mt-sm">
-          {f.ai_provider !== 'openai' && <>
-            <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
-            <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
-          </>}
-          <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
-        </div>}
+      <Section title="Dictation" icon="mic" actions={<span className={`badge ${dict.provider ? 'ok' : ''}`}>{dict.provider === 'voice' ? 'Pocket Voice' : dict.provider === 'openai' ? 'OpenAI' : 'not set'}</span>}
+        sub="Speak an entry, a moment or a question and it is written out for you. Pocket Voice does it on your server when Day may use it; otherwise your OpenAI key does.">
+        <div className="stack">
+          <div className={`conn-status ${dict.provider === 'voice' ? 'ok' : ''}`} role="status"><span className="dot" />{dictLine}</div>
+          {!f.core_connected && dict.provider !== 'voice' && <div className="conn-status off" aria-disabled="true"><span className="dot" />Pocket Voice can write out dictation on your server instead: through Pocket Core, or with its URL and token under Settings → Sources.</div>}
+          {!f.core_connected && <CoreHint what="Pocket Voice for dictation" />}
+          <div><button type="button" className="btn sm" aria-expanded={showDictation} aria-controls="dictation-settings" onClick={() => setShowDictation(v => !v)}>{showDictation ? 'Hide OpenAI dictation settings' : 'Configure OpenAI dictation'}</button>{dict.provider === 'voice' && <span className="muted small"> Used only while Pocket Voice is not connected for dictation.</span>}</div>
+          {showDictation && <div id="dictation-settings" className="stack">
+            {f.ai_provider !== 'openai' && <>
+              <Field label="OpenAI API key" help="platform.openai.com → API keys."><input value={f.ai_key} onChange={e => setF({ ...f, ai_key: e.target.value })} placeholder="sk-…" autoComplete="off" /></Field>
+              <Field label="Base URL (optional)"><input value={f.ai_base_url} onChange={e => setF({ ...f, ai_base_url: e.target.value })} placeholder="https://api.openai.com/v1" /></Field>
+            </>}
+            <Field label="Dictation model"><input value={f.ai_transcribe_model} onChange={e => setF({ ...f, ai_transcribe_model: e.target.value })} placeholder={f.ai_default_transcribe} /></Field>
+          </div>}
+        </div>
       </Section>
-      <Section title="Options" sub={<>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos; audio is sent to your OpenAI endpoint only while dictating. Text goes to the selected AI provider.</>}>
+      <Section title="Options" sub={<>What leaves the server: for the days a feature needs, a plain-text summary — places and stops, photo places and times, artists, shows, purchases, habits, books, dishes, weather, moods and tags, and your words when the last option is on. Never photos; while dictating, audio goes to Pocket Voice on your server, or to your OpenAI endpoint when Pocket Voice does not write it out. Text goes to the selected AI provider.</>}>
         <SettingRow title="Tonight's question" help="On the day page and in the evening push."><Switch checked={f.ai_question} onChange={v => setF({ ...f, ai_question: v })} label="Tonight's question" /></SettingRow>
         <SettingRow title="Week story on Sunday" help="Written at the evening hour every Sunday and pushed."><Switch checked={f.ai_weekly_story} onChange={v => setF({ ...f, ai_weekly_story: v })} label="Week story on Sunday" /></SettingRow>
         <SettingRow title="Send what I wrote" help="Highlights, text and moments, not only the app data."><Switch checked={f.ai_send_text} onChange={v => setF({ ...f, ai_send_text: v })} label="Send what I wrote" /></SettingRow>
@@ -613,7 +630,7 @@ function AISettings() {
           <div><dt>Draft my day</dt><dd className="muted">A first-person draft from the facts, moments and pins — or only what your text is missing. You edit it.</dd></div>
           <div><dt>Tonight's question</dt><dd className="muted">One specific question about the day replaces the generic prompt, here and in the evening push.</dd></div>
           <div><dt>Suggest</dt><dd className="muted">A highlight, tags (from your own vocabulary) and a mood from what you wrote.</dd></div>
-          <div><dt>Dictation</dt><dd className="muted">Speak the entry or a moment; it is transcribed and added.</dd></div>
+          <div><dt>Dictation</dt><dd className="muted">Speak the entry or a moment; it is written out (by Pocket Voice on your server when it can) and added.</dd></div>
           <div><dt>Stories</dt><dd className="muted">Week, month and year written up as a story — on the Calendar, the Year page and under Stories. A Sunday push with the week.</dd></div>
           <div><dt>Ask</dt><dd className="muted">“When was I last at the lake?” — answered from your days, with links to them.</dd></div>
         </dl>

@@ -77,6 +77,7 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Pocket Pets** | vet visits, vaccines, treatments, grooming and symptoms (“Luna at the vet: limping — Dr. Hodžić”), weighings (“Mici weighed 4.9 kg (−0.04)”) and birthdays, each linking back; food bought and care that was only due stay out | Pocket Core link (`pets:read`), or URL + token |
 | **Pocket Parcels** | parcels delivered (“Delivered: Running shoes (Decathlon)”, with how long they took), sent, ordered, waiting at a pick-up point or in trouble, each linking back; parcels only expected that day show in the card, not the summary | Pocket Core link (`parcels:read`), or URL + token |
 | **Pocket Sign** | documents sent for signing (“Sent for signing: NDA — Acme (to Ana Kovač)”), who signed them, what everyone finished signing and what you signed yourself, each linking back | Pocket Core link (`signing:read`), or URL + token |
+| **Pocket Voice** | your voice memos of the day (“Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 3 tasks, a calendar event”), a journal memo with what you said (“Voice journal at 21:40: A slow evening by the river with Amra (2:05)”) and the summary, each linking back to the memo; memos still being written out come in with the next pull. The same link writes out your dictation on the box (see AI) | Pocket Core link (`voice:read`, `voice:transcribe`), or URL + token |
 | **Pocket Places** | where you went (“Dinner at Kibe Mahala with Ana, ★5, 68.00 BAM”, “Coffee at Kafeterija (48 min)”), what you planned for the day (“Planned: lunch at Željo”) and the places you saved, each linking back to the place | Pocket Core link (`places:read`), or URL + token |
 | **Pocket Contacts** | birthdays and anniversaries of the day, with the age they turn | Pocket Core link, or URL + token |
 | **PinePods** | podcast episodes and minutes per day (spread-out episodes count on each day) | Pocket Core service, or URL + API key |
@@ -105,7 +106,7 @@ Settings → AI takes an OpenAI key (or any OpenAI-compatible endpoint). Default
 | **Draft my day** | day page | A first-person draft from the facts, moments and pins — or only the sentences your own text is missing. Never invents feelings. |
 | **Tonight's question** | day page, evening push | One question about something concrete in the day (“what took you to the coast?”) instead of the generic prompt. |
 | **Suggest** | day page | A highlight, tags from your own tag vocabulary and a mood, from what you wrote. |
-| **Dictation** | entry, moments, Ask | 🎙 record in the browser, transcribed and added. |
+| **Dictation** | entry, moments, Ask | 🎙 record in the browser, written out and added: by **Pocket Voice** on your server when Day may use it, otherwise by your OpenAI key. |
 | **Stories** | Calendar, Year, Stories | The week, month or year as a short story in the second person; the week is pushed on Sunday evening. |
 | **Ask your journal** | Ask | Plans a date window and keywords, reads the matching days, answers with linked dates. |
 | **What goes with a good day** | Year | Average mood with vs without walks, sun, cooking, photos, TV… — plain arithmetic, shown even without a key. |
@@ -185,7 +186,14 @@ retrying against OpenAI. Pocket AI runs a text-only, temporary Claude session
 without tools, filesystem access, MCP servers or saved conversation history.
 The model and Claude account come from the person's Pocket AI settings.
 
-Dictation remains separate: it requires the person's OpenAI-compatible key and
-audio-transcription endpoint, even when Pocket AI generates text.
+Dictation is separate from text generation. When the person's Day → Pocket Voice
+**Write out speech on this server** (`voice:transcribe`) link is on in Pocket Core
+— or the Pocket Voice source is on Direct with its URL and token — the recording
+goes to Pocket Voice on the box (its whisper and the person's language and words
+settings there; nothing is kept) and Settings → AI says “Dictation is written out
+by Pocket Voice on your server”. Otherwise it needs the person's OpenAI-compatible
+key and audio-transcription endpoint, as before. New links arrive switched off:
+an admin turns this one on in **Core → Links**. While Core does not answer, the
+recording is not sent anywhere (not to OpenAI instead).
 
 Pocket AI model selection: AI settings offer the models discovered from your connected Claude account. “Use Pocket AI default” follows your current model in Pocket AI (Sonnet when no model is set). An explicit choice is saved per person in this app and never changes the Pocket AI default or your OpenAI model. Loading models does not create a chat or send a generation prompt. If a saved model is no longer offered, choose another model or return to the default; generation does not silently substitute a different model.

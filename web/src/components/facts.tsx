@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -221,6 +221,33 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'voice': {
+      const vd = fact.payload as VoiceDay
+      if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each memo links back to itself in Pocket Voice (its own address, or the app's when Voice gave a path)
+      const href = (m: VoiceMemo) => m.url ? (m.url.startsWith('/') ? (base ? base + m.url : '') : m.url) : (base ? `${base}/memos/${m.id}` : '')
+      body = <>
+        {vd.memos.length > 1 && <div className="fact-head"><b>{vd.memos.length} voice memos</b>{vd.duration_ms > 0 && <span className="muted"> · {clockLength(vd.duration_ms)} in all</span>}</div>}
+        <div className={`inline-list${vd.memos.length > 1 ? ' mt-sm' : ''}`}>{vd.memos.map(m => {
+          const url = href(m)
+          const journal = m.kind === 'journal'
+          const title = m.title || (journal ? 'Voice journal' : m.summary || 'Voice memo')
+          const said = journal ? (m.summary || m.text) : (m.summary !== title ? m.summary : '')
+          const went = (m.sent || []).map(x => x.title).filter(Boolean).join(' · ')
+          return <div key={m.id} className="li act-li">
+            <span className="muted mono small act-t">{m.time || ''}</span>
+            <span className="grow act-body"><b>{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open in Pocket Voice">{title}</a> : title}</b>
+              {said && <span className="act-note">{said}</span>}
+              {journal && m.summary && m.text && <span className="act-note muted">“{m.text}”</span>}
+              {(m.kind || m.went) && <span className="act-sub" title={went || undefined}>{[m.kind ? VOICE_KIND[m.kind] || cap(m.kind) : '', m.went ? `→ ${m.went}` : ''].filter(Boolean).join(' · ')}</span>}
+            </span>
+            {m.length && <span className="muted small nowrap">{m.length}</span>}
+          </div>
+        })}</div>
+      </>
+      break
+    }
     case 'parcels': {
       const pd = fact.payload as ParcelsDay
       const rows = [...(pd.delivered || []), ...(pd.sent || []), ...(pd.ordered || [])]
@@ -334,11 +361,22 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'pets': return len('entries') + len('weights') + len('birthdays') > 0
     case 'sign': return len('completed') + len('signed_by_me') + len('sent') + len('signed') > 0
     case 'places': return len('visits') + len('planned') + len('saved') > 0
+    case 'voice': return len('memos') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
   }
   return true
+}
+
+/** What a voice memo is about, as Pocket Voice names it. */
+const VOICE_KIND: Record<string, string> = { note: 'Note', todo: 'To-do', idea: 'Idea', journal: 'Journal', meeting: 'Meeting', shopping: 'Shopping', reminder: 'Reminder' }
+
+/** A recording's length: "0:21", "1:02:03". */
+function clockLength(ms: number): string {
+  const s = Math.round(ms / 1000)
+  const mm = String(Math.floor(s % 3600 / 60)), ss = String(s % 60).padStart(2, '0')
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${mm.padStart(2, '0')}:${ss}` : `${mm}:${ss}`
 }
 
 type Tone = 'good' | 'mid' | 'bad' | ''

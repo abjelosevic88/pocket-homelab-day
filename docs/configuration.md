@@ -56,7 +56,7 @@ The Pocket app sources (`HABITS`, `BOOKSHELF`, `TRAVEL`, `KITCHEN`, `GARAGE`, `I
 
 Not chosen yet: Direct when a token is saved (so pasted tokens keep working until the person switches), Pocket Core on a box with Core, Direct otherwise. A source that was switched off before modes existed counts as Off.
 
-Day declares its uses in the manifest, one read-only scope per app (the targets only open these routes to it):
+Day declares its uses in the manifest, one read-only scope per app — plus `voice:transcribe` on Pocket Voice, for dictation — (the targets only open these routes to it):
 
 | App | Scope | Day reads |
 |---|---|---|
@@ -70,6 +70,7 @@ Day declares its uses in the manifest, one read-only scope per app (the targets 
 | parcels | `parcels:read` | `GET /api/v1/day/{date}` — delivered (with the time and days on the way), sent, ordered, ready to pick up, problems and sent back; parcels only expected that day are in the card, not the summary |
 | sign | `signing:read` | `GET /api/v1/day/{date}` — sent for signing (to whom), signed by others, everyone signed, and what you signed (approved, read) yourself |
 | places | `places:read` | `GET /api/v1/day/{date}` — visits (with whom, rating, time spent, cost), visits planned for the day, and places saved that day (a place saved and visited the same day is said once) |
+| voice | `voice:read`, `voice:transcribe` | `GET /api/v1/day/{date}` — the memos written out that day (title, kind, time, length, summary, words, where each went), journal memos first in the summary; memos still being written out or failed stay out. `POST /api/v1/transcribe` (multipart `file`, `language`) — dictation written out on the box instead of by OpenAI, when this link is on (or the source is on Direct); nothing is kept |
 | bookshelf | `books:read` | `GET /api/v1/books` |
 | travel | `trips:read` | `GET /api/v1/trips` |
 | kitchen | `cooklog:read` | `GET /api/v1/cooklog` |

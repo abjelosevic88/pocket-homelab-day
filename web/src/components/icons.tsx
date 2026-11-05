@@ -36,6 +36,7 @@ const P: Record<string, string> = {
   headphones: 'M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z',
   tv: 'M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM17 2l-5 5-5-5',
   mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3',
+  wave: 'M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4',
   book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z',
   'book-open': 'M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z',
   film: 'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM7 3v18M17 3v18M3 7.5h4M3 12h18M3 16.5h4M17 7.5h4M17 16.5h4',
@@ -134,12 +135,12 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75, titl
 
 /** Each source's glyph and colour. */
 export const SOURCE_GLYPH: Record<string, string> = {
-  dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', horoscope: 'moon', bookshelf: 'book',
+  dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', voice: 'wave', horoscope: 'moon', bookshelf: 'book',
   travel: 'plane', kitchen: 'utensils', garage: 'car', weather: 'cloud-sun', podcasts: 'mic', pinepods: 'mic', audiobookshelf: 'headphones', jellyseerr: 'film',
   forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', split: 'users', tasks: 'check-square', birthdays: 'users', inventory: 'package', projects: 'kanban',
 }
 export const SOURCE_COLOR: Record<string, string> = {
-  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', horoscope: '#6a3fb5', bookshelf: '#b45309',
+  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', voice: '#c2255c', horoscope: '#6a3fb5', bookshelf: '#b45309',
   travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', podcasts: '#9333ea', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
   forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
 }

@@ -136,8 +136,9 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		srcs[n] = ps
 	}
 	_, aiStatus := s.inferenceFor(ctx, u.ID, st.AIProvider, st.AIKey != "")
+	dictation := dictationFor(states["voice"], st.AIKey != "")
 	return map[string]any{
-		"ai_provider": aiStatus.Provider, "ai_pocket_model": st.AIPocketModel, "ai_status": aiStatus, "ai_configured": aiStatus.Ready, "ai_transcribe_configured": st.AIKey != "",
+		"ai_provider": aiStatus.Provider, "ai_pocket_model": st.AIPocketModel, "ai_status": aiStatus, "ai_configured": aiStatus.Ready, "ai_transcribe_configured": dictation.Provider != "", "dictation": dictation,
 		"title": st.Title, "date_format": st.DateFormat, "time_format": st.TimeFormat, "week_start": st.WeekStart, "home_currency": st.HomeCurrency, "distance_unit": st.DistanceUnit,
 		"home_lat": st.HomeLat, "home_lon": st.HomeLon, "home_place": st.HomePlace, "prompt": st.Prompt, "backfill_days": st.BackfillDays,
 		"notify_url": st.NotifyURL, "notify_format": st.NotifyFormat, "notify_configured": st.NotifyURL != "",

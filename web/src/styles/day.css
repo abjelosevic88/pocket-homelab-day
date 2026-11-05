@@ -399,6 +399,7 @@ a.status-pill:hover { background: var(--surface-3); color: var(--text); }
 .conn-status.ok { color: var(--text-2); }
 .conn-status.ok .dot { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
 .conn-status.bad .dot { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
+.conn-status.off { opacity: .6; }
 .conn-advanced { justify-self: start; background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .conn-advanced:hover { color: var(--text); }
 .core-hint { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }

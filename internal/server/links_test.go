@@ -36,6 +36,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"parcels:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"signing:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"places:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"voice:read":       {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -48,6 +49,11 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"transactions:read": {regexp.MustCompile(`^/api/v1/transactions`), regexp.MustCompile(`^/firefly/api/v1/(about|about/user|accounts|categories|tags|tags/[^/]+|tags/[^/]+/transactions|transactions|transactions/\d+|currencies)$`)},
 }
 
+// The routes a pcx_ token may POST to, per scope (the rest are read-only).
+var fakeLinkPosts = map[string][]*regexp.Regexp{
+	"voice:transcribe": {regexp.MustCompile(`^/api/v1/transcribe$`)},
+}
+
 // linkWorld is a fake Pocket Core plus one fake target per Pocket app.
 type linkWorld struct {
 	t       *testing.T
@@ -58,6 +64,7 @@ type linkWorld struct {
 	tokens  []string                    // "user app scopes" asked of Core
 	off     map[string]string           // "app scope" → state (status and tokens refused)
 	tokOff  map[string]bool             // "app scope" → only the token is refused
+	tokDown bool                        // link tokens answer 503 (Core restarting)
 	coreURL string
 	reg     json.RawMessage // the last manifest Day registered
 
@@ -115,13 +122,15 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 		out := []map[string]any{}
 		for _, n := range pocketSourceOrder {
 			ps := pocketSources[n]
-			state := "on"
-			if user != "owner@x" {
-				state = "not_in_audience"
-			} else if s, ok := w.off[ps.slug+" "+ps.scope]; ok {
-				state = s
+			for _, scope := range append([]string{ps.scope}, ps.more...) {
+				state := "on"
+				if user != "owner@x" {
+					state = "not_in_audience"
+				} else if s, ok := w.off[ps.slug+" "+scope]; ok {
+					state = s
+				}
+				out = append(out, map[string]any{"app": ps.slug, "scope": scope, "state": state, "on": state == "on"})
 			}
-			out = append(out, map[string]any{"app": ps.slug, "scope": ps.scope, "state": state, "on": state == "on"})
 		}
 		if w.targets[movementApp.slug] != nil { // only in the tests that add a Pocket Movement
 			state := "on"
@@ -202,6 +211,11 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&in)
 		key := in.App + " " + strings.Join(in.Scopes, ",")
 		w.tokens = append(w.tokens, in.User+" "+key)
+		if w.tokDown {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = rw.Write([]byte(`{"error":"restarting"}`))
+			return
+		}
 		if s, ok := w.off[key]; ok || w.tokOff[key] || in.User != "owner@x" {
 			if s == "" {
 				s = "off_person"
@@ -328,6 +342,9 @@ func (w *linkWorld) target(slug string) http.Handler {
 			for _, re := range fakeLinkRoutes[scope] {
 				ok = ok || (r.Method == http.MethodGet && re.MatchString(r.URL.Path))
 			}
+			for _, re := range fakeLinkPosts[scope] {
+				ok = ok || (r.Method == http.MethodPost && re.MatchString(r.URL.Path))
+			}
 			if !ok {
 				w.mu.Lock()
 				w.bad = append(w.bad, slug+" "+scope+" "+r.Method+" "+r.URL.Path)
@@ -359,6 +376,22 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"sent":[{"id":1,"title":"NDA — Acme","sent_at":"` + d + `T08:00:00Z","recipients":[{"name":"Ana Kovač","email":"ana@example.com","role":"signer"}]}],"completed":[{"id":3,"title":"Ugovor o zakupu","completed_at":"` + d + `T14:30:00Z"}],"signed":[{"document_id":3,"title":"Ugovor o zakupu","name":"Marko Marić","at":"` + d + `T14:30:00Z"}],"signed_by_me":[]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "places":
 			write(`{"date":"` + d + `","visits":[{"id":1,"place_id":1,"date":"` + d + `","time":"19:30","planned":false,"rating":5,"notes":"","with_whom":"Ana","minutes":0,"spent":6800,"currency":"BAM","place_name":"Kibe Mahala","place_kind":"restaurant","city":"Sarajevo","trip_name":""}],"planned":[],"added":[{"id":1,"name":"Kibe Mahala","kind":"restaurant","cuisine":"Bosnian","city":"Sarajevo","status":"been"},{"id":5,"name":"Zlatna Ribica","kind":"bar","cuisine":"","city":"Sarajevo","status":"want"}],"spent":[{"currency":"BAM","total":6800,"visits":1}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "voice":
+			write(`{"date":"` + d + `","memos":[{"id":12,"title":"Dentist, dry cleaning and photos for Amra","kind":"todo","recorded_at":"` + d + `T08:12:00Z","time":"08:12","duration_ms":21000,"summary":"Book the dentist, pick up the dry cleaning, send Amra the photos.","text":"Remind me to book the dentist…","status":"done","sent":[{"app":"tasks","kind":"task","ref":"41","title":"Book the dentist","url":"https://tasks.x/t/41","created_at":"` + d + `T08:13:00Z"},{"app":"tasks","kind":"task","ref":"42","title":"Pick up the dry cleaning","url":"https://tasks.x/t/42","created_at":"` + d + `T08:13:00Z"}],"url":"https://voice.x/memos/12"},{"id":13,"title":"","kind":"note","recorded_at":"` + d + `T09:30:00Z","time":"09:30","duration_ms":4000,"summary":"","text":"","status":"working","sent":[],"url":"https://voice.x/memos/13"}],"count":2,"duration_ms":25000}`)
+		case p == "/api/v1/transcribe" && slug == "voice":
+			f, _, err := r.FormFile("file")
+			if err != nil {
+				rw.WriteHeader(http.StatusBadRequest)
+				write(`{"error":"no recording in field \"file\""}`)
+				return
+			}
+			b, _ := io.ReadAll(f)
+			if string(b) == "silence" {
+				rw.WriteHeader(http.StatusUnprocessableEntity)
+				write(`{"error":"nothing was said in the recording"}`)
+				return
+			}
+			_ = json.NewEncoder(rw).Encode(map[string]any{"text": "Heard: " + string(b) + " (" + r.FormValue("language") + ")", "language": "bs", "segments": []any{}, "engine": "whisper base"})
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "parcels":
 			write(`{"date":"` + d + `","delivered":[{"id":5,"title":"Running shoes","shop":"Decathlon","carrier_name":"GLS","direction":"in","delivered_at":"` + d + `T13:20:00Z","days":3,"price":7999,"currency":"EUR"}],"sent":[{"id":6,"title":"Birthday present for Ana","shop":"Ana","direction":"out","ordered_on":"` + d + `"}],"added":[{"id":7,"title":"USB-C hub","shop":"AliExpress","direction":"in","ordered_on":"2026-01-01"}],"expected":[],"steps":[{"parcel_id":8,"title":"Phone case","at":"` + d + `T09:00:00Z","status":"pickup","description":"Ready for pick-up","location":"Pošta Sarajevo"},{"parcel_id":5,"title":"Running shoes","at":"` + d + `T08:00:00Z","status":"out_for_delivery","description":"Out for delivery"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "renewals":
@@ -545,7 +578,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read watch=watching:read wealth=wealth:read"
+	want := "ai=inference:write audiobooks=listening:read bookshelf=books:read contacts=contacts:read documents=documents:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe watch=watching:read wealth=wealth:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -594,6 +627,9 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if f := facts["places"]; f.Headline != 1 || f.Summary != "Dinner at Kibe Mahala with Ana, ★5, 68.00 BAM; Saved to Pocket Places: Zlatna Ribica" {
 		t.Errorf("places fact (Kibe Mahala saved and visited is said once): %+v", f)
+	}
+	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
+		t.Errorf("voice fact (the memo still being written out left out): %+v", f)
 	}
 	if f := facts["pets"]; f.Headline != 1 || f.Summary != "Luna turned 5; Luna at the vet: limping on the front left leg — Dr. Hodžić; Mici weighed 4.9 kg (−0.04)" {
 		t.Errorf("pets fact (no food purchase, nothing due): %+v", f)
