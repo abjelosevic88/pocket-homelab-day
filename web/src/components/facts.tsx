@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -230,6 +230,31 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </div>
       break
     }
+    case 'fitness': {
+      const fd = fact.payload as FitnessDay
+      if (!fd.workouts?.length) { body = empty('No workouts this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each workout links back to itself in Pocket Fitness (its own address, or the app's when Fitness gave a path or none)
+      const href = (w: FitnessWorkout) => w.url ? (w.url.startsWith('/') ? (base ? base + w.url : '') : w.url) : (base ? `${base}/workouts/${w.id}` : '')
+      const records = (n?: number) => n ? `${n} ${n === 1 ? 'record' : 'records'}` : ''
+      body = <>
+        {fd.workouts.length > 1 && <div className="fact-head"><b>{fd.workouts.length} workouts</b><span className="muted">{[fd.minutes ? fmtMinutes(fd.minutes) : '', records(fd.records)].filter(Boolean).map(x => ` · ${x}`).join('')}</span></div>}
+        <div className={`inline-list${fd.workouts.length > 1 ? ' mt-sm' : ''}`}>{fd.workouts.map(w => {
+          const url = href(w)
+          const meta = [w.minutes ? fmtMinutes(w.minutes) : '', w.sets ? `${w.sets} ${w.sets === 1 ? 'set' : 'sets'}` : '', w.records ? `★ ${records(w.records)}` : '', w.feel ? `felt ${w.feel}/5` : ''].filter(Boolean).join(' · ')
+          return <div key={w.id} className="li act-li">
+            <span className="muted mono small act-t">{w.time || ''}</span>
+            <span className="grow act-body"><b>{url ? <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open in Pocket Fitness">{w.name}</a> : w.name}</b>
+              {meta && <span className="act-sub">{meta}</span>}
+              {(w.exercises || []).map((e, i) => <span key={`${e.id || ''}-${i}`} className="act-note">{e.name}{e.sets && <span className="muted"> · {e.sets}</span>}{e.records ? <span className="badge ok" style={{ marginLeft: 6 }} title={`${records(e.records)} in this exercise`}>★ record</span> : null}</span>)}
+              {w.notes && <span className="act-note muted">“{w.notes}”</span>}
+            </span>
+            <PinBtn ref_={`fitness:${w.id}`} title={w.name} subtitle="workout" />
+          </div>
+        })}</div>
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -382,6 +407,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'places': return len('visits') + len('planned') + len('saved') > 0
     case 'voice': return len('memos') > 0
     case 'wallet': return len('passes') > 0
+    case 'fitness': return len('workouts') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

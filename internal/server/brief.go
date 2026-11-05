@@ -215,6 +215,34 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 			add("Health", strings.Join(p, ", "))
 		}
 	}
+	var fd sources.FitnessDay
+	if get("fitness", &fd) && len(fd.Workouts) > 0 {
+		var p []string
+		for _, w := range fd.Workouts {
+			x := w.Line
+			if w.Time != "" {
+				x = w.Time + " " + x
+			}
+			if detail {
+				var ex []string
+				for _, e := range w.Exercises {
+					s := e.Name
+					if e.Sets != "" {
+						s += " " + e.Sets
+					}
+					if e.Records > 0 {
+						s += " (a record)"
+					}
+					ex = append(ex, s)
+				}
+				if len(ex) > 0 {
+					x += ": " + strings.Join(ex, "; ")
+				}
+			}
+			p = append(p, x)
+		}
+		add("Training", strings.Join(p, " | "))
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

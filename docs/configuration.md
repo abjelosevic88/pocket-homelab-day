@@ -72,6 +72,7 @@ Day declares its uses in the manifest, one read-only scope per app — plus `voi
 | places | `places:read` | `GET /api/v1/day/{date}` — visits (with whom, rating, time spent, cost), visits planned for the day, and places saved that day (a place saved and visited the same day is said once) |
 | voice | `voice:read`, `voice:transcribe` | `GET /api/v1/day/{date}` — the memos written out that day (title, kind, time, length, summary, words, where each went), journal memos first in the summary; memos still being written out or failed stay out. `POST /api/v1/transcribe` (multipart `file`, `language`) — dictation written out on the box instead of by OpenAI, when this link is on (or the source is on Direct); nothing is kept |
 | wallet | `wallet:read` | `GET /api/v1/day/{date}` — the tickets and boarding passes starting that day, past (archived) ones too: what, where, when, seat, gate, flight or booking, trip; each links back to its pass |
+| fitness | `fitness:read` | `GET /api/v1/day/{date}` — the workouts finished that day: name, start, minutes, sets, records, how it felt, notes, and each exercise with its sets in words (runs of the same set folded: “3 sets of 115 kg × 5”); each links back to its workout. `other` (Pocket Health’s runs and rides) is left to the health source |
 | bookshelf | `books:read` | `GET /api/v1/books` |
 | travel | `trips:read` | `GET /api/v1/trips` |
 | kitchen | `cooklog:read` | `GET /api/v1/cooklog` |

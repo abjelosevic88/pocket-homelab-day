@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -109,8 +109,12 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
       ;(item.time ? timed : untimed).push(item)
     }
   }
+  const fitness = p<FitnessDay>('fitness')
+  for (const w of fitness?.workouts || []) (w.time ? timed : untimed).push({ time: w.time || '', key: `fw${w.id}`, icon: src('fitness'), kind: 'act', title: `${w.name}${w.minutes ? ` · ${fmtMinutes(w.minutes)}` : ''}`, sub: [(w.exercises || []).map(e => e.name).join(', '), w.records ? `★ ${w.records} ${w.records === 1 ? 'record' : 'records'}` : ''].filter(Boolean).join(' · ') || undefined })
+  // Pocket Fitness hands its workouts to Pocket Health too: the same session at the same time is said once, with what was trained
+  const trained = new Set((fitness?.workouts || []).map(w => w.time).filter(Boolean))
   const health = p<HealthDay>('health')
-  for (const w of health?.workouts || []) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
+  for (const w of (health?.workouts || []).filter(w => !w.time || !trained.has(w.time))) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })
   const still = p<StillDay>('still')
   for (const x of still?.practices || []) (x.time ? timed : untimed).push({ time: x.time || '', key: `st${x.id}`, icon: src('still'), kind: 'act', title: `${x.title} · ${fmtMinutes(Math.round(x.minutes))}`, sub: [x.calm_before && x.calm_after ? `calm ${x.calm_before} → ${x.calm_after}` : '', x.lesson || ''].filter(Boolean).join(' · ') || undefined })
