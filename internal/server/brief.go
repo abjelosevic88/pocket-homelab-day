@@ -267,6 +267,22 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Food", s)
 	}
+	var bd sources.BlogDay
+	if get("blog", &bd) && len(bd.Published)+len(bd.Written) > 0 {
+		s := facts["blog"].Summary
+		if detail {
+			var ex []string
+			for _, p := range bd.Published {
+				if p.Excerpt != "" {
+					ex = append(ex, "“"+p.Title+"”: "+p.Excerpt)
+				}
+			}
+			if len(ex) > 0 {
+				s += " | " + strings.Join(ex, " | ")
+			}
+		}
+		add("Blog", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

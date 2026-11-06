@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -284,6 +284,29 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'blog': {
+      const bd = fact.payload as BlogDay
+      const pub = bd.published || [], wrote = bd.written || []
+      const stats = [bd.views ? `${bd.views.toLocaleString()} ${bd.views === 1 ? 'reader' : 'readers'}` : '', bd.comments ? `${bd.comments.toLocaleString()} ${bd.comments === 1 ? 'comment' : 'comments'}` : ''].filter(Boolean).join(', ')
+      if (!pub.length && !wrote.length && !bd.comments) { body = empty(stats ? `Nothing published · ${stats}.` : 'Nothing published this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // a post links to itself (the public post; a draft's preview), or to it in Pocket Blog
+      const href = (b: BlogPost) => b.url ? (b.url.startsWith('/') ? (base ? base + b.url : '') : b.url) : (base ? `${base}/posts/${b.id}` : '')
+      const title = (b: BlogPost, what: string) => { const u = href(b); return u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title={what}>{b.title}</a> : b.title }
+      body = <>
+        <div className="fact-head"><b>{pub.length ? `${pub.length} ${pub.length === 1 ? 'post' : 'posts'} published` : 'Nothing published'}</b>{stats && <span className="muted"> · {stats}</span>}</div>
+        {pub.length > 0 && <div className="inline-list mt-sm">{pub.map(b => <div key={b.id} className="li act-li">
+          <span className="muted mono small act-t">{b.time || ''}</span>
+          <span className="grow act-body"><b>{title(b, 'Open the post')}</b>
+            {(b.words || b.blog || b.kind === 'page') && <span className="act-sub">{[b.kind === 'page' ? 'page' : '', b.words ? `${b.words.toLocaleString()} words` : '', b.blog || ''].filter(Boolean).join(' · ')}</span>}
+            {b.excerpt && <span className="act-note muted">{b.excerpt}</span>}
+          </span>
+          <PinBtn ref_={`blog:${b.id}`} title={b.title} subtitle="post" />
+        </div>)}</div>}
+        {wrote.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>Also wrote: {wrote.map((b, i) => <React.Fragment key={b.id}>{i > 0 && ', '}{title(b, b.status === 'scheduled' ? 'Scheduled — open the preview' : 'Draft — open the preview')}{b.status === 'scheduled' ? ' (scheduled)' : ''}</React.Fragment>)}</div>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -438,6 +461,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'wallet': return len('passes') > 0
     case 'fitness': return len('workouts') > 0
     case 'nutrition': return n('entries') > 0 || n('water_ml') > 0
+    case 'blog': return len('published') + len('written') > 0 || n('comments') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

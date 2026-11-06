@@ -840,7 +840,7 @@ func (s *Server) askMaterial(ctx context.Context, u *store.User, st store.Settin
 			}
 		}
 		var sums []string
-		for _, src := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "fitness", "nutrition", "still", "horoscope", "weather"} {
+		for _, src := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "fitness", "nutrition", "blog", "still", "horoscope", "weather"} {
 			if f, ok := factsBy[d][src]; ok && f.Summary != "" {
 				sums = append(sums, f.Summary)
 			}
