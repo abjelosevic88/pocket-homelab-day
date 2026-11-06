@@ -302,6 +302,23 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Chat", s)
 	}
+	// the answers to your forms: who answered which form, and each one's line on the detailed days
+	var fm sources.FormsDay
+	if get("forms", &fm) && fm.Count+len(fm.Opened) > 0 {
+		s := facts["forms"].Summary
+		if detail {
+			var ln []string
+			for _, a := range fm.Responses {
+				if a.Preview != "" {
+					ln = append(ln, a.Name+" on “"+a.Form+"”: "+a.Preview)
+				}
+			}
+			if len(ln) > 0 {
+				s += " | " + strings.Join(ln, " | ")
+			}
+		}
+		add("Forms", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

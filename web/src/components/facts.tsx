@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -346,6 +346,29 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'forms': {
+      const fd = fact.payload as FormsDay
+      const answers = fd.responses || [], opened = fd.opened || []
+      if (!fd.count && !answers.length && !opened.length) { body = empty('No answers this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // an answer links to itself in your Forms inbox, an opened form to its public page
+      const href = (u: string | undefined, path: string) => u ? (u.startsWith('/') ? (base ? base + u : '') : u) : (base ? base + path : '')
+      const a = (u: string, text: React.ReactNode, what: string) => u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title={what}>{text}</a> : text
+      const count = fd.count || answers.length
+      body = <>
+        <div className="fact-head"><b>{count ? `${count.toLocaleString()} ${count === 1 ? 'answer' : 'answers'}` : 'No answers'}</b>{opened.length > 0 && <span className="muted"> · {opened.length} {opened.length === 1 ? 'form' : 'forms'} opened</span>}</div>
+        {answers.length > 0 && <div className="inline-list mt-sm">{answers.map(x => <div key={x.id} className="li act-li">
+          <span className="muted mono small act-t">{x.time || ''}</span>
+          <span className="grow act-body"><b>{a(href(x.url, `/answers/${x.id}`), x.name, 'Open the answer')}</b>{x.status === 'new' && <span className="muted small"> · new</span>}
+            <span className="act-sub">{[x.emoji, x.form].filter(Boolean).join(' ')}</span>
+            {x.preview && <span className="act-note muted">{x.preview}</span>}
+          </span>
+          <PinBtn ref_={`forms:${x.id}`} title={`${x.name} — ${x.form}`} subtitle="answer" />
+        </div>)}</div>}
+        {opened.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>Opened: {opened.map((o, i) => <React.Fragment key={o.id}>{i > 0 && ', '}{o.emoji ? `${o.emoji} ` : ''}{a(href(o.url, `/forms/${o.id}`), o.title, 'Open the form')}</React.Fragment>)}</div>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -502,6 +525,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'nutrition': return n('entries') > 0 || n('water_ml') > 0
     case 'blog': return len('published') + len('written') > 0 || n('comments') > 0
     case 'chat': return n('messages') > 0 || len('conversations') > 0
+    case 'forms': return n('count') > 0 || len('responses') + len('opened') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0
