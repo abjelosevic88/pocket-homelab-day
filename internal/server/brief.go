@@ -283,6 +283,25 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Blog", s)
 	}
+	// the chats say which conversations and when the plans are for, never what anyone wrote
+	var cd sources.ChatDay
+	if get("chat", &cd) && cd.Messages > 0 {
+		s := facts["chat"].Summary
+		if detail {
+			var sh []string
+			for _, x := range cd.Shared {
+				t := "“" + x.Title + "”"
+				if x.App != "" {
+					t += " (" + x.App + ")"
+				}
+				sh = append(sh, t+" in "+x.Conversation)
+			}
+			if len(sh) > 0 {
+				s += " | shared: " + strings.Join(sh, ", ")
+			}
+		}
+		add("Chat", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

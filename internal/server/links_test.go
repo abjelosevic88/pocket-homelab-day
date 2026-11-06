@@ -41,6 +41,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"fitness:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"nutrition:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"blog:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"chat:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -385,6 +386,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","visits":[{"id":1,"place_id":1,"date":"` + d + `","time":"19:30","planned":false,"rating":5,"notes":"","with_whom":"Ana","minutes":0,"spent":6800,"currency":"BAM","place_name":"Kibe Mahala","place_kind":"restaurant","city":"Sarajevo","trip_name":""}],"planned":[],"added":[{"id":1,"name":"Kibe Mahala","kind":"restaurant","cuisine":"Bosnian","city":"Sarajevo","status":"been"},{"id":5,"name":"Zlatna Ribica","kind":"bar","cuisine":"","city":"Sarajevo","status":"want"}],"spent":[{"currency":"BAM","total":6800,"visits":1}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "fitness":
 			write(`{"date":"` + d + `","workouts":[{"id":96,"name":"Pull day","started_at":"` + d + `T16:55:00Z","duration_min":72,"sets":15,"volume_kg":5072.5,"records":2,"feel":4,"notes":"","url":"https://fitness.example.org/workouts/96","exercises":[{"exercise":"Deadlift (Barbell)","exercise_id":10,"records":3,"sets":"115 kg × 5, 115 kg × 5, 115 kg × 5"}]}],"other":[{"id":7,"name":"Morning run","kind":"running","minutes":31,"distance_m":5200,"health":true}],"planned":null,"text":"Pull day (72 min, 15 sets); Morning run (31 min)."}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "chat":
+			write(`{"date":"` + d + `","messages":12,"mine":3,"photos":2,"voice":0,"conversations":[{"conversation_id":2,"title":"Family","messages":8,"mine":2},{"conversation_id":4,"title":"Weekend hikers","messages":4,"mine":1}],"plans":[{"conversation":"Family","from":"Ana","text":"Dinner at Pirpa at 20:00?","date":"` + d + `","time":"20:00","message_id":91,"conversation_id":2}],"shared":[{"conversation":"Family","from":"Ana","app":"kitchen","title":"Grandma's stuffed peppers","subtitle":"Dinner · 4 servings","message_id":95,"conversation_id":2}],"summary":"12 messages, 3 by you: Family (8), Weekend hikers (4); 2 photos"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "blog":
 			write(`{"date":"` + d + `","published":[{"id":12,"title":"Spring in Sarajevo","kind":"post","status":"published","url":"https://blog.example.org/spring-in-sarajevo","words":1240,"excerpt":"The river was loud.","tags":["travel"],"blog":"Notes","time":"09:30"}],"written":[{"id":13,"title":"Notes on rain","kind":"post","status":"draft","url":"https://blog.example.org/p/13?preview=k","words":80,"excerpt":"","tags":[],"blog":"Notes","time":"21:10"}],"views":312,"comments":4}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "nutrition":
@@ -593,7 +596,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read contacts=contacts:read documents=documents:read fitness=fitness:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read documents=documents:read fitness=fitness:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -663,6 +666,12 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Blog: Published “Spring in Sarajevo” (1,240 words); Wrote “Notes on rain” (a draft); 312 readers, 4 comments on the blog | “Spring in Sarajevo”: The river was loud.") {
 		t.Errorf("the AI's blog line:\n%s", l)
+	}
+	if f := facts["chat"]; f.Headline != 12 || f.Summary != "Chatted in Family (8 messages), Weekend hikers (4); 2 photos; plans: 20:00 that day (Family); 1 thing shared" {
+		t.Errorf("chat fact: %+v", f)
+	}
+	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Chat: Chatted in Family (8 messages), Weekend hikers (4); 2 photos; plans: 20:00 that day (Family); 1 thing shared | shared: “Grandma's stuffed peppers” (kitchen) in Family") || strings.Contains(l, "Pirpa") {
+		t.Errorf("the AI's chat line (never the words of a message):\n%s", l)
 	}
 	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
 		t.Errorf("voice fact (the memo still being written out left out): %+v", f)

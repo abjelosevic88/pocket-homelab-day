@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -307,6 +307,45 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'chat': {
+      const cd = fact.payload as ChatDay
+      const convs = cd.conversations || [], plans = cd.plans || [], shared = cd.shared || []
+      if (!cd.messages && !convs.length) { body = empty('No messages this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // a conversation links to itself in Pocket Chat, a plan or a shared card to its message
+      const conv = (id: number) => base ? `${base}/c/${id}` : ''
+      const msg = (cid: number, mid: number) => base ? `${base}/c/${cid}?m=${mid}` : ''
+      const a = (href: string, text: React.ReactNode, what: string) => href ? <a href={href} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title={what}>{text}</a> : text
+      const n = (v: number, one: string, many: string) => `${v.toLocaleString()} ${v === 1 ? one : many}`
+      // when a plan is for, seen from this day: the time on the day itself, the weekday within a week, else the date
+      const when = (p: ChatPlan) => {
+        if (!p.date) return p.time || ''
+        if (p.date === cd.date) return p.time || 'that day'
+        const d = new Date(`${p.date}T12:00:00`), days = Math.round((d.getTime() - new Date(`${cd.date}T12:00:00`).getTime()) / 864e5)
+        return [days > 0 && days < 7 ? d.toLocaleDateString(undefined, { weekday: 'short' }) : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), p.time].filter(Boolean).join(' ')
+      }
+      body = <>
+        <div className="fact-head"><b>{n(cd.messages, 'message', 'messages')}</b><span className="muted">{[cd.mine ? `${cd.mine.toLocaleString()} by you` : '', cd.photos ? n(cd.photos, 'photo', 'photos') : '', cd.voice ? n(cd.voice, 'voice message', 'voice messages') : ''].filter(Boolean).map(x => ` · ${x}`).join('')}</span></div>
+        {convs.length > 0 && <div className="inline-list mt-sm">{convs.map(c => <div key={c.conversation_id} className="li">
+          <Icon name="chat" size={15} className="muted" />
+          <span className="grow"><b>{a(conv(c.conversation_id), c.title, 'Open the conversation')}</b><span className="muted"> · {n(c.messages, 'message', 'messages')}{c.mine ? `, ${c.mine.toLocaleString()} by you` : ''}</span></span>
+          <PinBtn ref_={`chat:${c.conversation_id}`} title={c.title} subtitle="conversation" />
+        </div>)}</div>}
+        {plans.length > 0 && <><div className="muted small" style={{ marginTop: 8 }}>Plans</div><div className="inline-list">{plans.map(p => <div key={p.message_id} className="li act-li">
+          <span className="muted mono small act-t">{when(p)}</span>
+          <span className="grow act-body">{a(msg(p.conversation_id, p.message_id), p.text || 'A plan', 'Open the message')}
+            <span className="act-sub">{[p.from, p.conversation].filter(Boolean).join(' in ')}</span>
+          </span>
+        </div>)}</div></>}
+        {shared.length > 0 && <><div className="muted small" style={{ marginTop: 8 }}>Shared</div><div className="inline-list">{shared.map(x => <div key={x.message_id} className="li act-li">
+          <span className="muted small act-t">{x.app ? SOURCE_APP[x.app] || cap(x.app) : ''}</span>
+          <span className="grow act-body"><b>{a(msg(x.conversation_id, x.message_id), x.title, 'Open the message')}</b>
+            <span className="act-sub">{[x.subtitle, [x.from, x.conversation].filter(Boolean).join(' in ')].filter(Boolean).join(' · ')}</span>
+          </span>
+        </div>)}</div></>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -462,6 +501,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'fitness': return len('workouts') > 0
     case 'nutrition': return n('entries') > 0 || n('water_ml') > 0
     case 'blog': return len('published') + len('written') > 0 || n('comments') > 0
+    case 'chat': return n('messages') > 0 || len('conversations') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

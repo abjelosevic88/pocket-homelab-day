@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -117,6 +117,9 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const m of p<NutritionDay>('nutrition')?.meals || []) if (m.time) timed.push({ time: m.time, key: `nm${m.meal}`, icon: src('nutrition'), kind: 'act', title: `${m.label}${m.kcal ? ` · ${Math.round(m.kcal).toLocaleString()} kcal` : ''}`, sub: m.foods.join(', ') || undefined })
   // a post is on the timeline when it went live; drafts begun that day stay in the Blog card
   for (const b of p<BlogDay>('blog')?.published || []) (b.time ? timed : untimed).push({ time: b.time || '', key: `bp${b.id}`, icon: src('blog'), kind: 'act', title: `Published “${b.title}”`, sub: [b.words ? `${b.words.toLocaleString()} words` : '', b.blog || ''].filter(Boolean).join(' · ') || undefined })
+  // a plan made in a chat for this very day, at its time; the rest of the day's chats stay in the Chats card
+  const chat = p<ChatDay>('chat')
+  for (const c of chat?.plans || []) if (c.time && c.date === chat?.date) timed.push({ time: c.time, key: `cp${c.message_id}`, icon: src('chat'), kind: 'act', title: `Plan in ${c.conversation}`, sub: c.text || undefined })
   const health = p<HealthDay>('health')
   for (const w of (health?.workouts || []).filter(w => !w.time || !trained.has(w.time))) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })
