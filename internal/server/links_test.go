@@ -46,6 +46,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"crm:read":         {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`), regexp.MustCompile(`^/api/v1/deals/\d+$`)},
 	"league:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"tables:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"rentals:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`), regexp.MustCompile(`^/api/v1/today$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -396,6 +397,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","activities":[{"id":5,"deal_id":3,"kind":"won","title":"Won 🎉","body":"","at":"` + d + `T09:15:00Z","deal":"Online shop for cakes","deal_url":"https://crm.example.org/deals/3"},{"id":6,"deal_id":4,"kind":"call","title":"Talked through the pages","body":"She wants a booking calendar and a gallery of the rooms, and asked about the price of a second language","at":"` + d + `T11:00:00Z","deal":"Booking site","deal_url":"https://crm.example.org/deals/4"}],"counts":{"won":1,"call":1},"due":[{"id":4,"title":"Booking site","stage_name":"Proposal sent","status":"open","amount":4500,"currency":"EUR","contact_name":"Ana Marić","company":"Pansion Una","next_action":"Send the proposal","next_due":"` + d + `","url":"https://crm.example.org/deals/4"},{"id":7,"title":"Logo","next_action":"Call back","next_due":"` + d + `","url":"https://crm.example.org/deals/7"},{"id":8,"title":"Menu cards","next_action":"","next_due":"` + d + `","url":"https://crm.example.org/deals/8"}],"won":1,"lost":0,"created":0,"url":"https://crm.example.org/"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "tables":
 			write(`{"date":"` + d + `","items":[{"id":12,"title":"Ana Marić","table":"Clients","table_icon":"👥","base":"Bakery","field":"Visit","date":"` + d + `T14:30","url":"https://tables.example.org/r/12"},{"id":7,"title":"Logo for the bakery","table":"Projects","base":"Work","field":"Due","date":"` + d + `","url":"https://tables.example.org/r/7"}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "rentals":
+			write(`{"date":"` + d + `","items":[{"kind":"payment","title":"Rent in: €650.00","subtitle":"Flat 2 — Ana Marić","url":"https://rentals.example.org/leases/3"},{"kind":"repair","title":"Repair reported: Leaking tap","subtitle":"Flat 1, Obala 12","url":"https://rentals.example.org/repairs/9"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "league":
 			write(`{"date":"` + d + `","games":[{"id":31,"title":"Tennis · Tuesday Tennis","group":"Tuesday Tennis","emoji":"🎾","time":"20:00","venue":"TK Koševo","status":"planned","my_answer":"in","in":4,"url":"https://league.example.org/games/31"},{"id":32,"title":"Futsal / 5-a-side · Friday 5-a-side","group":"Friday 5-a-side","emoji":"⚽","time":"19:00","venue":"Dvorana Mojmilo","status":"planned","my_answer":"","in":8,"url":"https://league.example.org/games/32"}],"matches":[{"id":40,"group":"Tuesday Tennis","emoji":"🎾","text":"Aleksandar beat Marko Petrović 6–4 6–3","outcome":"W","url":"https://league.example.org/games/31"}]}`)
 		case strings.HasPrefix(p, "/api/v1/deals/") && slug == "crm":
@@ -610,7 +613,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -710,6 +713,12 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Tables: Ana Marić at 14:30 (Clients: Visit) in Bakery | Logo for the bakery (Projects: Due) in Work") {
 		t.Errorf("the AI's tables line:\n%s", l)
+	}
+	if f := facts["rentals"]; f.Headline != 2 || f.Summary != "Rent in: €650.00 (Flat 2 — Ana Marić); Repair reported: Leaking tap (Flat 1, Obala 12)" {
+		t.Errorf("rentals fact: %+v", f)
+	}
+	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Rentals: Rent in: €650.00 (Flat 2 — Ana Marić) | Repair reported: Leaking tap (Flat 1, Obala 12)") {
+		t.Errorf("the AI's rentals line:\n%s", l)
 	}
 	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
 		t.Errorf("voice fact (the memo still being written out left out): %+v", f)

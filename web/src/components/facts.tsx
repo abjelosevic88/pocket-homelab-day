@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
 import { V1 } from '../lib/api'
 import { locationTime } from '../lib/locationTime'
-import { fmtDate } from '../lib/format'
+import { fmtDate, todayISO } from '../lib/format'
 import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -463,6 +463,48 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'rentals': {
+      const rd = fact.payload as RentalsDay
+      // what needs you only on today itself (a day gone by keeps its items)
+      const items = rd.items || [], td = !date || date === todayISO() ? rd.today : undefined
+      const late = td?.late || [], due = td?.due || [], urgent = td?.urgent || []
+      if (!items.length && !late.length && !due.length && !urgent.length) { body = empty(td ? 'Nothing needs you in your rentals today.' : 'Nothing happened in your rentals this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each line links to its lease, repair or inspection in Pocket Rentals
+      const abs = (u?: string) => u ? (u.startsWith('/') ? (base ? base + u : '') : u) : ''
+      const a = (u: string, text: React.ReactNode) => u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open in Pocket Rentals">{text}</a> : text
+      const GLYPH: Record<string, string> = { payment: 'wallet', lease: 'key', repair: 'wrench', inspection: 'list' }
+      const n = (v: number, one: string, many: string) => `${v.toLocaleString()} ${v === 1 ? one : many}`
+      const rent = (x: typeof late[number], when: string) => <div key={`${when}${x.lease_id}-${x.due_date}`} className="li act-li">
+        <span className="grow act-body"><b>{a(base ? `${base}/leases/${x.lease_id}` : '', x.lease || x.place || 'A lease')}</b>
+          <span className="act-sub">{[x.title, when === 'late' ? (x.days ? `${n(x.days, 'day', 'days')} late` : 'late') : 'due today', x.tenants && !(x.lease || '').includes(x.tenants) ? x.tenants : ''].filter(Boolean).join(' · ')}</span>
+        </span>
+        {x.owed ? <span className="money">{fmtAmount(x.owed / 100, x.currency || 'EUR')}</span> : null}
+      </div>
+      const needs = [late.length ? `${n(late.length, 'rent', 'rents')} late` : '', due.length ? `${due.length.toLocaleString()} due today` : '', urgent.length ? n(urgent.length, 'urgent repair', 'urgent repairs') : ''].filter(Boolean)
+      body = <>
+        {td && needs.length > 0 && <>
+          <div className="fact-head"><b>{needs.join(' · ')}</b></div>
+          <div className="inline-list mt-sm">
+            {late.map(x => rent(x, 'late'))}
+            {due.map(x => rent(x, 'due'))}
+            {urgent.map(x => <div key={`u${x.id}`} className="li act-li">
+              <span style={{ display: 'inline-flex', color: 'var(--warning)' }}><Icon name="alert" size={15} /></span>
+              <span className="grow act-body"><b>{a(base ? `${base}/repairs/${x.id}` : '', x.title)}</b><span className="act-sub">{['urgent', x.place, x.status].filter(Boolean).join(' · ')}</span></span>
+            </div>)}
+          </div>
+        </>}
+        {items.length > 0 && <>
+          {td && needs.length > 0 ? <div className="muted small" style={{ marginTop: 8 }}>This day</div> : <div className="fact-head"><b>{n(items.length, 'thing', 'things')}</b><span className="muted"> in your rentals</span></div>}
+          <div className="inline-list mt-sm">{items.map((x, i) => <div key={`i${i}`} className="li act-li">
+            <Icon name={GLYPH[x.kind] || 'dot'} size={15} className="muted" />
+            <span className="grow act-body"><b>{a(abs(x.url), x.title)}</b>{x.subtitle && <span className="act-sub">{x.subtitle}</span>}</span>
+            <PinBtn ref_={`rentals:${x.kind}:${x.url || i}:${x.title}`} title={x.title} subtitle={x.subtitle || 'rentals'} />
+          </div>)}</div>
+        </>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -623,6 +665,10 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'crm': return len('activities') + len('due') > 0
     case 'league': return len('games') + len('matches') > 0
     case 'tables': return len('rows') > 0
+    case 'rentals': {
+      const td = (v as { today?: { late?: unknown[]; due?: unknown[]; urgent?: unknown[] } }).today
+      return len('items') + (td?.late?.length || 0) + (td?.due?.length || 0) + (td?.urgent?.length || 0) > 0
+    }
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

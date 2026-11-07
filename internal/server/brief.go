@@ -393,6 +393,34 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Tables", s)
 	}
+	// your rentals: rent in, leases started or ended, repairs and inspections; on
+	// the detailed days every item, and today what needs you (counts, no tenants)
+	var rt sources.RentalsDay
+	okRT := get("rentals", &rt)
+	if rt.Date != timeNow().Format("2006-01-02") {
+		rt.Today = nil // what needed you on a day gone by is no longer news
+	}
+	if okRT && (len(rt.Items) > 0 || sources.RentalsNeedsYou(rt.Today) != "") {
+		s := facts["rentals"].Summary
+		if detail {
+			var ln []string
+			for _, it := range rt.Items {
+				x := it.Title
+				if it.Subtitle != "" {
+					x += " (" + it.Subtitle + ")"
+				}
+				ln = append(ln, x)
+			}
+			if len(ln) > 8 {
+				ln = ln[:8]
+			}
+			s = strings.Join(ln, " | ")
+		}
+		if n := sources.RentalsNeedsYou(rt.Today); n != "" {
+			s = strings.TrimPrefix(s+" | today: "+n, " | ")
+		}
+		add("Rentals", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string
