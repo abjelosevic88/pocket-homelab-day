@@ -372,6 +372,27 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Sport", s)
 	}
+	// rows in your own tables with a date that day; on the detailed days each row
+	// by name with its table and base (the rest of the row stays in Pocket Tables)
+	var tb sources.TablesDay
+	if get("tables", &tb) && len(tb.Rows) > 0 {
+		s := facts["tables"].Summary
+		if detail {
+			var ln []string
+			for _, r := range tb.Rows {
+				x := sources.TablesRowName(r)
+				if r.Base != "" && r.Base != r.Table {
+					x += " in " + r.Base
+				}
+				ln = append(ln, x)
+			}
+			if len(ln) > 8 {
+				ln = ln[:8]
+			}
+			s = strings.Join(ln, " | ")
+		}
+		add("Tables", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

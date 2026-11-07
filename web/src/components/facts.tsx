@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -442,6 +442,27 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'tables': {
+      const td = fact.payload as TablesDay
+      const rows = td.rows || []
+      if (!rows.length) { body = empty('No rows in your tables with this date.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each row links to it in Pocket Tables
+      const href = (u: string | undefined, id: number) => u ? (u.startsWith('/') ? (base ? base + u : '') : u) : (base && id ? `${base}/r/${id}` : '')
+      const a = (u: string, text: React.ReactNode) => u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open the row in Pocket Tables">{text}</a> : text
+      const tables = new Set(rows.map(r => r.table)).size
+      body = <>
+        <div className="fact-head"><b>{rows.length.toLocaleString()} {rows.length === 1 ? 'row' : 'rows'}</b><span className="muted"> with this date{tables > 1 ? ` in ${tables} tables` : ''}</span></div>
+        <div className="inline-list mt-sm">{rows.map((r, i) => <div key={`${r.id}-${r.field || ''}-${i}`} className="li act-li">
+          <span className="muted mono small act-t">{r.time || ''}</span>
+          <span className="grow act-body"><b>{a(href(r.url, r.id), r.title)}</b>
+            <span className="act-sub">{[`${r.table_icon ? r.table_icon + ' ' : ''}${r.table}`, r.base && r.base !== r.table ? r.base : '', r.field].filter(Boolean).join(' · ')}</span>
+          </span>
+          <PinBtn ref_={`tables:${r.id}:${r.field || ''}`} title={r.title} subtitle={r.field ? `${r.table}: ${r.field}` : r.table} />
+        </div>)}</div>
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -601,6 +622,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'forms': return n('count') > 0 || len('responses') + len('opened') > 0
     case 'crm': return len('activities') + len('due') > 0
     case 'league': return len('games') + len('matches') > 0
+    case 'tables': return len('rows') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

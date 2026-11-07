@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -142,6 +142,8 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
     ;(g.time ? timed : untimed).push({ time: g.time || '', key: `lg${g.id}`, icon: src('league'), kind: 'act', title: `${g.emoji ? g.emoji + ' ' : ''}${name}`, sub })
   }
   for (const m of (league?.matches || []).filter(m => !placed.has(m.id))) (m.time ? timed : untimed).push({ time: m.time || '', key: `lm${m.id}`, icon: src('league'), kind: 'act', title: `${OUTCOME[m.outcome || ''] || 'Played'} in ${m.group}`, sub: m.text || undefined })
+  // a row of your tables at the time its date carries; rows with only a date stay in the card
+  for (const r of (p<TablesDay>('tables')?.rows || []).filter(r => r.time)) timed.push({ time: r.time || '', key: `tb${r.id}-${r.field || ''}`, icon: src('tables'), kind: 'act', title: r.title, sub: r.field ? `${r.table}: ${r.field}` : r.table })
   const health = p<HealthDay>('health')
   for (const w of (health?.workouts || []).filter(w => !w.time || !trained.has(w.time))) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })
