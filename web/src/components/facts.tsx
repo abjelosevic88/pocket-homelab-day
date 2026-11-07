@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -369,6 +369,40 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'crm': {
+      const cr = fact.payload as CRMDay
+      const acts = cr.activities || [], due = cr.due || []
+      if (!acts.length && !due.length) { body = empty('Nothing happened in your deals this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each line links to its deal in Pocket CRM
+      const href = (u: string | undefined, id: number) => u ? (u.startsWith('/') ? (base ? base + u : '') : u) : (base && id ? `${base}/deals/${id}` : '')
+      const a = (u: string, text: React.ReactNode) => u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open the deal">{text}</a> : text
+      const n = (v: number, one: string, many: string) => `${v.toLocaleString()} ${v === 1 ? one : many}`
+      const KIND: Record<string, string> = { won: 'Won', lost: 'Lost', created: 'Added', call: 'Call', meeting: 'Meeting', email: 'Email', step: 'Step done', note: 'Note', stage: 'Moved', made: 'Made' }
+      const talks = ['call', 'meeting', 'email'].reduce((s, k) => s + (cr.counts?.[k] || 0), 0)
+      const head = [cr.won ? `${cr.won.toLocaleString()} won` : '', cr.lost ? `${cr.lost.toLocaleString()} lost` : '', cr.created ? `${cr.created.toLocaleString()} added` : '', talks ? n(talks, 'talk', 'talks') : ''].filter(Boolean)
+      body = <>
+        <div className="fact-head"><b>{head.length ? head.join(' · ') : n(acts.length, 'thing in your deals', 'things in your deals')}</b>{due.length > 0 && <span className="muted"> · {due.length === 1 ? '1 next step was due' : `${due.length} next steps were due`}</span>}</div>
+        {acts.length > 0 && <div className="inline-list mt-sm">{acts.map(x => {
+          const name = x.company && !x.deal.includes(x.company) ? `${x.deal} (${x.company})` : x.deal
+          const generic = ['won', 'lost', 'created'].includes(x.kind)
+          return <div key={x.id} className="li act-li">
+            <span className="muted mono small act-t">{x.time || ''}</span>
+            <span className="grow act-body"><b>{a(href(x.url, x.deal_id), name)}</b><span className="muted small"> · {KIND[x.kind] || cap(x.kind)}</span>
+              {!generic && x.title && <span className="act-sub">{x.title}</span>}
+              {x.note && <span className="act-note muted">{x.note}</span>}
+            </span>
+            <PinBtn ref_={`crm:${x.id}`} title={`${KIND[x.kind] || cap(x.kind)}: ${x.deal}`} subtitle="deal" />
+          </div>
+        })}</div>}
+        {due.length > 0 && <><div className="muted small" style={{ marginTop: 8 }}>Next steps due</div><div className="inline-list">{due.map(x => <div key={x.id} className="li act-li">
+          <span className="grow act-body"><b>{a(href(x.url, x.id), x.next_action || 'A next step')}</b>
+            <span className="act-sub">{[x.title, x.company || x.contact, x.stage, x.amount ? fmtAmount(x.amount, x.currency || 'EUR') : ''].filter(Boolean).join(' · ')}</span>
+          </span>
+        </div>)}</div></>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -526,6 +560,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'blog': return len('published') + len('written') > 0 || n('comments') > 0
     case 'chat': return n('messages') > 0 || len('conversations') > 0
     case 'forms': return n('count') > 0 || len('responses') + len('opened') > 0
+    case 'crm': return len('activities') + len('due') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

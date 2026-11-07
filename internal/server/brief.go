@@ -319,6 +319,31 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Forms", s)
 	}
+	// your deals: what happened to which deal, and on the detailed days each line's title (never the notes)
+	var cr sources.CRMDay
+	if get("crm", &cr) && len(cr.Activities)+len(cr.Due) > 0 {
+		s := facts["crm"].Summary
+		if detail {
+			var ln []string
+			for _, a := range cr.Activities {
+				if a.Kind != "won" && a.Kind != "lost" && a.Kind != "created" && a.Kind != "made" && a.Title != "" {
+					ln = append(ln, a.Deal+": "+a.Title)
+				}
+			}
+			for _, x := range cr.Due {
+				if x.NextAction != "" {
+					ln = append(ln, "due on "+x.Title+": "+x.NextAction)
+				}
+			}
+			if len(ln) > 12 {
+				ln = ln[:12]
+			}
+			if len(ln) > 0 {
+				s += " | " + strings.Join(ln, " | ")
+			}
+		}
+		add("Deals", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

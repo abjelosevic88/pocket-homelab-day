@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -122,6 +122,13 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const c of chat?.plans || []) if (c.time && c.date === chat?.date) timed.push({ time: c.time, key: `cp${c.message_id}`, icon: src('chat'), kind: 'act', title: `Plan in ${c.conversation}`, sub: c.text || undefined })
   // an answer to one of your forms when it came in; the forms opened stay in the Forms card
   for (const a of p<FormsDay>('forms')?.responses || []) (a.time ? timed : untimed).push({ time: a.time || '', key: `fa${a.id}`, icon: src('forms'), kind: 'act', title: `${a.name} answered “${a.form}”`, sub: a.preview || undefined })
+  // a deal's line at its time: "Won: Online shop for cakes (Pekara Marić)", "Call — Booking site"; things made in other apps stay in the Deals card
+  for (const a of (p<CRMDay>('crm')?.activities || []).filter(a => a.kind !== 'made')) {
+    const name = a.company && !a.deal.includes(a.company) ? `${a.deal} (${a.company})` : a.deal
+    const head = ({ won: `Won: ${name}`, lost: `Lost: ${name}`, created: `Deal added: ${name}`, call: `Call — ${a.deal}`, meeting: `Meeting — ${a.deal}`, email: `Email — ${a.deal}`, step: `Step done — ${a.deal}`, note: `Note — ${a.deal}` } as Record<string, string>)[a.kind] || a.deal
+    const generic = ['won', 'lost', 'created'].includes(a.kind)
+    ;(a.time ? timed : untimed).push({ time: a.time || '', key: `cr${a.id}`, icon: src('crm'), kind: 'act', title: head, sub: generic ? undefined : a.title || undefined })
+  }
   const health = p<HealthDay>('health')
   for (const w of (health?.workouts || []).filter(w => !w.time || !trained.has(w.time))) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })
