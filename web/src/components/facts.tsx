@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -403,6 +403,45 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'league': {
+      const lg = fact.payload as LeagueDay
+      const games = lg.games || [], results = lg.matches || []
+      if (!games.length && !results.length) { body = empty('No games in your groups this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each game and result links to it in Pocket League
+      const href = (u?: string) => u ? (u.startsWith('/') ? (base ? base + u : '') : u) : ''
+      const a = (u: string | undefined, text: React.ReactNode) => href(u) ? <a href={href(u)} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open in Pocket League">{text}</a> : text
+      const ANSWER: Record<string, [string, string]> = { in: ["You're in", 'ok'], maybe: ['Maybe', 'warn'], out: ["You're out", ''] }
+      const OUT: Record<string, [string, string]> = { W: ['Won', 'ok'], D: ['Drew', 'accent'], L: ['Lost', 'danger'] }
+      const name = (g: { title: string; group: string }) => !g.group || g.title.includes(g.group) ? (g.group || g.title) : `${g.title} (${g.group})`
+      const rec = [lg.won ? `${lg.won} won` : '', lg.drawn ? `${lg.drawn} drawn` : '', lg.lost ? `${lg.lost} lost` : ''].filter(Boolean)
+      const playing = games.filter(g => g.status !== 'cancelled' && g.my_answer === 'in').length
+      const head = results.length ? (rec.length ? rec.join(' · ') : `${results.length} ${results.length === 1 ? 'result' : 'results'}`) : `${games.length} ${games.length === 1 ? 'game' : 'games'}`
+      body = <>
+        <div className="fact-head"><b>{head}</b>{!results.length && playing > 0 && <span className="muted"> · you're in {playing === games.length ? (playing === 1 ? 'it' : 'all') : playing}</span>}</div>
+        {games.length > 0 && <div className="inline-list mt-sm">{games.map(g => {
+          const off = g.status === 'cancelled'
+          const [label, tone] = off ? ['Called off', ''] : ANSWER[g.my_answer || ''] || ['Not answered yet', 'warn']
+          return <div key={`g${g.id}`} className="li act-li" style={off ? { opacity: 0.6 } : undefined}>
+            <span className="muted mono small act-t">{g.time || ''}</span>
+            <span className="grow act-body"><b>{g.emoji ? `${g.emoji} ` : ''}{a(g.url, name(g))}</b>
+              <span className="act-sub">{[g.venue, off ? '' : `${g.in} in`, g.status === 'voting' ? 'the time is still being voted on' : ''].filter(Boolean).join(' · ')}</span>
+            </span>
+            <span className={`badge ${tone}`.trim()} title={off ? 'This game was called off' : 'Your answer — change it in Pocket League'}>{label}</span>
+            <PinBtn ref_={`league:g${g.id}`} title={name(g)} subtitle={g.time ? `game at ${g.time}` : 'game'} />
+          </div>
+        })}</div>}
+        {results.length > 0 && <><div className="muted small" style={{ marginTop: 8 }}>Results</div><div className="inline-list">{results.map(m => {
+          const [label, tone] = OUT[m.outcome || ''] || ['Played', '']
+          return <div key={`m${m.id}`} className="li act-li">
+            <span className={`badge ${tone}`.trim()}>{label}</span>
+            <span className="grow act-body">{a(m.url, m.text || m.group)}<span className="act-sub">{m.emoji ? `${m.emoji} ` : ''}{m.group}</span></span>
+            <PinBtn ref_={`league:m${m.id}`} title={`${label}: ${m.text || m.group}`} subtitle={m.group} />
+          </div>
+        })}</div></>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -561,6 +600,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'chat': return n('messages') > 0 || len('conversations') > 0
     case 'forms': return n('count') > 0 || len('responses') + len('opened') > 0
     case 'crm': return len('activities') + len('due') > 0
+    case 'league': return len('games') + len('matches') > 0
     case 'parcels': return len('delivered') + len('sent') + len('ordered') + len('steps') > 0
     case 'horoscope': return !!(v as { moon_sign?: string }).moon_sign
     case 'garage': return len('items') > 0

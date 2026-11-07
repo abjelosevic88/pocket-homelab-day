@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -129,6 +129,19 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
     const generic = ['won', 'lost', 'created'].includes(a.kind)
     ;(a.time ? timed : untimed).push({ time: a.time || '', key: `cr${a.id}`, icon: src('crm'), kind: 'act', title: head, sub: generic ? undefined : a.title || undefined })
   }
+  // a game in your groups at its time, with your answer — or its result when you played it; a result without a game that day has no time
+  const league = p<LeagueDay>('league')
+  const OUTCOME: Record<string, string> = { W: 'Won', D: 'Drew', L: 'Lost' }
+  const ANSWER: Record<string, string> = { in: "you're in", maybe: 'maybe', out: "you're out" }
+  const placed = new Set<number>()
+  for (const g of league?.games || []) {
+    const name = !g.group || g.title.includes(g.group) ? (g.group || g.title) : `${g.title} (${g.group})`
+    const res = (league?.matches || []).filter(m => m.url && m.url === g.url)
+    res.forEach(m => placed.add(m.id))
+    const sub = res.length ? res.map(m => `${OUTCOME[m.outcome || ''] || 'Played'}: ${m.text}`).join(' · ') : g.status === 'cancelled' ? 'called off' : [g.venue, ANSWER[g.my_answer || ''] || 'not answered yet', `${g.in} in`].filter(Boolean).join(' · ')
+    ;(g.time ? timed : untimed).push({ time: g.time || '', key: `lg${g.id}`, icon: src('league'), kind: 'act', title: `${g.emoji ? g.emoji + ' ' : ''}${name}`, sub })
+  }
+  for (const m of (league?.matches || []).filter(m => !placed.has(m.id))) (m.time ? timed : untimed).push({ time: m.time || '', key: `lm${m.id}`, icon: src('league'), kind: 'act', title: `${OUTCOME[m.outcome || ''] || 'Played'} in ${m.group}`, sub: m.text || undefined })
   const health = p<HealthDay>('health')
   for (const w of (health?.workouts || []).filter(w => !w.time || !trained.has(w.time))) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })

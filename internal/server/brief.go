@@ -344,6 +344,34 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Deals", s)
 	}
+	// sport with friends: the results you played and the games you were in; on the
+	// detailed days every game of the day with your answer and how many were in
+	var lg sources.LeagueDay
+	if get("league", &lg) && len(lg.Games)+len(lg.Matches) > 0 {
+		s := facts["league"].Summary
+		if detail {
+			var ln []string
+			for _, g := range lg.Games {
+				x := sources.LeagueGameName(g)
+				if g.Time != "" {
+					x += " at " + g.Time
+				}
+				if g.Status == "cancelled" {
+					x += ": called off"
+				} else {
+					x += fmt.Sprintf(": %s, %d in", sources.LeagueAnswer(g.MyAnswer), g.In)
+				}
+				ln = append(ln, x)
+			}
+			if len(ln) > 8 {
+				ln = ln[:8]
+			}
+			if len(ln) > 0 {
+				s = strings.TrimPrefix(s+" | "+strings.Join(ln, " | "), " | ")
+			}
+		}
+		add("Sport", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

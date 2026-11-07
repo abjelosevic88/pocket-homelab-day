@@ -46,7 +46,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -70,6 +70,7 @@ var pocketSources = map[string]pocketSource{
 	"chat":      {slug: "chat", app: "Pocket Chat", scope: "chat:read", reason: "Write the day's chats into your journal: which conversations, plans people made, what was shared"},
 	"forms":     {slug: "forms", app: "Pocket Forms", scope: "forms:read", reason: "Write the answers to your forms into your journal: who answered which form, and the forms you opened"},
 	"crm":       {slug: "crm", app: "Pocket CRM", scope: "crm:read", reason: "Show on your day the deals you added, won or lost, the talks you had and the next steps that were due"},
+	"league":    {slug: "league", app: "Pocket League", scope: "league:read", reason: "Show on your day the games in your groups with your answer, and write the results you played into your journal"},
 	"parcels":   {slug: "parcels", app: "Pocket Parcels", scope: "parcels:read", reason: "Parcels delivered, sent, ordered, waiting to be picked up or in trouble, in your journal"},
 	"horoscope": {slug: "horoscope", app: "Pocket Horoscope", scope: "horoscope:read", reason: "The Moon, sky events and your daily horoscope and mood check-in in your journal"},
 	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
@@ -446,6 +447,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewForms(conn)
 	case "crm":
 		return sources.NewCRM(conn)
+	case "league":
+		return sources.NewLeague(conn)
 	case "parcels":
 		return sources.NewParcels(conn)
 	case "horoscope":
