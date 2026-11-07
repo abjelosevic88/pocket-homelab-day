@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type TrailsDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -146,6 +146,8 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   for (const r of (p<TablesDay>('tables')?.rows || []).filter(r => r.time)) timed.push({ time: r.time || '', key: `tb${r.id}-${r.field || ''}`, icon: src('tables'), kind: 'act', title: r.title, sub: r.field ? `${r.table}: ${r.field}` : r.table })
   // your rentals that day: rent in, leases started or ended, repairs, inspections (Rentals gives them no time)
   ;(p<RentalsDay>('rentals')?.items || []).forEach((it, i) => untimed.push({ time: '', key: `rt${i}`, icon: src('rentals'), kind: 'act', title: it.title, sub: it.subtitle || undefined }))
+  // your hikes, walks, runs and rides that day, at the time you set off
+  for (const o of p<TrailsDay>('trails')?.outings || []) (o.time ? timed : untimed).push({ time: o.time || '', key: `tr${o.id}`, icon: src('trails'), kind: 'act', title: o.status === 'planned' ? `Planned: ${o.title}` : o.title, sub: o.text || undefined })
   const health = p<HealthDay>('health')
   for (const w of (health?.workouts || []).filter(w => !w.time || !trained.has(w.time))) (w.time ? timed : untimed).push({ time: w.time || '', key: `hw${w.id}`, icon: src('health'), kind: 'act', title: `${w.name || w.kind.replace('_', ' ')} · ${fmtMinutes(w.minutes)}`, sub: [w.distance_km ? `${w.distance_km} km` : '', w.kcal ? `${w.kcal} kcal` : '', w.avg_hr ? `♥ ${w.avg_hr}` : ''].filter(Boolean).join(' · ') || undefined })
   if (health?.sleep) timed.push({ time: health.sleep.wake, key: 'hs', icon: src('health'), kind: 'act', title: `Woke up after ${fmtMinutes(health.sleep.asleep_min)} of sleep`, sub: `in bed since ${health.sleep.bed}` })

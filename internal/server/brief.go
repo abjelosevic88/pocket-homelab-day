@@ -421,6 +421,23 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Rentals", s)
 	}
+	// the outdoors: on the detailed days every outing (how far, how much up,
+	// with whom), and today who is out and back by when and the next outing
+	var tl sources.TrailsDay
+	okTL := get("trails", &tl)
+	if tl.Date != timeNow().Format("2006-01-02") {
+		tl.Today = nil // who was out on a day gone by is no longer news
+	}
+	if okTL && (len(tl.Outings) > 0 || sources.TrailsNow(tl.Today) != "") {
+		s := facts["trails"].Summary
+		if detail {
+			s = strings.Join(sources.TrailsLines(tl), " | ")
+		}
+		if n := sources.TrailsNow(tl.Today); n != "" {
+			s = strings.TrimPrefix(s+" | today: "+n, " | ")
+		}
+		add("Outdoors", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string

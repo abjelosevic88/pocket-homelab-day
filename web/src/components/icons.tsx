@@ -32,6 +32,7 @@ const P: Record<string, string> = {
   upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
   link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
   map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',
+  mountain: 'M8 3l4 8 5-5 5 15H2L8 3z',
   camera: 'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   headphones: 'M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z',
   tv: 'M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM17 2l-5 5-5-5',
@@ -141,12 +142,12 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75, titl
 
 /** Each source's glyph and colour. */
 export const SOURCE_GLYPH: Record<string, string> = {
-  dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', voice: 'wave', wallet: 'ticket', fitness: 'dumbbell', nutrition: 'apple', blog: 'edit', chat: 'chat', forms: 'list', crm: 'trophy', league: 'ball', tables: 'table', rentals: 'key', horoscope: 'moon', bookshelf: 'book',
+  dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', voice: 'wave', wallet: 'ticket', fitness: 'dumbbell', nutrition: 'apple', blog: 'edit', chat: 'chat', forms: 'list', crm: 'trophy', league: 'ball', tables: 'table', rentals: 'key', trails: 'mountain', horoscope: 'moon', bookshelf: 'book',
   travel: 'plane', kitchen: 'utensils', garage: 'car', weather: 'cloud-sun', podcasts: 'mic', pinepods: 'mic', audiobookshelf: 'headphones', jellyseerr: 'film',
   forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', split: 'users', tasks: 'check-square', birthdays: 'users', inventory: 'package', projects: 'kanban',
 }
 export const SOURCE_COLOR: Record<string, string> = {
-  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', voice: '#c2255c', wallet: '#b4235a', fitness: '#d9480f', nutrition: '#5f8c0e', blog: '#3157d5', chat: '#2a7f9e', forms: '#5f3dc4', crm: '#15803d', league: '#7a9a01', tables: '#0b7285', rentals: '#4b6584', horoscope: '#6a3fb5', bookshelf: '#b45309',
+  dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', voice: '#c2255c', wallet: '#b4235a', fitness: '#d9480f', nutrition: '#5f8c0e', blog: '#3157d5', chat: '#2a7f9e', forms: '#5f3dc4', crm: '#15803d', league: '#7a9a01', tables: '#0b7285', rentals: '#4b6584', trails: '#2f7d4f', horoscope: '#6a3fb5', bookshelf: '#b45309',
   travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', podcasts: '#9333ea', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
   forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
 }

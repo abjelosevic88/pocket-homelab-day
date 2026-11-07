@@ -47,6 +47,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"league:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"tables:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"rentals:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`), regexp.MustCompile(`^/api/v1/today$`)},
+	"trails:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`), regexp.MustCompile(`^/api/v1/summary$`), regexp.MustCompile(`^/api/v1/outings$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
@@ -399,6 +400,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","items":[{"id":12,"title":"Ana Marić","table":"Clients","table_icon":"👥","base":"Bakery","field":"Visit","date":"` + d + `T14:30","url":"https://tables.example.org/r/12"},{"id":7,"title":"Logo for the bakery","table":"Projects","base":"Work","field":"Due","date":"` + d + `","url":"https://tables.example.org/r/7"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "rentals":
 			write(`{"date":"` + d + `","items":[{"kind":"payment","title":"Rent in: €650.00","subtitle":"Flat 2 — Ana Marić","url":"https://rentals.example.org/leases/3"},{"kind":"repair","title":"Repair reported: Leaking tap","subtitle":"Flat 1, Obala 12","url":"https://rentals.example.org/repairs/9"}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "trails":
+			write(`{"date":"` + d + `","count":2,"outings":[{"id":2,"title":"Hike: Trebević from Sarajevo","status":"done","activity":"hike","start_time":"08:00","distance_m":12400,"gain_m":980,"minutes":270,"rating":5,"people":"Ana","text":"12.4 km · 980 m up · 4 h 30 min · with Ana","route":"Trebević from Sarajevo","url":"https://trails.example.org/outings/2"},{"id":3,"title":"Run by the river","status":"planned","activity":"run","start_time":"18:00","text":"8.0 km · 20 m up · 45 min","url":"https://trails.example.org/outings/3"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "league":
 			write(`{"date":"` + d + `","games":[{"id":31,"title":"Tennis · Tuesday Tennis","group":"Tuesday Tennis","emoji":"🎾","time":"20:00","venue":"TK Koševo","status":"planned","my_answer":"in","in":4,"url":"https://league.example.org/games/31"},{"id":32,"title":"Futsal / 5-a-side · Friday 5-a-side","group":"Friday 5-a-side","emoji":"⚽","time":"19:00","venue":"Dvorana Mojmilo","status":"planned","my_answer":"","in":8,"url":"https://league.example.org/games/32"}],"matches":[{"id":40,"group":"Tuesday Tennis","emoji":"🎾","text":"Aleksandar beat Marko Petrović 6–4 6–3","outcome":"W","url":"https://league.example.org/games/31"}]}`)
 		case strings.HasPrefix(p, "/api/v1/deals/") && slug == "crm":
@@ -613,7 +616,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -719,6 +722,12 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Rentals: Rent in: €650.00 (Flat 2 — Ana Marić) | Repair reported: Leaking tap (Flat 1, Obala 12)") {
 		t.Errorf("the AI's rentals line:\n%s", l)
+	}
+	if f := facts["trails"]; f.Headline != 1 || f.Summary != "Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana); Run by the river at 18:00 (planned)" {
+		t.Errorf("trails fact: %+v", f)
+	}
+	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Outdoors: Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana) | Run by the river at 18:00 (planned)") {
+		t.Errorf("the AI's outdoors line:\n%s", l)
 	}
 	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
 		t.Errorf("voice fact (the memo still being written out left out): %+v", f)

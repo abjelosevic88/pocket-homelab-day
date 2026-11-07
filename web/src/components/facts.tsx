@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type TrailsDay, type TrailsOuting, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -505,6 +505,57 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'trails': {
+      const tdy = fact.payload as TrailsDay
+      // who is out, the next outing and the recent ones only on today itself
+      const outings = tdy.outings || [], td = !date || date === todayISO() ? tdy.today : undefined
+      const out = td?.out || [], next = td?.next, recent = td?.recent || []
+      if (!outings.length && !out.length && !next && !recent.length) { body = empty(td ? 'Nothing planned outdoors this week.' : 'No hikes, walks, runs or rides this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each line opens its outing in Pocket Trails
+      const href = (id: number, u?: string) => u || (base ? `${base}/outings/${id}` : '')
+      const a = (u: string, text: React.ReactNode) => u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title="Open in Pocket Trails">{text}</a> : text
+      const line = (o: TrailsOuting) => o.text || [o.distance_m ? fmtKm(o.distance_m / 1000, unit) : '', o.gain_m ? `${Math.round(o.gain_m).toLocaleString()} m up` : '', o.minutes ? fmtMinutes(o.minutes) : ''].filter(Boolean).join(' · ')
+      const stars = (n?: number) => n ? <span className="muted small" title={`${n} of 5`}>{'★'.repeat(n)}</span> : null
+      const clock = (s?: string) => s && s.length >= 16 ? s.slice(11, 16) : ''
+      const now = new Date()
+      const late = (b?: string) => !!b && b.length >= 16 && new Date(b) < now
+      const when = (days?: number) => !days ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`
+      body = <>
+        {td && (out.length > 0 || next || recent.length > 0) && <>
+          {out.map(o => <div key={`o${o.id}`} className="li act-li">
+            <span style={{ display: 'inline-flex', color: late(o.back_by) ? 'var(--warning)' : 'inherit' }}><Icon name={late(o.back_by) ? 'alert' : 'mountain'} size={15} /></span>
+            <span className="grow act-body"><b>{a(href(o.id, o.url), o.title)}</b>
+              <span className="act-sub">{['out now', o.time ? `set off ${o.time}` : '', o.back_by ? `${late(o.back_by) ? 'was due back' : 'back by'} ${o.back_by.slice(0, 10) !== o.date ? fmtDate(o.back_by.slice(0, 10), false) + ' ' : ''}${clock(o.back_by)}` : ''].filter(Boolean).join(' · ')}</span>
+            </span>
+          </div>)}
+          {next && <div className="li act-li">
+            <Icon name="calendar" size={15} className="muted" />
+            <span className="grow act-body"><b>{a(href(next.id, next.url), next.title)}</b>
+              <span className="act-sub">{['next', when(next.days), next.days && next.days > 1 ? fmtDate(next.date, false) : '', next.time ? `at ${next.time}` : '', next.minutes ? `about ${fmtMinutes(next.minutes)}` : ''].filter(Boolean).join(' · ')}</span>
+            </span>
+          </div>}
+          {recent.length > 0 && <>
+            <div className="muted small" style={{ marginTop: 8 }}>Lately{td.to_rate ? ` · ${td.to_rate} to rate` : ''}</div>
+            <div className="inline-list mt-sm">{recent.map(o => <div key={`r${o.id}`} className="li act-li">
+              <span className="muted mono small">{o.date ? fmtDate(o.date, false) : ''}</span>
+              <span className="grow act-body"><b>{a(href(o.id, o.url), o.title)}</b>{line(o) && <span className="act-sub">{line(o)}</span>}</span>
+              {stars(o.rating)}
+            </div>)}</div>
+          </>}
+        </>}
+        {outings.length > 0 && <>
+          {td && (out.length > 0 || next || recent.length > 0) ? <div className="muted small" style={{ marginTop: 8 }}>This day</div> : <div className="fact-head"><b>{outings.length.toLocaleString()} {outings.length === 1 ? 'outing' : 'outings'}</b><span className="muted"> outdoors</span></div>}
+          <div className="inline-list mt-sm">{outings.map(o => <div key={`d${o.id}`} className="li act-li">
+            <span className="muted mono small">{o.time || ''}</span>
+            <span className="grow act-body"><b>{a(href(o.id, o.url), o.title)}</b>{(line(o) || o.status !== 'done') && <span className="act-sub">{[o.status === 'planned' ? 'planned' : o.status === 'out' ? 'out' : '', line(o)].filter(Boolean).join(' · ')}</span>}</span>
+            {stars(o.rating)}
+            <PinBtn ref_={`trails:${o.id}`} title={o.title} subtitle={line(o) || 'outdoors'} />
+          </div>)}</div>
+        </>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -665,6 +716,10 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'crm': return len('activities') + len('due') > 0
     case 'league': return len('games') + len('matches') > 0
     case 'tables': return len('rows') > 0
+    case 'trails': {
+      const td = (v as { today?: { out?: unknown[]; next?: unknown; recent?: unknown[] } }).today
+      return len('outings') + (td?.out?.length || 0) + (td?.next ? 1 : 0) + (td?.recent?.length || 0) > 0
+    }
     case 'rentals': {
       const td = (v as { today?: { late?: unknown[]; due?: unknown[]; urgent?: unknown[] } }).today
       return len('items') + (td?.late?.length || 0) + (td?.due?.length || 0) + (td?.urgent?.length || 0) > 0

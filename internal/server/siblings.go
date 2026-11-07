@@ -46,7 +46,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -73,6 +73,7 @@ var pocketSources = map[string]pocketSource{
 	"league":    {slug: "league", app: "Pocket League", scope: "league:read", reason: "Show on your day the games in your groups with your answer, and write the results you played into your journal"},
 	"tables":    {slug: "tables", app: "Pocket Tables", scope: "tables:read", reason: "Show on your day the rows in your own tables with a date on that day (a visit, a deadline, a delivery), each linking to its row"},
 	"rentals":   {slug: "rentals", app: "Pocket Rentals", scope: "rentals:read", reason: "Show on your day the rent that came in, the leases that started or ended, repairs and inspections — and today the rent late or due and the urgent repairs"},
+	"trails":    {slug: "trails", app: "Pocket Trails", scope: "trails:read", reason: "Show on your day the hikes, walks, runs and rides you planned or did — and today who is out and by when they will be back, the next outing and the recent ones"},
 	"parcels":   {slug: "parcels", app: "Pocket Parcels", scope: "parcels:read", reason: "Parcels delivered, sent, ordered, waiting to be picked up or in trouble, in your journal"},
 	"horoscope": {slug: "horoscope", app: "Pocket Horoscope", scope: "horoscope:read", reason: "The Moon, sky events and your daily horoscope and mood check-in in your journal"},
 	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
@@ -455,6 +456,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewTables(conn)
 	case "rentals":
 		return sources.NewRentals(conn)
+	case "trails":
+		return sources.NewTrails(conn)
 	case "parcels":
 		return sources.NewParcels(conn)
 	case "horoscope":
