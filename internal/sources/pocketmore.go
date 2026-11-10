@@ -339,3 +339,75 @@ func (p *Puzzlecraft) Fetch(ctx context.Context, date string, loc *time.Location
 	}
 	return &Result{Payload: act, Headline: float64(mine), Summary: sum}, nil
 }
+
+// ---------------- Pocket Capsule ----------------
+
+// Capsule reads the day's time capsules: the ones started, sealed, opened
+// (or broken open early), written back to and put things in, and the ones
+// that open that day. Pocket Capsule never says what is inside a sealed one.
+type Capsule struct{ Conn pocket.Conn }
+
+// NewCapsule creates a fetcher over a connection.
+func NewCapsule(conn pocket.Conn) *Capsule { return &Capsule{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *Capsule) Name() string { return "capsule" }
+
+// Test implements Fetcher.
+func (p *Capsule) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Capsule " + v, nil
+}
+
+// capsuleGroup names what happened to a capsule, for the day's groups.
+var capsuleGroup = map[string]string{"made": "Started", "sealed": "Sealed", "opened": "Opened", "early": "Opened", "ready": "Opens today", "opens": "Opens today", "reflected": "Wrote back", "added": "Put in"}
+
+// Fetch implements Fetcher.
+func (p *Capsule) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Items []struct {
+			Time      string `json:"time"`
+			Kind      string `json:"kind"`
+			Text      string `json:"text"`
+			Emoji     string `json:"emoji"`
+			CapsuleID int64  `json:"capsule_id"`
+			URL       string `json:"url"`
+		} `json:"items"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	counts := map[string]int{}
+	for _, x := range day.Items {
+		if strings.TrimSpace(x.Text) == "" {
+			continue
+		}
+		group := firstNonEmptyStr(capsuleGroup[x.Kind], "Time capsule")
+		counts[group]++
+		opened := x.Kind == "opened" || x.Kind == "early"
+		act.Items = append(act.Items, ActivityItem{Time: x.Time, Title: JoinNonEmpty(" ", x.Emoji, x.Text), Group: group, Done: opened, Ref: fmt.Sprint(x.CapsuleID), URL: x.URL})
+	}
+	act.Finish()
+	sum := ""
+	for _, g := range [][2]string{{"Opened", "Opened"}, {"Sealed", "Sealed"}, {"Started", "Started"}, {"Put in", "Put things in"}, {"Wrote back", "Wrote back to"}} {
+		if n := counts[g[0]]; n > 0 {
+			sum = JoinNonEmpty(" · ", sum, g[1]+" "+Plural(n, "time capsule", "time capsules"))
+		}
+	}
+	if n := counts["Opens today"]; n > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(n, "time capsule opens", "time capsules open"))
+	}
+	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
+}
