@@ -52,6 +52,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
 	"cooklog:read":     {regexp.MustCompile(`^/api/v1/cooklog$`)},
 	"vehicles:read":    {regexp.MustCompile(`^/api/v1/vehicles(/\d+(/fuel|/records)?)?$`)},
+	"puzzlecraft:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"invoices:read":    {regexp.MustCompile(`^/api/v1/invoices(/\d+)?$`), regexp.MustCompile(`^/api/v1/payments$`)},
 	"groups:read":      {regexp.MustCompile(`^/api/v1/groups(/\d+(/expenses)?)?$`), regexp.MustCompile(`^/api/v1/categories$`)},
 	"activity:read":    {regexp.MustCompile(`^/api/v1/activity$`)},
@@ -400,6 +401,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","items":[{"id":12,"title":"Ana Marić","table":"Clients","table_icon":"👥","base":"Bakery","field":"Visit","date":"` + d + `T14:30","url":"https://tables.example.org/r/12"},{"id":7,"title":"Logo for the bakery","table":"Projects","base":"Work","field":"Due","date":"` + d + `","url":"https://tables.example.org/r/7"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "rentals":
 			write(`{"date":"` + d + `","items":[{"kind":"payment","title":"Rent in: €650.00","subtitle":"Flat 2 — Ana Marić","url":"https://rentals.example.org/leases/3"},{"kind":"repair","title":"Repair reported: Leaking tap","subtitle":"Flat 1, Obala 12","url":"https://rentals.example.org/repairs/9"}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "puzzlecraft":
+			write(`{"date":"` + d + `","count":2,"minutes":5,"items":[{"time":"08:10","title":"Puzzle of the day: Sudoku","sub":"You solved it in 5:12","kind":"sudoku","mine":true},{"time":"20:00","title":"Monday mini","sub":"Ana solved it in 3:40","kind":"crossword","mine":false}],"planned":[]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "trails":
 			write(`{"date":"` + d + `","count":2,"outings":[{"id":2,"title":"Hike: Trebević from Sarajevo","status":"done","activity":"hike","start_time":"08:00","distance_m":12400,"gain_m":980,"minutes":270,"rating":5,"people":"Ana","text":"12.4 km · 980 m up · 4 h 30 min · with Ana","route":"Trebević from Sarajevo","url":"https://trails.example.org/outings/2"},{"id":3,"title":"Run by the river","status":"planned","activity":"run","start_time":"18:00","text":"8.0 km · 20 m up · 45 min","url":"https://trails.example.org/outings/3"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "league":
@@ -616,7 +619,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}

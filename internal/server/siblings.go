@@ -46,43 +46,44 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "puzzlecraft", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
-	"podcasts":  {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
-	"tasks":     {slug: "tasks", app: "Pocket Tasks", scope: "tasks:read", reason: "Tasks you completed in your journal"},
-	"birthdays": {slug: "contacts", app: "Pocket Contacts", scope: "contacts:read", reason: "Birthdays and anniversaries of the day in your journal"},
-	"projects":  {slug: "projects", app: "Pocket Projects", scope: "projects:read", reason: "Your work on issues, day by day, in your journal"},
-	"habits":    {slug: "habits", app: "Pocket Habits", scope: "habits:read", reason: "Your habits in the journal"},
-	"health":    {slug: "health", app: "Pocket Health", scope: "health:read", reason: "Steps, sleep, workouts, heart and weight in your journal"},
-	"still":     {slug: "still", app: "Pocket Still", scope: "mindfulness:read", reason: "Breathing and meditation practice in your journal"},
-	"home":      {slug: "home", app: "Pocket Home", scope: "home:read", reason: "Repairs, upkeep done and meter readings in your journal"},
-	"renewals":  {slug: "renewals", app: "Pocket Renewals", scope: "renewals:read", reason: "What you renewed and what ran out, in your journal"},
-	"wealth":    {slug: "wealth", app: "Pocket Wealth", scope: "wealth:read", reason: "What you bought, sold or earned from your investments and the values you updated, in your journal"},
-	"pets":      {slug: "pets", app: "Pocket Pets", scope: "pets:read", reason: "Vet visits, vaccines, grooming, weighings and birthdays of your pets in your journal"},
-	"sign":      {slug: "sign", app: "Pocket Sign", scope: "signing:read", reason: "Documents you sent for signing, who signed them, what everyone finished signing and what you signed, in your journal"},
-	"places":    {slug: "places", app: "Pocket Places", scope: "places:read", reason: "Where you ate, drank and went (with whom, how you liked it, what it cost), what you planned and the places you saved, in your journal"},
-	"voice":     {slug: "voice", app: "Pocket Voice", scope: "voice:read", reason: "Your voice memos of the day (what you said, a summary, where you sent it), in your journal, and your dictation written out on your server", more: []string{voiceTranscribeScope}},
-	"wallet":    {slug: "wallet", app: "Pocket Wallet", scope: "wallet:read", reason: "Put the day's concerts, matches, films and flights in your journal, from the tickets and boarding passes you keep"},
-	"fitness":   {slug: "fitness", app: "Pocket Fitness", scope: "fitness:read", reason: "Show the day's workouts in your journal: what you trained, sets and records"},
-	"nutrition": {slug: "nutrition", app: "Pocket Nutrition", scope: "nutrition:read", reason: "Show what you ate in your journal: each meal with its foods, calories of your budget, protein, carbs and fat, and water"},
-	"blog":      {slug: "blog", app: "Pocket Blog", scope: "blog:read", reason: "Write the posts you published that day into your journal, with how many people read the blog and commented"},
-	"chat":      {slug: "chat", app: "Pocket Chat", scope: "chat:read", reason: "Write the day's chats into your journal: which conversations, plans people made, what was shared"},
-	"forms":     {slug: "forms", app: "Pocket Forms", scope: "forms:read", reason: "Write the answers to your forms into your journal: who answered which form, and the forms you opened"},
-	"crm":       {slug: "crm", app: "Pocket CRM", scope: "crm:read", reason: "Show on your day the deals you added, won or lost, the talks you had and the next steps that were due"},
-	"league":    {slug: "league", app: "Pocket League", scope: "league:read", reason: "Show on your day the games in your groups with your answer, and write the results you played into your journal"},
-	"tables":    {slug: "tables", app: "Pocket Tables", scope: "tables:read", reason: "Show on your day the rows in your own tables with a date on that day (a visit, a deadline, a delivery), each linking to its row"},
-	"rentals":   {slug: "rentals", app: "Pocket Rentals", scope: "rentals:read", reason: "Show on your day the rent that came in, the leases that started or ended, repairs and inspections — and today the rent late or due and the urgent repairs"},
-	"trails":    {slug: "trails", app: "Pocket Trails", scope: "trails:read", reason: "Show on your day the hikes, walks, runs and rides you planned or did — and today who is out and by when they will be back, the next outing and the recent ones"},
-	"parcels":   {slug: "parcels", app: "Pocket Parcels", scope: "parcels:read", reason: "Parcels delivered, sent, ordered, waiting to be picked up or in trouble, in your journal"},
-	"horoscope": {slug: "horoscope", app: "Pocket Horoscope", scope: "horoscope:read", reason: "The Moon, sky events and your daily horoscope and mood check-in in your journal"},
-	"bookshelf": {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
-	"travel":    {slug: "travel", app: "Pocket Travel", scope: "trips:read", reason: "Trips"},
-	"kitchen":   {slug: "kitchen", app: "Pocket Kitchen", scope: "cooklog:read", reason: "What you cooked"},
-	"garage":    {slug: "garage", app: "Pocket Garage", scope: "vehicles:read", reason: "Car costs and fill-ups"},
-	"invoicing": {slug: "invoicing", app: "Pocket Invoicing", scope: "invoices:read", reason: "Invoices and payments"},
-	"split":     {slug: "split", app: "Pocket Split", scope: "groups:read", reason: "Shared expenses"},
-	"inventory": {slug: "inventory", app: "Pocket Inventory", scope: "activity:read", reason: "Inventory activity"},
+	"podcasts":    {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
+	"tasks":       {slug: "tasks", app: "Pocket Tasks", scope: "tasks:read", reason: "Tasks you completed in your journal"},
+	"birthdays":   {slug: "contacts", app: "Pocket Contacts", scope: "contacts:read", reason: "Birthdays and anniversaries of the day in your journal"},
+	"projects":    {slug: "projects", app: "Pocket Projects", scope: "projects:read", reason: "Your work on issues, day by day, in your journal"},
+	"habits":      {slug: "habits", app: "Pocket Habits", scope: "habits:read", reason: "Your habits in the journal"},
+	"health":      {slug: "health", app: "Pocket Health", scope: "health:read", reason: "Steps, sleep, workouts, heart and weight in your journal"},
+	"still":       {slug: "still", app: "Pocket Still", scope: "mindfulness:read", reason: "Breathing and meditation practice in your journal"},
+	"home":        {slug: "home", app: "Pocket Home", scope: "home:read", reason: "Repairs, upkeep done and meter readings in your journal"},
+	"renewals":    {slug: "renewals", app: "Pocket Renewals", scope: "renewals:read", reason: "What you renewed and what ran out, in your journal"},
+	"wealth":      {slug: "wealth", app: "Pocket Wealth", scope: "wealth:read", reason: "What you bought, sold or earned from your investments and the values you updated, in your journal"},
+	"pets":        {slug: "pets", app: "Pocket Pets", scope: "pets:read", reason: "Vet visits, vaccines, grooming, weighings and birthdays of your pets in your journal"},
+	"sign":        {slug: "sign", app: "Pocket Sign", scope: "signing:read", reason: "Documents you sent for signing, who signed them, what everyone finished signing and what you signed, in your journal"},
+	"places":      {slug: "places", app: "Pocket Places", scope: "places:read", reason: "Where you ate, drank and went (with whom, how you liked it, what it cost), what you planned and the places you saved, in your journal"},
+	"voice":       {slug: "voice", app: "Pocket Voice", scope: "voice:read", reason: "Your voice memos of the day (what you said, a summary, where you sent it), in your journal, and your dictation written out on your server", more: []string{voiceTranscribeScope}},
+	"wallet":      {slug: "wallet", app: "Pocket Wallet", scope: "wallet:read", reason: "Put the day's concerts, matches, films and flights in your journal, from the tickets and boarding passes you keep"},
+	"fitness":     {slug: "fitness", app: "Pocket Fitness", scope: "fitness:read", reason: "Show the day's workouts in your journal: what you trained, sets and records"},
+	"nutrition":   {slug: "nutrition", app: "Pocket Nutrition", scope: "nutrition:read", reason: "Show what you ate in your journal: each meal with its foods, calories of your budget, protein, carbs and fat, and water"},
+	"blog":        {slug: "blog", app: "Pocket Blog", scope: "blog:read", reason: "Write the posts you published that day into your journal, with how many people read the blog and commented"},
+	"chat":        {slug: "chat", app: "Pocket Chat", scope: "chat:read", reason: "Write the day's chats into your journal: which conversations, plans people made, what was shared"},
+	"forms":       {slug: "forms", app: "Pocket Forms", scope: "forms:read", reason: "Write the answers to your forms into your journal: who answered which form, and the forms you opened"},
+	"crm":         {slug: "crm", app: "Pocket CRM", scope: "crm:read", reason: "Show on your day the deals you added, won or lost, the talks you had and the next steps that were due"},
+	"league":      {slug: "league", app: "Pocket League", scope: "league:read", reason: "Show on your day the games in your groups with your answer, and write the results you played into your journal"},
+	"tables":      {slug: "tables", app: "Pocket Tables", scope: "tables:read", reason: "Show on your day the rows in your own tables with a date on that day (a visit, a deadline, a delivery), each linking to its row"},
+	"rentals":     {slug: "rentals", app: "Pocket Rentals", scope: "rentals:read", reason: "Show on your day the rent that came in, the leases that started or ended, repairs and inspections — and today the rent late or due and the urgent repairs"},
+	"trails":      {slug: "trails", app: "Pocket Trails", scope: "trails:read", reason: "Show on your day the hikes, walks, runs and rides you planned or did — and today who is out and by when they will be back, the next outing and the recent ones"},
+	"parcels":     {slug: "parcels", app: "Pocket Parcels", scope: "parcels:read", reason: "Parcels delivered, sent, ordered, waiting to be picked up or in trouble, in your journal"},
+	"horoscope":   {slug: "horoscope", app: "Pocket Horoscope", scope: "horoscope:read", reason: "The Moon, sky events and your daily horoscope and mood check-in in your journal"},
+	"bookshelf":   {slug: "bookshelf", app: "Pocket Bookshelf", scope: "books:read", reason: "Books you read"},
+	"travel":      {slug: "travel", app: "Pocket Travel", scope: "trips:read", reason: "Trips"},
+	"kitchen":     {slug: "kitchen", app: "Pocket Kitchen", scope: "cooklog:read", reason: "What you cooked"},
+	"garage":      {slug: "garage", app: "Pocket Garage", scope: "vehicles:read", reason: "Car costs and fill-ups"},
+	"invoicing":   {slug: "invoicing", app: "Pocket Invoicing", scope: "invoices:read", reason: "Invoices and payments"},
+	"puzzlecraft": {slug: "puzzlecraft", app: "Pocket Puzzlecraft", scope: "puzzlecraft:read", reason: "Show on your day the puzzles you solved (and who solved the ones you shared), and the escape rooms and treasure hunts planned"},
+	"split":       {slug: "split", app: "Pocket Split", scope: "groups:read", reason: "Shared expenses"},
+	"inventory":   {slug: "inventory", app: "Pocket Inventory", scope: "activity:read", reason: "Inventory activity"},
 	// Pocket Documents replaced Paperless-ngx (a service source until then).
 	"documents": {slug: "documents", app: "Pocket Documents", scope: "documents:read", reason: "Documents you added on a day, in your journal"},
 	// The money source keeps its old id so the days frozen while it read
@@ -470,6 +471,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewKitchen(conn)
 	case "garage":
 		return sources.NewGarage(conn)
+	case "puzzlecraft":
+		return sources.NewPuzzlecraft(conn)
 	case "invoicing":
 		return sources.NewInvoicing(conn)
 	case "split":

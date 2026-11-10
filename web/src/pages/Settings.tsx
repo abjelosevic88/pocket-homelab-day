@@ -214,6 +214,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   forgejo: { what: 'Your pushes per repository: commits, the latest message, new repositories, tags and pull requests.', key: 'A read-only access token (Settings → Applications, scopes read:user + read:repository)', url: 'http://host.docker.internal:3000', extra: 'User name (empty = the token’s owner)' },
   nextcloud: { what: 'Tasks completed (every task list), events and contact birthdays, over CalDAV.', key: 'An app password (Personal settings → Security)', url: 'http://host.docker.internal:8080', extra: 'Nextcloud user name' },
   documents: { what: 'Documents added that day, with correspondent and type, each linking to the document in Pocket Documents.', key: 'Token from Pocket Documents → Settings → API tokens', url: 'http://host.docker.internal:8183' },
+  puzzlecraft: { what: 'Puzzles you solved, who solved the ones you shared, escape rooms and hunts planned.', key: 'Token from Pocket Puzzlecraft → Settings → API & shortcuts', url: 'http://host.docker.internal:8266' },
   invoicing: { what: 'Invoices issued and payments received, with amounts.', key: 'Token from Pocket Invoicing → Settings → API', url: 'http://host.docker.internal:8168' },
   split: { what: 'Shared expenses dated that day, across every group.', key: 'Token from Pocket Split → Settings → API', url: 'http://host.docker.internal:8172' },
   tasks: { what: 'Tasks completed on each day.', key: 'Token from Pocket Tasks → Settings → API tokens', url: 'http://pocket-tasks:8080' },

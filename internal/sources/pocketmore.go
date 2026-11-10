@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -252,4 +253,89 @@ func (p *Inventory) Fetch(ctx context.Context, date string, loc *time.Location) 
 		sum = Plural(act.Count, "inventory change", "inventory changes") + " · " + act.Items[0].Title
 	}
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
+}
+
+// ---------------- Pocket Puzzlecraft ----------------
+
+// Puzzlecraft reads the puzzles solved on the day — the person's own (the
+// puzzles of the day, their crosswords and sudoku) and by friends playing
+// what they shared — and the escape rooms or hunts planned that day.
+type Puzzlecraft struct{ Conn pocket.Conn }
+
+// NewPuzzlecraft creates a fetcher over a connection.
+func NewPuzzlecraft(conn pocket.Conn) *Puzzlecraft { return &Puzzlecraft{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *Puzzlecraft) Name() string { return "puzzlecraft" }
+
+// Test implements Fetcher.
+func (p *Puzzlecraft) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Puzzlecraft " + v, nil
+}
+
+// Fetch implements Fetcher.
+func (p *Puzzlecraft) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Minutes float64 `json:"minutes"`
+		Items   []struct {
+			Time  string `json:"time"`
+			Title string `json:"title"`
+			Sub   string `json:"sub"`
+			URL   string `json:"url"`
+			Kind  string `json:"kind"`
+			Mine  bool   `json:"mine"`
+		} `json:"items"`
+		Planned []struct {
+			Title string `json:"title"`
+			Time  string `json:"time"`
+			Kind  string `json:"kind"`
+			Place string `json:"place"`
+			URL   string `json:"url"`
+		} `json:"planned"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	kindName := map[string]string{"crossword": "Crossword", "wordsearch": "Word search", "sudoku": "Sudoku", "nonogram": "Picture puzzle", "cryptogram": "Secret code",
+		"scramble": "Word scramble", "quiz": "Quiz", "maze": "Maze", "logic": "Logic grid", "ladder": "Word ladder", "jigsaw": "Jigsaw",
+		"escape": "Escape room", "hunt": "Treasure hunt", "mystery": "Mystery", "party": "Party game"}
+	mine := 0
+	for _, x := range day.Items {
+		group := firstNonEmptyStr(kindName[x.Kind], "Puzzle")
+		if !x.Mine {
+			group = "Solved by others"
+		} else {
+			mine++
+		}
+		act.Items = append(act.Items, ActivityItem{Time: x.Time, Title: x.Title, Sub: x.Sub, Group: group, Done: true, URL: x.URL})
+	}
+	for _, x := range day.Planned {
+		act.Items = append(act.Items, ActivityItem{Time: x.Time, Title: x.Title, Sub: JoinNonEmpty(" · ", firstNonEmptyStr(kindName[x.Kind], "Game"), x.Place, "planned"), Group: "Planned", URL: x.URL})
+	}
+	act.Finish()
+	act.Minutes = day.Minutes
+	sum := ""
+	if mine > 0 {
+		sum = Plural(mine, "puzzle solved", "puzzles solved")
+	}
+	if others := len(day.Items) - mine; others > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(others, "solved by others", "solved by others"))
+	}
+	if len(day.Planned) > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(len(day.Planned), "game planned", "games planned"))
+	}
+	return &Result{Payload: act, Headline: float64(mine), Summary: sum}, nil
 }

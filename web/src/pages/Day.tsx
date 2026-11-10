@@ -11,7 +11,7 @@ import { FactCard, WeatherChip, factHasContent, type PinFn } from '../components
 import { Timeline } from '../components/Timeline'
 import { DictateButton, useAI } from '../components/ai'
 
-const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'horoscope', 'nextcloud', 'tasks', 'birthdays', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
+const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'horoscope', 'nextcloud', 'tasks', 'birthdays', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'puzzlecraft', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
 
 export default function Day() {
   const params = useParams()
@@ -228,7 +228,7 @@ function Glance({ facts, unit }: { facts: DayPage['facts']; unit: 'km' | 'mi' })
   const wt = p<Watched>('jellystat'); if (wt?.minutes) pills.push({ src: 'jellystat', value: fmtMinutes(wt.minutes), label: 'watched' })
   const mo = p<Money>('firefly'); if (mo?.count) pills.push({ src: 'firefly', value: fmtAmount(mo.totals[mo.main_currency] || 0, mo.main_currency), label: `${mo.count} payment${mo.count === 1 ? '' : 's'}` })
   const h = p<Checkin>('habits'); if (h?.total) pills.push({ src: 'habits', value: `${h.done}/${h.total}`, label: 'habits' })
-  for (const src of ['podcasts', 'pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'split', 'invoicing']) {
+  for (const src of ['podcasts', 'pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'split', 'invoicing', 'puzzlecraft']) {
     const f = facts[src]
     if (!f || !f.headline) continue
     const a = f.payload as Activity | null

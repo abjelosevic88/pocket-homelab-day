@@ -118,6 +118,7 @@ var Activities = map[string]ActivityMeta{
 	"forgejo":        {Label: "Code", One: "repository", Many: "repositories", Unit: "qty", QtyOne: "commit", QtyMany: "commits", Verb: "with commits pushed", Group: "repositories"},
 	"nextcloud":      {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with tasks done", Group: "lists"},
 	"documents":      {Label: "Documents", One: "document", Many: "documents", Unit: "count", Verb: "with documents filed", Group: "types"},
+	"puzzlecraft":    {Label: "Puzzles", One: "puzzle", Many: "puzzles", Unit: "count", Verb: "with puzzles solved", Group: "kinds"},
 	"invoicing":      {Label: "Invoices", One: "item", Many: "items", Unit: "amount", Verb: "with invoicing", Group: "clients"},
 	"split":          {Label: "Shared costs", One: "expense", Many: "expenses", Unit: "amount", Verb: "with shared costs", Group: "groups"},
 	"tasks":          {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with completed tasks", Group: "lists"},
