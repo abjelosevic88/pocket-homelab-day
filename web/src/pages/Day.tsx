@@ -11,7 +11,7 @@ import { FactCard, WeatherChip, factHasContent, type PinFn } from '../components
 import { Timeline } from '../components/Timeline'
 import { DictateButton, useAI } from '../components/ai'
 
-const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'horoscope', 'nextcloud', 'tasks', 'birthdays', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'puzzlecraft', 'capsule', 'math', 'karaoke', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
+const ORDER: SourceName[] = ['travel', 'immich', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'horoscope', 'nextcloud', 'tasks', 'birthdays', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'puzzlecraft', 'capsule', 'math', 'karaoke', 'printfarm', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']
 
 export default function Day() {
   const params = useParams()

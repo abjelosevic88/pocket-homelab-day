@@ -560,3 +560,89 @@ func (p *Karaoke) Fetch(ctx context.Context, date string, loc *time.Location) (*
 	}
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
 }
+
+// ---------------- Pocket Print Farm ----------------
+
+// PrintFarm reads the day's 3D printing: the prints done, failed or
+// started, and the printers' upkeep done.
+type PrintFarm struct{ Conn pocket.Conn }
+
+// NewPrintFarm creates a fetcher over a connection.
+func NewPrintFarm(conn pocket.Conn) *PrintFarm { return &PrintFarm{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *PrintFarm) Name() string { return "printfarm" }
+
+// Test implements Fetcher.
+func (p *PrintFarm) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Print Farm " + v, nil
+}
+
+// Fetch implements Fetcher.
+func (p *PrintFarm) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Items []struct {
+			Kind    string  `json:"kind"`
+			Text    string  `json:"text"`
+			Status  string  `json:"status"`
+			Time    string  `json:"time"`
+			Printer string  `json:"printer"`
+			Seconds float64 `json:"seconds"`
+			URL     string  `json:"url"`
+		} `json:"items"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	done, failed, upkeep := 0, 0, 0
+	for i, x := range day.Items {
+		if strings.TrimSpace(x.Text) == "" {
+			continue
+		}
+		clock := ""
+		if len(x.Time) >= 5 && x.Time[2] == ':' {
+			clock = x.Time[:5]
+		}
+		group := "Printed"
+		switch {
+		case x.Kind == "upkeep":
+			group = "Upkeep"
+			upkeep++
+		case x.Kind == "model":
+			group = "Models added"
+		case x.Status == "failed" || x.Status == "cancelled":
+			group = "Failed"
+			failed++
+		case x.Status == "done":
+			done++
+		default:
+			group = "Printing"
+		}
+		act.Items = append(act.Items, ActivityItem{Time: clock, Title: x.Text, Sub: x.Printer, Group: group, Minutes: x.Seconds / 60, Done: x.Status == "done", Ref: fmt.Sprint(i), URL: x.URL})
+	}
+	act.Finish()
+	sum := ""
+	if done > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(done, "print done", "prints done"))
+	}
+	if failed > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(failed, "failed", "failed"))
+	}
+	if upkeep > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(upkeep, "upkeep done", "upkeep done"))
+	}
+	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
+}
