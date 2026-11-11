@@ -411,3 +411,72 @@ func (p *Capsule) Fetch(ctx context.Context, date string, loc *time.Location) (*
 	}
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
 }
+
+// ---------------- Pocket Math ----------------
+
+// Math reads the day's maths: notebooks worked on or started, answers kept
+// from ready calculations, and practice rounds (by the person and children).
+type Math struct{ Conn pocket.Conn }
+
+// NewMath creates a fetcher over a connection.
+func NewMath(conn pocket.Conn) *Math { return &Math{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *Math) Name() string { return "math" }
+
+// Test implements Fetcher.
+func (p *Math) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Math " + v, nil
+}
+
+var mathGroup = map[string]string{"notebook": "Notebooks", "answer": "Worked out", "practice": "Practice"}
+
+// Fetch implements Fetcher.
+func (p *Math) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Items []struct {
+			Time  string `json:"time"`
+			Kind  string `json:"kind"`
+			Text  string `json:"text"`
+			Emoji string `json:"emoji"`
+			URL   string `json:"url"`
+		} `json:"items"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	counts := map[string]int{}
+	for i, x := range day.Items {
+		if strings.TrimSpace(x.Text) == "" {
+			continue
+		}
+		group := firstNonEmptyStr(mathGroup[x.Kind], "Maths")
+		counts[x.Kind]++
+		act.Items = append(act.Items, ActivityItem{Time: x.Time, Title: JoinNonEmpty(" ", x.Emoji, x.Text), Group: group, Done: x.Kind == "answer", Ref: fmt.Sprint(i), URL: x.URL})
+	}
+	act.Finish()
+	sum := ""
+	if n := counts["notebook"]; n > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(n, "notebook", "notebooks"))
+	}
+	if n := counts["answer"]; n > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(n, "answer kept", "answers kept"))
+	}
+	if n := counts["practice"]; n > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(n, "practice round", "practice rounds"))
+	}
+	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
+}

@@ -54,6 +54,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"vehicles:read":    {regexp.MustCompile(`^/api/v1/vehicles(/\d+(/fuel|/records)?)?$`)},
 	"puzzlecraft:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"capsule:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"math:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"invoices:read":    {regexp.MustCompile(`^/api/v1/invoices(/\d+)?$`), regexp.MustCompile(`^/api/v1/payments$`)},
 	"groups:read":      {regexp.MustCompile(`^/api/v1/groups(/\d+(/expenses)?)?$`), regexp.MustCompile(`^/api/v1/categories$`)},
 	"activity:read":    {regexp.MustCompile(`^/api/v1/activity$`)},
@@ -404,6 +405,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","items":[{"kind":"payment","title":"Rent in: €650.00","subtitle":"Flat 2 — Ana Marić","url":"https://rentals.example.org/leases/3"},{"kind":"repair","title":"Repair reported: Leaking tap","subtitle":"Flat 1, Obala 12","url":"https://rentals.example.org/repairs/9"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "puzzlecraft":
 			write(`{"date":"` + d + `","count":2,"minutes":5,"items":[{"time":"08:10","title":"Puzzle of the day: Sudoku","sub":"You solved it in 5:12","kind":"sudoku","mine":true},{"time":"20:00","title":"Monday mini","sub":"Ana solved it in 3:40","kind":"crossword","mine":false}],"planned":[]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "math":
+			write(`{"date":"` + d + `","items":[{"time":"10:12","kind":"answer","emoji":"✅","text":"Bedroom — Paint for walls: 6 L","url":"https://math.example.org/answers#4"},{"time":"17:40","kind":"practice","emoji":"✏️","text":"Mila: Practised times tables — 9 of 10 right","url":"https://math.example.org/practice"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "capsule":
 			write(`{"date":"` + d + `","items":[{"time":"09:30","kind":"sealed","text":"Sealed “Birthday letter” (opens 20 Nov 2026)","emoji":"🎂","capsule_id":3,"url":"https://capsule.example.org/c/3"},{"kind":"added","text":"Put 2 things in “Summer 2026”","emoji":"☀️","capsule_id":4,"url":"https://capsule.example.org/c/4"}],"text":"","url":"https://capsule.example.org/"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "trails":
@@ -622,7 +625,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}

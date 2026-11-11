@@ -46,7 +46,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "puzzlecraft", "capsule", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "puzzlecraft", "capsule", "math", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":    {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -82,6 +82,7 @@ var pocketSources = map[string]pocketSource{
 	"garage":      {slug: "garage", app: "Pocket Garage", scope: "vehicles:read", reason: "Car costs and fill-ups"},
 	"invoicing":   {slug: "invoicing", app: "Pocket Invoicing", scope: "invoices:read", reason: "Invoices and payments"},
 	"puzzlecraft": {slug: "puzzlecraft", app: "Pocket Puzzlecraft", scope: "puzzlecraft:read", reason: "Show on your day the puzzles you solved (and who solved the ones you shared), and the escape rooms and treasure hunts planned"},
+	"math":        {slug: "math", app: "Pocket Math", scope: "math:read", reason: "Show on your day the maths notebooks you worked on, the answers you kept (paint, a loan, fuel for a trip) and the practice rounds done — by you and the children"},
 	"capsule":     {slug: "capsule", app: "Pocket Capsule", scope: "capsule:read", reason: "Show on your day the time capsules you started, sealed, opened or put something in, and the ones that open that day — never what is inside a sealed one"},
 	"split":       {slug: "split", app: "Pocket Split", scope: "groups:read", reason: "Shared expenses"},
 	"inventory":   {slug: "inventory", app: "Pocket Inventory", scope: "activity:read", reason: "Inventory activity"},
@@ -476,6 +477,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewPuzzlecraft(conn)
 	case "capsule":
 		return sources.NewCapsule(conn)
+	case "math":
+		return sources.NewMath(conn)
 	case "invoicing":
 		return sources.NewInvoicing(conn)
 	case "split":
