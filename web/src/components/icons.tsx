@@ -15,6 +15,8 @@ const P: Record<string, string> = {
   clock: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   'trending-up': 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
   paw: 'M11 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM18 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM20 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.05Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10z',
+  printer: 'M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z',
+  gamepad: 'M6 11h4M8 9v4M15 12h.01M18 10h.01M17.3 5H6.7a4 4 0 0 0-4 3.6l-.6 6A3 3 0 0 0 5.1 18c.8 0 1.5-.4 2-1l1.2-1.6a2 2 0 0 1 1.6-.8h4.2a2 2 0 0 1 1.6.8l1.2 1.6c.5.6 1.2 1 2 1a3 3 0 0 0 3-3.4l-.6-6a4 4 0 0 0-4-3.6z',
   hourglass: 'M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2',
   pin: 'M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   video: 'M15 10l5-3v10l-5-3M3 7h12v10H3z',
@@ -144,12 +146,12 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75, titl
 export const SOURCE_GLYPH: Record<string, string> = {
   dawarich: 'map', immich: 'camera', maloja: 'music', jellystat: 'tv', firefly: 'wallet', habits: 'check-circle', health: 'heart', still: 'sparkles', home: 'home', renewals: 'hourglass', wealth: 'trending-up', pets: 'paw', parcels: 'package', sign: 'pen', places: 'pin', voice: 'wave', wallet: 'ticket', fitness: 'dumbbell', nutrition: 'apple', blog: 'edit', chat: 'chat', forms: 'list', crm: 'trophy', league: 'ball', tables: 'table', rentals: 'key', trails: 'mountain', horoscope: 'moon', bookshelf: 'book',
   travel: 'plane', kitchen: 'utensils', garage: 'car', weather: 'cloud-sun', podcasts: 'mic', pinepods: 'mic', audiobookshelf: 'headphones', jellyseerr: 'film',
-  forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', puzzlecraft: 'grid', capsule: 'hourglass', math: 'hash', karaoke: 'mic', printfarm: 'printer', split: 'users', tasks: 'check-square', birthdays: 'users', inventory: 'package', projects: 'kanban',
+  forgejo: 'code', nextcloud: 'check-square', documents: 'file', invoicing: 'receipt', puzzlecraft: 'grid', capsule: 'hourglass', math: 'hash', karaoke: 'mic', printfarm: 'printer', gamebuilder: 'gamepad', split: 'users', tasks: 'check-square', birthdays: 'users', inventory: 'package', projects: 'kanban',
 }
 export const SOURCE_COLOR: Record<string, string> = {
   dawarich: '#0d9488', immich: '#e11d48', maloja: '#db2777', jellystat: '#7c3aed', firefly: '#059669', habits: '#16a34a', health: '#e11d48', still: '#3f7f6b', home: '#9a4b25', renewals: '#8c2f5a', wealth: '#8a6400', pets: '#0e7490', parcels: '#8b5e34', sign: '#33449a', places: '#c5352c', voice: '#c2255c', wallet: '#b4235a', fitness: '#d9480f', nutrition: '#5f8c0e', blog: '#3157d5', chat: '#2a7f9e', forms: '#5f3dc4', crm: '#15803d', league: '#7a9a01', tables: '#0b7285', rentals: '#4b6584', trails: '#2f7d4f', horoscope: '#6a3fb5', bookshelf: '#b45309',
   travel: '#0284c7', kitchen: '#ea580c', garage: '#c2410c', weather: '#d97706', podcasts: '#9333ea', pinepods: '#9333ea', audiobookshelf: '#a16207', jellyseerr: '#6d28d9',
-  forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', puzzlecraft: '#1f7a8c', capsule: '#7c5a2e', math: '#3554a5', karaoke: '#7b2cbf', printfarm: '#e8641b', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
+  forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', puzzlecraft: '#1f7a8c', capsule: '#7c5a2e', math: '#3554a5', karaoke: '#7b2cbf', printfarm: '#e8641b', gamebuilder: '#0b84c6', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
 }
 
 /** A source's icon on its own tint (the day's cards, glance pills, tiles, settings). */

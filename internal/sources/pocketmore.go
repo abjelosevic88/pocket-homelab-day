@@ -646,3 +646,82 @@ func (p *PrintFarm) Fetch(ctx context.Context, date string, loc *time.Location) 
 	}
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
 }
+
+// ---------------- Pocket Game Builder ----------------
+
+// GameBuilder reads the day's games: the ones started or worked on, and how
+// often others played the ones shared.
+type GameBuilder struct{ Conn pocket.Conn }
+
+// NewGameBuilder creates a fetcher over a connection.
+func NewGameBuilder(conn pocket.Conn) *GameBuilder { return &GameBuilder{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *GameBuilder) Name() string { return "gamebuilder" }
+
+// Test implements Fetcher.
+func (p *GameBuilder) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Game Builder " + v, nil
+}
+
+// Fetch implements Fetcher.
+func (p *GameBuilder) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	type game struct {
+		ID    int64  `json:"id"`
+		Title string `json:"title"`
+		URL   string `json:"url"`
+	}
+	var day struct {
+		Made          []game `json:"made"`
+		Changed       []game `json:"changed"`
+		TestPlays     int    `json:"test_plays"`
+		PlaysByOthers int    `json:"plays_by_others"`
+		Played        []struct {
+			Title string `json:"title"`
+			Plays int    `json:"plays"`
+		} `json:"played"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	for _, g := range day.Made {
+		if strings.TrimSpace(g.Title) != "" {
+			act.Items = append(act.Items, ActivityItem{Title: "Started a game: " + g.Title, Group: "Started", Done: true, Ref: fmt.Sprint(g.ID), URL: g.URL})
+		}
+	}
+	for _, g := range day.Changed {
+		if strings.TrimSpace(g.Title) != "" {
+			act.Items = append(act.Items, ActivityItem{Title: "Worked on " + g.Title, Group: "Worked on", Ref: fmt.Sprint(g.ID), URL: g.URL})
+		}
+	}
+	for _, g := range day.Played {
+		if strings.TrimSpace(g.Title) != "" && g.Plays > 0 {
+			act.Items = append(act.Items, ActivityItem{Title: g.Title + " — played " + Plural(g.Plays, "time", "times") + " by others", Group: "Played by others", Qty: float64(g.Plays)})
+		}
+	}
+	act.Finish()
+	sum := ""
+	if n := len(day.Made); n > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(n, "game started", "games started"))
+	}
+	if n := len(day.Changed); n > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(n, "game worked on", "games worked on"))
+	}
+	if day.PlaysByOthers > 0 {
+		sum = JoinNonEmpty(" · ", sum, "played "+Plural(day.PlaysByOthers, "time", "times")+" by others")
+	}
+	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
+}
