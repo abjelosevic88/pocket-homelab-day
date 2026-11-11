@@ -480,3 +480,83 @@ func (p *Math) Fetch(ctx context.Context, date string, loc *time.Location) (*Res
 	}
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
 }
+
+// ---------------- Pocket Karaoke ----------------
+
+// Karaoke reads the day's karaoke: the nights held and the songs sung (who
+// sang what, with the score), practice songs on their own.
+type Karaoke struct{ Conn pocket.Conn }
+
+// NewKaraoke creates a fetcher over a connection.
+func NewKaraoke(conn pocket.Conn) *Karaoke { return &Karaoke{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *Karaoke) Name() string { return "karaoke" }
+
+// Test implements Fetcher.
+func (p *Karaoke) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Karaoke " + v, nil
+}
+
+// Fetch implements Fetcher.
+func (p *Karaoke) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Items []struct {
+			Kind     string `json:"kind"`
+			Text     string `json:"text"`
+			Time     string `json:"time"`
+			URL      string `json:"url"`
+			Practice bool   `json:"practice"`
+		} `json:"items"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	nights, sung, practice := 0, 0, 0
+	for i, x := range day.Items {
+		if strings.TrimSpace(x.Text) == "" {
+			continue
+		}
+		clock := ""
+		if len(x.Time) >= 5 && x.Time[2] == ':' {
+			clock = x.Time[:5]
+		}
+		group := "Sung"
+		switch {
+		case x.Kind == "night":
+			group = "Nights"
+			nights++
+		case x.Practice:
+			group = "Practice"
+			practice++
+		default:
+			sung++
+		}
+		act.Items = append(act.Items, ActivityItem{Time: clock, Title: x.Text, Group: group, Done: x.Kind == "song", Ref: fmt.Sprint(i), URL: x.URL})
+	}
+	act.Finish()
+	sum := ""
+	if sung > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(sung, "song sung", "songs sung"))
+	}
+	if practice > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(practice, "practice song", "practice songs"))
+	}
+	if nights > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(nights, "night", "nights"))
+	}
+	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
+}

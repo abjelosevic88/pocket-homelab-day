@@ -14,7 +14,7 @@ const DefaultTitle = "Pocket Day"
 const DefaultPrompt = "What made today today?"
 
 // SourceNames lists every data source, in display order.
-var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "podcasts", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "documents", "invoicing", "puzzlecraft", "capsule", "math", "split", "inventory", "tasks", "birthdays", "projects", "weather"}
+var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "podcasts", "pinepods", "audiobookshelf", "jellyseerr", "forgejo", "nextcloud", "documents", "invoicing", "puzzlecraft", "capsule", "math", "karaoke", "split", "inventory", "tasks", "birthdays", "projects", "weather"}
 
 func defaultSettings() Settings {
 	st := Settings{Title: DefaultTitle, DateFormat: "auto", TimeFormat: "auto", WeekStart: "mon", HomeCurrency: "EUR", DistanceUnit: "km", Prompt: DefaultPrompt, BackfillDays: 90,

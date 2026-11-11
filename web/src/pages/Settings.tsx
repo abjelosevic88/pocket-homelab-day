@@ -217,6 +217,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   puzzlecraft: { what: 'Puzzles you solved, who solved the ones you shared, escape rooms and hunts planned.', key: 'Token from Pocket Puzzlecraft → Settings → API & shortcuts', url: 'http://host.docker.internal:8266' },
   capsule: { what: 'Time capsules you started, sealed, opened or put something in, and the ones that open that day — never what is inside a sealed one.', key: 'Token from Pocket Capsule → Settings → API & shortcuts', url: 'http://host.docker.internal:8268' },
   math: { what: 'The maths notebooks you worked on, the answers you kept and the practice rounds done — yours and the children\'s.', key: 'Token from Pocket Math → Settings → API & shortcuts', url: 'http://host.docker.internal:8272' },
+  karaoke: { what: 'The karaoke nights and the songs sung that day — who sang what, with the scores.', key: 'Token from Pocket Karaoke → Settings → API & shortcuts', url: 'http://host.docker.internal:8273' },
   invoicing: { what: 'Invoices issued and payments received, with amounts.', key: 'Token from Pocket Invoicing → Settings → API', url: 'http://host.docker.internal:8168' },
   split: { what: 'Shared expenses dated that day, across every group.', key: 'Token from Pocket Split → Settings → API', url: 'http://host.docker.internal:8172' },
   tasks: { what: 'Tasks completed on each day.', key: 'Token from Pocket Tasks → Settings → API tokens', url: 'http://pocket-tasks:8080' },
