@@ -46,7 +46,7 @@ type pocketSource struct {
 }
 
 // pocketSourceOrder is the order the uses are declared in.
-var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "puzzlecraft", "capsule", "math", "karaoke", "printfarm", "gamebuilder", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
+var pocketSourceOrder = []string{"podcasts", "habits", "health", "still", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "horoscope", "bookshelf", "travel", "kitchen", "garage", "invoicing", "puzzlecraft", "capsule", "math", "karaoke", "printfarm", "gamebuilder", "sky", "split", "inventory", "documents", "tasks", "birthdays", "projects", "firefly"}
 
 var pocketSources = map[string]pocketSource{
 	"podcasts":    {slug: "podcasts", app: "Pocket Podcasts", scope: "history:read", reason: "Podcast listening time in your journal"},
@@ -86,6 +86,7 @@ var pocketSources = map[string]pocketSource{
 	"karaoke":     {slug: "karaoke", app: "Pocket Karaoke", scope: "karaoke:read", reason: "Show on your day the karaoke nights and the songs sung — who sang what, with the scores"},
 	"printfarm":   {slug: "printfarm", app: "Pocket Print Farm", scope: "printfarm:read", reason: "Show on your day what your 3D printers printed — done, failed or started — and the upkeep done"},
 	"gamebuilder": {slug: "gamebuilder", app: "Pocket Game Builder", scope: "gamebuilder:read", reason: "Show on your day the games you started or worked on, and how often others played the ones you shared"},
+	"sky":         {slug: "sky", app: "Pocket Sky", scope: "sky:read", reason: "Show on your day the nights you went out under the sky and what you saw, and the sky events of the day (an eclipse, a meteor shower)"},
 	"capsule":     {slug: "capsule", app: "Pocket Capsule", scope: "capsule:read", reason: "Show on your day the time capsules you started, sealed, opened or put something in, and the ones that open that day — never what is inside a sealed one"},
 	"split":       {slug: "split", app: "Pocket Split", scope: "groups:read", reason: "Shared expenses"},
 	"inventory":   {slug: "inventory", app: "Pocket Inventory", scope: "activity:read", reason: "Inventory activity"},
@@ -488,6 +489,8 @@ func pocketFetcher(name string, conn pocket.Conn) sources.Fetcher {
 		return sources.NewPrintFarm(conn)
 	case "gamebuilder":
 		return sources.NewGameBuilder(conn)
+	case "sky":
+		return sources.NewSky(conn)
 	case "invoicing":
 		return sources.NewInvoicing(conn)
 	case "split":

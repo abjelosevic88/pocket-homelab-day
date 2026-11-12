@@ -124,6 +124,7 @@ var Activities = map[string]ActivityMeta{
 	"karaoke":        {Label: "Karaoke", One: "song", Many: "songs", Unit: "count", Verb: "with karaoke", Group: "kinds"},
 	"printfarm":      {Label: "3D printing", One: "print", Many: "prints", Unit: "count", Verb: "with 3D prints", Group: "kinds"},
 	"gamebuilder":    {Label: "Games made", One: "game", Many: "games", Unit: "count", Verb: "with games you made", Group: "kinds"},
+	"sky":            {Label: "Under the sky", One: "night", Many: "nights", Unit: "count", Verb: "under the sky", Group: "kinds"},
 	"invoicing":      {Label: "Invoices", One: "item", Many: "items", Unit: "amount", Verb: "with invoicing", Group: "clients"},
 	"split":          {Label: "Shared costs", One: "expense", Many: "expenses", Unit: "amount", Verb: "with shared costs", Group: "groups"},
 	"tasks":          {Label: "Tasks", One: "task", Many: "tasks", Unit: "count", Verb: "with completed tasks", Group: "lists"},

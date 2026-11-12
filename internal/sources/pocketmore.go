@@ -725,3 +725,98 @@ func (p *GameBuilder) Fetch(ctx context.Context, date string, loc *time.Location
 	}
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
 }
+
+// ---- Pocket Sky ----
+
+// Sky shows the nights out under the sky and what was seen, and the sky's
+// events of the day (an eclipse, a meteor shower's peak, the Moon meeting a planet).
+type Sky struct{ Conn pocket.Conn }
+
+// NewSky creates the Pocket Sky source.
+func NewSky(conn pocket.Conn) *Sky { return &Sky{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *Sky) Name() string { return "sky" }
+
+// Test implements Fetcher.
+func (p *Sky) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Sky " + v, nil
+}
+
+// Fetch implements Fetcher.
+func (p *Sky) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Label        string `json:"label"`
+		Words        string `json:"words"`
+		Observations []struct {
+			ID      int64  `json:"id"`
+			Title   string `json:"title"`
+			Place   string `json:"place"`
+			Rating  int    `json:"rating"`
+			Objects []struct {
+				Name string `json:"name"`
+			} `json:"objects"`
+		} `json:"observations"`
+		Events []struct {
+			Title   string `json:"title"`
+			Kind    string `json:"kind"`
+			Visible *bool  `json:"visible"`
+		} `json:"events"`
+		Moon *struct {
+			PhaseName string `json:"phase_name"`
+		} `json:"moon"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	seen := 0
+	for _, o := range day.Observations {
+		names := make([]string, 0, len(o.Objects))
+		for _, x := range o.Objects {
+			if strings.TrimSpace(x.Name) != "" {
+				names = append(names, x.Name)
+			}
+		}
+		seen += len(names)
+		title := strings.TrimSpace(o.Title)
+		if title == "" {
+			title = "A night under the sky"
+		}
+		if o.Place != "" {
+			title += " at " + o.Place
+		}
+		if len(names) > 0 {
+			title += ": " + strings.Join(names, ", ")
+		}
+		act.Items = append(act.Items, ActivityItem{Title: title, Group: "Observed", Done: true, Ref: fmt.Sprint(o.ID), Qty: float64(len(names))})
+	}
+	for _, e := range day.Events {
+		if e.Visible != nil && !*e.Visible {
+			continue
+		}
+		if e.Kind == "moon_phase" || e.Kind == "season" || e.Kind == "meteor_shower" || strings.Contains(e.Kind, "eclipse") || e.Kind == "conjunction" || e.Kind == "opposition" {
+			act.Items = append(act.Items, ActivityItem{Title: e.Title, Group: "In the sky"})
+		}
+	}
+	act.Finish()
+	sum := ""
+	if n := len(day.Observations); n > 0 {
+		sum = JoinNonEmpty(" · ", Plural(n, "night out", "nights out"), Plural(seen, "thing seen", "things seen"))
+	} else if day.Label != "" && day.Moon != nil {
+		sum = day.Label + " night · " + day.Moon.PhaseName
+	}
+	return &Result{Payload: act, Headline: float64(len(day.Observations)), Summary: sum}, nil
+}

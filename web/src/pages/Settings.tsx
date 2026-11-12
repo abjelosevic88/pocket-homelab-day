@@ -220,6 +220,7 @@ const SOURCE_HELP: Record<SourceName, { what: string; key: string; url: string; 
   karaoke: { what: 'The karaoke nights and the songs sung that day — who sang what, with the scores.', key: 'Token from Pocket Karaoke → Settings → API & shortcuts', url: 'http://host.docker.internal:8273' },
   printfarm: { what: 'What your 3D printers printed that day — done, failed or started — and the upkeep done.', key: 'Token from Pocket Print Farm → Settings → API & shortcuts', url: 'http://host.docker.internal:8274' },
   gamebuilder: { what: 'The games you started or worked on that day, and how often others played the ones you shared.', key: 'Token from Pocket Game Builder → Settings → API & shortcuts', url: 'http://host.docker.internal:8275' },
+  sky: { what: 'Your nights out under the sky and what you saw, and the sky\'s events of the day: full and new Moon, eclipses, meteor showers, planets meeting.', key: 'Token from Pocket Sky → Settings → API & shortcuts', url: 'http://host.docker.internal:8277' },
   invoicing: { what: 'Invoices issued and payments received, with amounts.', key: 'Token from Pocket Invoicing → Settings → API', url: 'http://host.docker.internal:8168' },
   split: { what: 'Shared expenses dated that day, across every group.', key: 'Token from Pocket Split → Settings → API', url: 'http://host.docker.internal:8172' },
   tasks: { what: 'Tasks completed on each day.', key: 'Token from Pocket Tasks → Settings → API tokens', url: 'http://pocket-tasks:8080' },

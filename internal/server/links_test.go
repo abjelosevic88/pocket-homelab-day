@@ -58,6 +58,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"karaoke:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"printfarm:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"gamebuilder:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"sky:read":         {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"invoices:read":    {regexp.MustCompile(`^/api/v1/invoices(/\d+)?$`), regexp.MustCompile(`^/api/v1/payments$`)},
 	"groups:read":      {regexp.MustCompile(`^/api/v1/groups(/\d+(/expenses)?)?$`), regexp.MustCompile(`^/api/v1/categories$`)},
 	"activity:read":    {regexp.MustCompile(`^/api/v1/activity$`)},
@@ -416,6 +417,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","done":1,"failed":1,"items":[{"kind":"print","id":7,"title":"Twisted vase","text":"Printed Twisted vase on Mk4 (4 h 05 min)","status":"done","time":"14:20","url":"https://printfarm.example.org/prints/7"},{"kind":"print","id":8,"title":"Gear","text":"Gear failed at 30% on Voron","status":"failed","time":"18:02","url":"https://printfarm.example.org/prints/8"},{"kind":"upkeep","id":2,"title":"Clean the nozzle","text":"Mk4: Clean the nozzle","url":"https://printfarm.example.org/printers/1"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "gamebuilder":
 			write(`{"date":"` + d + `","made":[{"id":3,"title":"Cat and fish","url":"https://gamebuilder.example.org/games/3"}],"changed":[{"id":1,"title":"Space maze","url":"https://gamebuilder.example.org/games/1"}],"test_plays":6,"plays_by_others":5,"played":[{"title":"Space maze","plays":4},{"title":"Animals quiz","plays":1}],"lines":["Started a game: Cat and fish","Worked on Space maze","Your games were played 5 times by others"]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "sky":
+			write(`{"date":"` + d + `","label":"Clear","observations":[{"id":4,"title":"Saturn and the Pleiades","place":"Trebević","rating":5,"objects":[{"name":"Saturn"},{"name":"Pleiades"}]}],"events":[{"title":"Full Moon","kind":"moon_phase","visible":true},{"title":"Venus at greatest elongation","kind":"elongation"}],"moon":{"phase_name":"Full Moon"}}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "capsule":
 			write(`{"date":"` + d + `","items":[{"time":"09:30","kind":"sealed","text":"Sealed “Birthday letter” (opens 20 Nov 2026)","emoji":"🎂","capsule_id":3,"url":"https://capsule.example.org/c/3"},{"kind":"added","text":"Put 2 things in “Summer 2026”","emoji":"☀️","capsule_id":4,"url":"https://capsule.example.org/c/4"}],"text":"","url":"https://capsule.example.org/"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "trails":
@@ -634,7 +637,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
