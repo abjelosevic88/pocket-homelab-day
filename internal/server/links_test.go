@@ -47,6 +47,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"league:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"tables:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"rentals:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`), regexp.MustCompile(`^/api/v1/today$`)},
+	"booking:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"trails:read":      {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`), regexp.MustCompile(`^/api/v1/summary$`), regexp.MustCompile(`^/api/v1/outings$`)},
 	"books:read":       {regexp.MustCompile(`^/api/v1/books(/\d+)?$`), regexp.MustCompile(`^/api/v1/reading/sessions$`)},
 	"trips:read":       {regexp.MustCompile(`^/api/v1/trips(/\d+)?$`)},
@@ -421,6 +422,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","label":"Clear","observations":[{"id":4,"title":"Saturn and the Pleiades","place":"Trebević","rating":5,"objects":[{"name":"Saturn"},{"name":"Pleiades"}]}],"events":[{"title":"Full Moon","kind":"moon_phase","visible":true},{"title":"Venus at greatest elongation","kind":"elongation"}],"moon":{"phase_name":"Full Moon"}}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "capsule":
 			write(`{"date":"` + d + `","items":[{"time":"09:30","kind":"sealed","text":"Sealed “Birthday letter” (opens 20 Nov 2026)","emoji":"🎂","capsule_id":3,"url":"https://capsule.example.org/c/3"},{"kind":"added","text":"Put 2 things in “Summer 2026”","emoji":"☀️","capsule_id":4,"url":"https://capsule.example.org/c/4"}],"text":"","url":"https://capsule.example.org/"}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "booking":
+			write(`{"date":"` + d + `","count":2,"summary":"2 bookings","items":[{"kind":"booking","id":41,"time":"10:00","end":"10:30","start":"` + d + `T10:00:00+01:00","title":"Intro call — Ana Marić","type":"Intro call","emoji":"📞","who":"Ana Marić","email":"ana@example.com","status":"confirmed","location":"","meeting_url":"https://meet.jit.si/pocket-abc","url":"https://booking.example.org/bookings/41"},{"kind":"booking","id":42,"time":"14:30","end":"15:30","start":"` + d + `T14:30:00+01:00","title":"Consultation — Marko","type":"Consultation","who":"Marko","email":"marko@example.com","status":"pending","location":"Obala 12","meeting_url":"","url":"https://booking.example.org/bookings/42"}],"made":[{"kind":"booking","id":44,"time":"09:00","end":"09:30","start":"2099-01-05T09:00:00+01:00","title":"Intro call — Lejla","type":"Intro call","who":"Lejla","email":"lejla@example.com","status":"confirmed","url":"https://booking.example.org/bookings/44"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "trails":
 			write(`{"date":"` + d + `","count":2,"outings":[{"id":2,"title":"Hike: Trebević from Sarajevo","status":"done","activity":"hike","start_time":"08:00","distance_m":12400,"gain_m":980,"minutes":270,"rating":5,"people":"Ana","text":"12.4 km · 980 m up · 4 h 30 min · with Ana","route":"Trebević from Sarajevo","url":"https://trails.example.org/outings/2"},{"id":3,"title":"Run by the river","status":"planned","activity":"run","start_time":"18:00","text":"8.0 km · 20 m up · 45 min","url":"https://trails.example.org/outings/3"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "league":
@@ -637,7 +640,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read booking=booking:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -749,6 +752,12 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Outdoors: Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana) | Run by the river at 18:00 (planned)") {
 		t.Errorf("the AI's outdoors line:\n%s", l)
+	}
+	if f := facts["booking"]; f.Headline != 2 || f.Summary != "2 bookings: 10:00 Intro call with Ana Marić, 14:30 Consultation with Marko (waits for you); booked that day: Lejla for Intro call on 5 Jan" {
+		t.Errorf("booking fact: %+v", f)
+	}
+	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Bookings: 2 bookings: 10:00 Intro call with Ana Marić, 14:30 Consultation with Marko (waits for you); booked that day: Lejla for Intro call on 5 Jan | Intro call with Ana Marić by video | Consultation with Marko at Obala 12") || strings.Contains(l, "example.com") {
+		t.Errorf("the AI's bookings line (never the guests' emails):\n%s", l)
 	}
 	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
 		t.Errorf("voice fact (the memo still being written out left out): %+v", f)

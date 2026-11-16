@@ -6,7 +6,7 @@ import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
   SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
-  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type TrailsDay, type TrailsOuting, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
+  type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type BookingDay, type BookingItem, type TrailsDay, type TrailsOuting, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
 export interface PinFn { (p: Omit<Pin, 'id' | 'user_id' | 'date' | 'created_at'>): void }
@@ -556,6 +556,32 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
       </>
       break
     }
+    case 'booking': {
+      const bd = fact.payload as BookingDay
+      const items = bd.items || [], made = bd.made || []
+      if (!items.length && !made.length) { body = empty('No bookings this day.'); break }
+      const base = link ? link.replace(/\/+$/, '') : ''
+      // each booking opens in Pocket Booking; the meeting link opens the call
+      const href = (b: BookingItem) => b.url || (base ? `${base}/bookings/${b.id}` : '')
+      const a = (u: string, text: React.ReactNode, what: string) => u ? <a href={u} target="_blank" rel="noreferrer" style={{ color: 'inherit' }} title={what}>{text}</a> : text
+      const STATUS: Record<string, string> = { pending: 'waits for you', done: 'done', no_show: 'did not come', cancelled: 'cancelled', declined: 'declined' }
+      const pending = items.filter(b => b.status === 'pending').length
+      const when = (b: BookingItem) => b.date && b.date !== bd.date ? `${fmtDate(b.date, false)}${b.time ? ` ${b.time}` : ''}` : (b.time || '')
+      body = <>
+        <div className="fact-head"><b>{items.length ? `${items.length} ${items.length === 1 ? 'booking' : 'bookings'}` : 'No bookings'}</b>{pending > 0 && <span style={{ color: 'var(--warning)' }}> · {pending} {pending === 1 ? 'waits' : 'wait'} for you</span>}{made.length > 0 && <span className="muted"> · {made.length} booked that day</span>}</div>
+        {items.length > 0 && <div className="inline-list mt-sm">{items.map(b => <div key={b.id} className="li act-li">
+          <span className="muted mono small act-t">{b.time || ''}</span>
+          <span className="grow act-body"><b>{a(href(b), `${b.emoji ? b.emoji + ' ' : ''}${b.type}`, 'Open the booking')}</b>
+            {STATUS[b.status] && <span className="small" style={{ color: b.status === 'pending' ? 'var(--warning)' : undefined }}> · {STATUS[b.status]}</span>}
+            <span className="act-sub">{[`with ${b.who}`, b.time && b.end ? `${b.time}–${b.end}` : '', b.location || ''].filter(Boolean).join(' · ')}</span>
+            {b.meeting_url && <span className="act-note"><a href={b.meeting_url} target="_blank" rel="noreferrer" title="Open the meeting link"><Icon name="video" size={13} /> Meeting link</a></span>}
+          </span>
+          <PinBtn ref_={`booking:${b.id}`} title={`${b.type} with ${b.who}`} subtitle={[b.time, STATUS[b.status]].filter(Boolean).join(' · ') || 'booking'} />
+        </div>)}</div>}
+        {made.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>Booked that day: {made.map((b, i) => <React.Fragment key={b.id}>{i > 0 && ', '}{a(href(b), b.who, 'Open the booking')} for {b.type}{when(b) ? ` (${when(b)})` : ''}{b.status === 'pending' ? ' · waits for you' : b.status === 'cancelled' || b.status === 'declined' ? ` · ${b.status}` : ''}</React.Fragment>)}</div>}
+      </>
+      break
+    }
     case 'voice': {
       const vd = fact.payload as VoiceDay
       if (!vd.memos?.length) { body = empty('No voice memos today.'); break }
@@ -716,6 +742,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
     case 'crm': return len('activities') + len('due') > 0
     case 'league': return len('games') + len('matches') > 0
     case 'tables': return len('rows') > 0
+    case 'booking': return len('items') + len('made') > 0
     case 'trails': {
       const td = (v as { today?: { out?: unknown[]; next?: unknown; recent?: unknown[] } }).today
       return len('outings') + (td?.out?.length || 0) + (td?.next ? 1 : 0) + (td?.recent?.length || 0) > 0

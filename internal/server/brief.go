@@ -438,6 +438,26 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Outdoors", s)
 	}
+	// the bookings people made with you: when, for what and with whom (never
+	// what they wrote when booking); on the detailed days where each one is
+	var bk sources.BookingDay
+	if get("booking", &bk) && len(bk.Items)+len(bk.Made) > 0 {
+		s := facts["booking"].Summary
+		if detail {
+			var ln []string
+			for _, it := range bk.Items {
+				if it.Location != "" {
+					ln = append(ln, it.Type+" with "+it.Who+" at "+it.Location)
+				} else if it.MeetingURL != "" {
+					ln = append(ln, it.Type+" with "+it.Who+" by video")
+				}
+			}
+			if len(ln) > 0 {
+				s += " | " + strings.Join(ln, " | ")
+			}
+		}
+		add("Bookings", s)
+	}
 	var sd sources.StillDay
 	if get("still", &sd) && sd.Sessions > 0 {
 		var p []string
