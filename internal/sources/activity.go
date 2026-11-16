@@ -122,6 +122,7 @@ var Activities = map[string]ActivityMeta{
 	"capsule":        {Label: "Time capsules", One: "time capsule", Many: "time capsules", Unit: "count", Verb: "with time capsules", Group: "kinds"},
 	"math":           {Label: "Maths", One: "sum", Many: "sums", Unit: "count", Verb: "with maths", Group: "kinds"},
 	"karaoke":        {Label: "Karaoke", One: "song", Many: "songs", Unit: "count", Verb: "with karaoke", Group: "kinds"},
+	"cameras":        {Label: "Cameras", One: "event", Many: "events", Unit: "count", Verb: "on the cameras", Group: "kinds"},
 	"printfarm":      {Label: "3D printing", One: "print", Many: "prints", Unit: "count", Verb: "with 3D prints", Group: "kinds"},
 	"gamebuilder":    {Label: "Games made", One: "game", Many: "games", Unit: "count", Verb: "with games you made", Group: "kinds"},
 	"sky":            {Label: "Under the sky", One: "night", Many: "nights", Unit: "count", Verb: "under the sky", Group: "kinds"},

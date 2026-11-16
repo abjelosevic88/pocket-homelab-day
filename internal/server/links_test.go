@@ -58,6 +58,7 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"math:read":        {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"karaoke:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"printfarm:read":   {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
+	"cameras:read":     {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"gamebuilder:read": {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"sky:read":         {regexp.MustCompile(`^/api/v1/day/\d{4}-\d\d-\d\d$`)},
 	"invoices:read":    {regexp.MustCompile(`^/api/v1/invoices(/\d+)?$`), regexp.MustCompile(`^/api/v1/payments$`)},
@@ -414,6 +415,8 @@ func (w *linkWorld) target(slug string) http.Handler {
 			write(`{"date":"` + d + `","items":[{"time":"10:12","kind":"answer","emoji":"✅","text":"Bedroom — Paint for walls: 6 L","url":"https://math.example.org/answers#4"},{"time":"17:40","kind":"practice","emoji":"✏️","text":"Mila: Practised times tables — 9 of 10 right","url":"https://math.example.org/practice"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "karaoke":
 			write(`{"date":"` + d + `","sung":2,"items":[{"kind":"night","id":4,"title":"Friday karaoke","text":"Friday karaoke at Living room — 2 songs sung","status":"done","time":"21:00","url":"https://karaoke.example.org/nights/4"},{"kind":"song","id":7,"title":"Dancing Queen","text":"Ana sang Dancing Queen (ABBA) — 87 points","time":"21:40","url":"https://karaoke.example.org/songs/1","score":87,"practice":false,"singer":"Ana","artist":"ABBA"},{"kind":"song","id":8,"title":"Zombie","text":"Mila sang Zombie (The Cranberries)","time":"17:05","practice":true,"singer":"Mila","artist":"The Cranberries"}]}`)
+		case strings.HasPrefix(p, "/api/v1/day/") && slug == "cameras":
+			write(`{"date":"` + d + `","items":[{"kind":"mode","id":3,"text":"Away — nobody's phone is on the home Wi-Fi","title":"Away","time":"08:12","status":"away","url":"https://cameras.example.org/"},{"kind":"event","id":41,"text":"A courier leaves a parcel at the front door.","title":"Parcel — Front door","time":"11:05","camera":"Front door","labels":["person","parcel"],"status":"alerted","url":"https://cameras.example.org/events/41"},{"kind":"doorbell","id":42,"text":"Someone rings the doorbell.","time":"16:40","camera":"Front door","labels":["person"],"status":"alerted"}],"counts":{"events":2},"text":"2 people, 1 parcel"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "printfarm":
 			write(`{"date":"` + d + `","done":1,"failed":1,"items":[{"kind":"print","id":7,"title":"Twisted vase","text":"Printed Twisted vase on Mk4 (4 h 05 min)","status":"done","time":"14:20","url":"https://printfarm.example.org/prints/7"},{"kind":"print","id":8,"title":"Gear","text":"Gear failed at 30% on Voron","status":"failed","time":"18:02","url":"https://printfarm.example.org/prints/8"},{"kind":"upkeep","id":2,"title":"Clean the nozzle","text":"Mk4: Clean the nozzle","url":"https://printfarm.example.org/printers/1"}]}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "gamebuilder":
@@ -640,7 +643,7 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read booking=booking:read bookshelf=books:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	want := "ai=inference:write audiobooks=listening:read blog=blog:read booking=booking:read bookshelf=books:read cameras=cameras:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -752,6 +755,9 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	}
 	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Outdoors: Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana) | Run by the river at 18:00 (planned)") {
 		t.Errorf("the AI's outdoors line:\n%s", l)
+	}
+	if f := facts["cameras"]; f.Headline != 2 || f.Summary != "1 delivery · 1 ring at the door · 2 alerts" {
+		t.Errorf("cameras fact: %+v", f)
 	}
 	if f := facts["booking"]; f.Headline != 2 || f.Summary != "2 bookings: 10:00 Intro call with Ana Marić, 14:30 Consultation with Marko (waits for you); booked that day: Lejla for Intro call on 5 Jan" {
 		t.Errorf("booking fact: %+v", f)

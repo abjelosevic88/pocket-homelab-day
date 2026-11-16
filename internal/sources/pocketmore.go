@@ -647,6 +647,118 @@ func (p *PrintFarm) Fetch(ctx context.Context, date string, loc *time.Location) 
 	return &Result{Payload: act, Headline: float64(act.Count), Summary: sum}, nil
 }
 
+// ---------------- Pocket Cameras ----------------
+
+// Cameras reads what the cameras saw on a day: visitors, deliveries,
+// vehicles, animals, doorbell rings, and when the house was Away or Night.
+type Cameras struct{ Conn pocket.Conn }
+
+// NewCameras creates a fetcher over a connection.
+func NewCameras(conn pocket.Conn) *Cameras { return &Cameras{Conn: conn} }
+
+// Name implements Fetcher.
+func (p *Cameras) Name() string { return "cameras" }
+
+// Test implements Fetcher.
+func (p *Cameras) Test(ctx context.Context) (string, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return "", err
+	}
+	v, err := cl.Health(ctx)
+	if err != nil {
+		return "", err
+	}
+	return "Pocket Cameras " + v, nil
+}
+
+// camerasGroup is the heading an item goes under.
+func camerasGroup(kind string, labels []string) string {
+	has := func(l string) bool {
+		for _, x := range labels {
+			if x == l {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case kind == "mode":
+		return "Mode"
+	case kind == "doorbell":
+		return "Doorbell"
+	case kind == "trigger":
+		return "Alarms"
+	case has("parcel"):
+		return "Deliveries"
+	case has("person"):
+		return "People"
+	case has("vehicle"):
+		return "Vehicles"
+	case has("animal"):
+		return "Animals"
+	}
+	return "Movement"
+}
+
+// Fetch implements Fetcher.
+func (p *Cameras) Fetch(ctx context.Context, date string, loc *time.Location) (*Result, error) {
+	cl, err := p.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var day struct {
+		Items []struct {
+			Kind   string   `json:"kind"`
+			ID     int64    `json:"id"`
+			Text   string   `json:"text"`
+			Title  string   `json:"title"`
+			Time   string   `json:"time"`
+			Camera string   `json:"camera"`
+			Labels []string `json:"labels"`
+			Status string   `json:"status"`
+			URL    string   `json:"url"`
+		} `json:"items"`
+	}
+	if err := cl.Do(ctx, http.MethodGet, "/api/v1/day/"+date, nil, nil, &day); err != nil {
+		return nil, err
+	}
+	act := Activity{}
+	counts := map[string]int{}
+	events, alerted := 0, 0
+	for _, x := range day.Items {
+		text := strings.TrimSpace(x.Text)
+		if text == "" {
+			continue
+		}
+		clock := ""
+		if len(x.Time) >= 5 && x.Time[2] == ':' {
+			clock = x.Time[:5]
+		}
+		group := camerasGroup(x.Kind, x.Labels)
+		if x.Kind != "mode" {
+			events++
+			counts[group]++
+			if x.Status == "alerted" {
+				alerted++
+			}
+		}
+		act.Items = append(act.Items, ActivityItem{Time: clock, Title: text, Sub: x.Camera, Group: group, Done: x.Status == "alerted", Ref: fmt.Sprintf("%s:%d", x.Kind, x.ID), URL: x.URL})
+	}
+	act.Finish()
+	sum := ""
+	for _, g := range []struct{ group, one, many string }{{"People", "visitor", "visitors"}, {"Deliveries", "delivery", "deliveries"}, {"Doorbell", "ring at the door", "rings at the door"},
+		{"Vehicles", "vehicle", "vehicles"}, {"Animals", "animal", "animals"}, {"Alarms", "alarm", "alarms"}, {"Movement", "movement", "movements"}} {
+		if n := counts[g.group]; n > 0 {
+			sum = JoinNonEmpty(" · ", sum, Plural(n, g.one, g.many))
+		}
+	}
+	if alerted > 0 {
+		sum = JoinNonEmpty(" · ", sum, Plural(alerted, "alert", "alerts"))
+	}
+	return &Result{Payload: act, Headline: float64(events), Summary: sum}, nil
+}
+
 // ---------------- Pocket Game Builder ----------------
 
 // GameBuilder reads the day's games: the ones started or worked on, and how
