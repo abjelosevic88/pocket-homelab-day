@@ -24,5 +24,5 @@ Never copy a live WAL database file. Use one of:
 
 ## Export
 
-- `GET /api/v1/export.json` — your entries, moments, pins and your facts. Import merges into your own journal: entries by date without overwriting, moments and pins when missing, facts only for days that have none.
+- `GET /api/v1/export.json` — your entries, moments, pins and your facts. Import merges into your own journal: entries by date without overwriting, moments and pins when missing, facts only for days that have none; the same file twice adds nothing. Pocket Move uses both (`GET /api/v1/pocket/portable`).
 - `GET /api/v1/export.md` — the words alone, one heading per day.

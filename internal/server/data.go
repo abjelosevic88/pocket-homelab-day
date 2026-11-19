@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -118,15 +119,19 @@ func (s *Server) handleExportMarkdown(w http.ResponseWriter, r *http.Request) {
 // date (existing text is kept, missing fields filled), moments and pins added
 // when not already present, facts (into the caller's own) only for days that
 // have none. Owner ids in the file are ignored: everything becomes the caller's.
+//
+// It only adds, so the same file twice changes nothing; the answer counts what
+// was added ("imported") and what was already there ("skipped").
 func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 	var doc exportDoc
-	if err := decode(r, &doc); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, importMaxBytes)).Decode(&doc); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 	ctx := r.Context()
 	u := userFrom(ctx)
-	counts := map[string]int{}
+	counts := map[string]int{"imported": 0, "skipped": 0}
+	added := func(kind string) { counts[kind]++; counts["imported"]++ }
 	for _, e := range doc.Entries {
 		if !validDate(e.Date) {
 			continue
@@ -154,10 +159,10 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 		if e.Pinned && !cur.Pinned {
 			cur.Pinned, changed = true, true
 		}
-		if changed {
-			if err := s.store.UpsertEntry(ctx, cur); err == nil {
-				counts["entries"]++
-			}
+		if !changed {
+			counts["skipped"]++
+		} else if err := s.store.UpsertEntry(ctx, cur); err == nil {
+			added("entries")
 		}
 	}
 	existing, _ := s.store.ListMoments(ctx, u.ID, "0000-01-01", "9999-12-31", 10000000)
@@ -166,21 +171,38 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 		have[m.Date+"|"+m.Time+"|"+m.Text] = true
 	}
 	for _, m := range doc.Moments {
-		if !validDate(m.Date) || strings.TrimSpace(m.Text) == "" || have[m.Date+"|"+m.Time+"|"+m.Text] {
+		if !validDate(m.Date) || strings.TrimSpace(m.Text) == "" {
+			continue
+		}
+		key := m.Date + "|" + m.Time + "|" + m.Text
+		if have[key] {
+			counts["skipped"]++
 			continue
 		}
 		m.ID, m.UserID = 0, u.ID
 		if err := s.store.CreateMoment(ctx, &m); err == nil {
-			counts["moments"]++
+			have[key] = true
+			added("moments")
 		}
+	}
+	pins, _ := s.store.ListPins(ctx, u.ID, "0000-01-01", "9999-12-31")
+	havePin := map[string]bool{}
+	for _, p := range pins {
+		havePin[p.Date+"|"+p.Source+"|"+p.Ref] = true
 	}
 	for _, p := range doc.Pins {
 		if !validDate(p.Date) || p.Source == "" {
 			continue
 		}
+		key := p.Date + "|" + p.Source + "|" + p.Ref
+		if havePin[key] { // a pin already there keeps its own title and picture
+			counts["skipped"]++
+			continue
+		}
 		p.ID, p.UserID = 0, u.ID
 		if err := s.store.CreatePin(ctx, &p); err == nil {
-			counts["pins"]++
+			havePin[key] = true
+			added("pins")
 		}
 	}
 	// facts go into the caller's own facts, only for days that have none yet
@@ -189,11 +211,12 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if s.store.FactSources(ctx, u.ID, f.Date)[f.Source] {
+			counts["skipped"]++
 			continue
 		}
 		ff := f
 		if err := s.store.PutFact(ctx, u.ID, &ff); err == nil {
-			counts["facts"]++
+			added("facts")
 		}
 	}
 	writeJSON(w, http.StatusOK, counts)

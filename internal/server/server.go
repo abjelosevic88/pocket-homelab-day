@@ -332,6 +332,7 @@ func (s *Server) Router() http.Handler {
 			r.Get("/export.json", s.handleExportJSON)
 			r.Get("/export.md", s.handleExportMarkdown)
 			r.Post("/import", s.handleImportJSON)
+			r.Get(strings.TrimPrefix(core.PortablePath, "/api/v1"), portable.Handler())
 		})
 	})
 
@@ -487,6 +488,8 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		Uses: append(pocketUses(), core.InferenceUse()),
 		// Reach the person's third-party services through Core (see services.go).
 		Services: serviceUses(),
+		// Pocket Move: the journal out and in (links.go); Register adds move:export / move:import.
+		Portable: portable,
 	}
 	if s.cfg.BaseURL != "" {
 		// ask Core for a relying-party client so "Sign in with Pocket Core" needs no configuration
