@@ -92,6 +92,20 @@ type Fact struct {
 	FetchedAt string          `json:"fetched_at"`
 }
 
+// SourceMeta describes a source that an app brought itself (see
+// internal/server/discovered.go): what Day's own tables say about the
+// built-in sources, as the app said it. It is also what the web UI gets.
+type SourceMeta struct {
+	Label string `json:"label"`          // heads the card: "Wardrobe"
+	App   string `json:"app"`            // the app's name: "Pocket Wardrobe"
+	Icon  string `json:"icon,omitempty"` // the app's icon, an absolute URL
+	One   string `json:"one"`            // "outfit"
+	Many  string `json:"many"`           // "outfits"
+	Unit  string `json:"unit"`           // count | min | amount | qty: what the day's number measures
+	What  string `json:"what,omitempty"` // what comes back, in the app's words
+	URL   string `json:"url,omitempty"`  // what a browser opens for the app
+}
+
 // Source is the connection to one other app.
 type Source struct {
 	URL       string `json:"url"`
@@ -165,4 +179,15 @@ type Settings struct {
 	AISendText        bool   `json:"ai_send_text"`    // include what you wrote, not only the facts
 
 	Sources map[string]Source `json:"sources"`
+
+	// Discovered holds the person's switch for the sources apps brought
+	// themselves (name → on), stored as src_<name>_enabled like the others. A
+	// source that is not in here was never switched: it is on.
+	Discovered map[string]bool `json:"-"`
+}
+
+// DiscoveredOn reports whether the person left a discovered source on.
+func (st Settings) DiscoveredOn(name string) bool {
+	on, ok := st.Discovered[name]
+	return !ok || on
 }

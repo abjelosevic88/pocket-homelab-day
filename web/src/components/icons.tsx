@@ -1,4 +1,7 @@
 // Stroke icons (24-grid, 1.75 stroke) drawn inline — no icon dependency.
+import { useEffect, useState } from 'react'
+import { sourceInfo } from '../lib/types'
+
 const P: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
@@ -155,9 +158,29 @@ export const SOURCE_COLOR: Record<string, string> = {
   forgejo: '#f97316', nextcloud: '#0082c9', documents: '#64748b', invoicing: '#0f766e', puzzlecraft: '#1f7a8c', capsule: '#7c5a2e', math: '#3554a5', karaoke: '#7b2cbf', printfarm: '#e8641b', cameras: '#2f6690', gamebuilder: '#0b84c6', sky: '#3b4fb8', split: '#0891b2', tasks: '#2563eb', birthdays: '#db2777', inventory: '#a16207', projects: '#6366f1',
 }
 
-/** A source's icon on its own tint (the day's cards, glance pills, tiles, settings). */
+/** A source's icon on its own tint (the day's cards, glance pills, tiles, settings). A source an app brought itself shows the app's own icon in the same box. */
 export function SourceIcon({ source, size = 22, bare = false }: { source: string; size?: number; bare?: boolean }) {
+  const info = sourceInfo(source)
+  if (info.brought) return <BroughtIcon url={info.iconUrl} size={size} bare={bare} />
   const glyph = <Icon name={SOURCE_GLYPH[source] || 'circle'} size={bare ? size : Math.round(size * 0.62)} strokeWidth={2} />
   if (bare) return <span className="src-glyph" style={{ color: SOURCE_COLOR[source] || 'var(--muted)', display: 'inline-grid' }} aria-hidden="true">{glyph}</span>
   return <span className="src-ico" style={{ width: size, height: size, borderRadius: Math.round(size * 0.28), ['--c' as string]: SOURCE_COLOR[source] || 'var(--accent)' }} aria-hidden="true">{glyph}</span>
+}
+
+/** The glyph and colour of a source Day has no entry for, and of an app icon that does not load. */
+const BROUGHT_GLYPH = 'layers'
+const BROUGHT_COLOR = 'var(--muted)'
+
+function BroughtIcon({ url, size, bare }: { url?: string; size: number; bare: boolean }) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => { setFailed(false) }, [url])
+  const img = url && !failed
+  if (bare) {
+    if (img) return <span className="src-glyph" style={{ display: 'inline-grid' }} aria-hidden="true"><img className="src-app" src={url} alt="" width={size} height={size} loading="lazy" onError={() => setFailed(true)} /></span>
+    return <span className="src-glyph" style={{ color: BROUGHT_COLOR, display: 'inline-grid' }} aria-hidden="true"><Icon name={BROUGHT_GLYPH} size={size} strokeWidth={2} /></span>
+  }
+  const inner = Math.round(size * 0.68)
+  return <span className="src-ico" style={{ width: size, height: size, borderRadius: Math.round(size * 0.28), ['--c' as string]: BROUGHT_COLOR }} aria-hidden="true">
+    {img ? <img className="src-app" src={url} alt="" width={inner} height={inner} loading="lazy" onError={() => setFailed(true)} /> : <Icon name={BROUGHT_GLYPH} size={Math.round(size * 0.62)} strokeWidth={2} />}
+  </span>
 }

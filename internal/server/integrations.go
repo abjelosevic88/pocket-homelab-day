@@ -41,6 +41,9 @@ type publicSource struct {
 	Pocket     bool   `json:"pocket"`
 	Service    bool   `json:"service"`
 	App        string `json:"app,omitempty"`
+	// Discovered: a source an app brought itself (discovered.go). It comes
+	// through Pocket Core only: there is nothing to paste, just a switch.
+	Discovered bool   `json:"discovered,omitempty"`
 	Mode       string `json:"mode,omitempty"`
 	Via        string `json:"via"`
 	Detail     string `json:"detail,omitempty"`
@@ -150,6 +153,14 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		}
 		srcs[n] = ps
 	}
+	// after Day's own sources, the ones apps brought themselves
+	metas := s.sourceMetas(ctx, u)
+	names := append([]string(nil), store.SourceNames...)
+	for _, d := range s.discovered(ctx, u) {
+		ss := states[d.name]
+		srcs[d.name] = publicSource{Discovered: true, App: d.meta.App, Enabled: st.DiscoveredOn(d.name), Configured: ss.Active, Mode: ss.Mode, Via: ss.Via, Detail: ss.Detail}
+		names = append(names, d.name)
+	}
 	_, aiStatus := s.inferenceFor(ctx, u.ID, st.AIProvider, st.AIKey != "")
 	dictation := dictationFor(states["voice"], st.AIKey != "")
 	return map[string]any{
@@ -161,7 +172,7 @@ func (s *Server) publicSettings(ctx context.Context, u *store.User, st store.Set
 		"ai_key": mask(st.AIKey), "ai_model": st.AIModel, "ai_base_url": st.AIBaseURL, "ai_transcribe_model": st.AITranscribeModel, "ai_language": st.AILanguage,
 		"ai_question": st.AIQuestion, "ai_weekly_story": st.AIWeeklyStory, "ai_send_text": st.AISendText,
 		"ai_default_model": ai.DefaultModel, "ai_default_transcribe": ai.DefaultTranscribe,
-		"sources": srcs, "source_names": store.SourceNames, "core_configured": s.core.Configured(), "core_connected": s.coreConnected(), "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
+		"sources": srcs, "source_names": names, "source_meta": metas, "core_configured": s.core.Configured(), "core_connected": s.coreConnected(), "setup_complete": st.SetupComplete, "base_url": s.cfg.BaseURL, "timezone": time.Now().Location().String(),
 	}
 }
 
@@ -305,9 +316,17 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	if keys["ai_send_text"] {
 		cur.AISendText = in.AISendText
 	}
+	listed := map[string]bool{} // the sources apps brought themselves, as Core lists them for the person
+	for _, d := range s.discovered(r.Context(), u) {
+		listed[d.name] = true
+	}
 	for name, p := range in.Sources {
 		src, ok := cur.Sources[name]
 		if !ok {
+			// a discovered source has one thing to save: the person's switch
+			if _, had := cur.Discovered[name]; (listed[name] || had) && discoverable(name) && p.Enabled != nil {
+				cur.Discovered[name] = *p.Enabled
+			}
 			continue
 		}
 		if p.URL != nil {
@@ -438,6 +457,24 @@ func (s *Server) handleIntegrationTest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg + " through Pocket Core"})
+		return
+	}
+	// A source an app brought itself is asked for as "app:<name>", so an app
+	// can never be mistaken for one of the names above or below.
+	if name, ok := strings.CutPrefix(in.Which, "app:"); ok {
+		for _, d := range s.discovered(ctx, u) {
+			if d.name != name {
+				continue
+			}
+			msg, err := s.capabilityFetcher(u, d).Test(ctx)
+			if err != nil {
+				writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": strings.TrimPrefix(err.Error(), "not connected: ")})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "Pocket Core does not list that app for you"})
 		return
 	}
 	if _, ok := pocketSources[in.Which]; ok {

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO, weekday } from '../lib/format'
-import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, fmtHeadlineShort, isActivity, fmtAmount, fmtKm, fmtMinutes, type CalendarDay, type DayPage, type Photos, type YearRecap } from '../lib/types'
+import { MOODS, activityMeta, withBrought, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, fmtHeadlineShort, isActivity, fmtAmount, fmtKm, fmtMinutes, type CalendarDay, type DayPage, type Photos, type YearRecap } from '../lib/types'
 import { Loading, useAsync } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
 import { StoryCard, useAI } from '../components/ai'
@@ -166,8 +166,8 @@ function layerValue(d: CalendarDay, layer: Layer, unit: 'km' | 'mi', cur: string
     case 'habits': return `${Math.round(v)}%`
     case 'horoscope': return long ? `${Math.round(v)}/100` : String(Math.round(v))
   }
-  if (isActivity(layer)) {
-    const m = ACTIVITY[layer]
+  const m = activityMeta(layer)
+  if (m) {
     if (m.unit === 'count' || m.unit === 'qty') return long ? `${Math.round(v)} ${Math.round(v) === 1 ? (m.unit === 'qty' ? m.qtyOne : m.one) : (m.unit === 'qty' ? m.qtyMany : m.many)}` : String(Math.round(v))
     return fmtHeadlineShort(layer, v, cur)
   }
@@ -223,7 +223,8 @@ function Legend({ layer, max, unit, cur }: { layer: Layer; max: number; unit: 'k
 function Preview({ date, onClose }: { date: string; onClose: () => void }) {
   const { data, loading } = useAsync(() => api.get<DayPage>(`${V1}/days/${date}`), [date])
   const photos = (data?.facts?.immich?.payload as Photos | null)?.items?.filter(p => p.type === 'IMAGE').slice(0, 6) || []
-  const order = ['travel', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'booking', 'horoscope', 'nextcloud', 'tasks', 'birthdays', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'puzzlecraft', 'capsule', 'math', 'karaoke', 'printfarm', 'cameras', 'gamebuilder', 'sky', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage', 'weather']
+  // Day's own sources, then the ones apps brought themselves; the weather last
+  const order = [...withBrought(['travel', 'dawarich', 'maloja', 'podcasts', 'pinepods', 'audiobookshelf', 'jellystat', 'jellyseerr', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'booking', 'horoscope', 'nextcloud', 'tasks', 'birthdays', 'projects', 'forgejo', 'firefly', 'split', 'invoicing', 'puzzlecraft', 'capsule', 'math', 'karaoke', 'printfarm', 'cameras', 'gamebuilder', 'sky', 'documents', 'bookshelf', 'kitchen', 'inventory', 'garage']), 'weather']
   return (
     <aside className="cal2-panel">
       <div className="row"><div className="grow"><div className="muted small">{weekday(date, true)}</div><h2>{fmtDate(date)}</h2></div><button type="button" className="btn ghost icon-only" onClick={onClose} aria-label="Close" title="Close"><Icon name="x" size={17} /></button></div>

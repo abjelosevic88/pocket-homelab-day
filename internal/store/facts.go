@@ -159,3 +159,32 @@ func (s *Store) FactDates(ctx context.Context, userID int64) ([]string, error) {
 	}
 	return out, rows.Err()
 }
+
+// PutSourceMeta keeps what an app said about the source it brought (label,
+// name, icon, how to count), for the person whose fact was just written.
+func (s *Store) PutSourceMeta(ctx context.Context, userID int64, source string, m SourceMeta) error {
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO source_meta (user_id, source, label, app, icon, one, many, unit, what, url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, source) DO UPDATE SET label = excluded.label, app = excluded.app, icon = excluded.icon, one = excluded.one, many = excluded.many, unit = excluded.unit, what = excluded.what, url = excluded.url, updated_at = excluded.updated_at`,
+		userID, source, m.Label, m.App, m.Icon, m.One, m.Many, m.Unit, m.What, m.URL, Now())
+	return err
+}
+
+// SourceMetas returns source → what its app said, for the sources the person
+// has (or had) facts from that are not Day's own.
+func (s *Store) SourceMetas(ctx context.Context, userID int64) (map[string]SourceMeta, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT source, label, app, icon, one, many, unit, what, url FROM source_meta WHERE user_id = ?`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]SourceMeta{}
+	for rows.Next() {
+		var name string
+		var m SourceMeta
+		if err := rows.Scan(&name, &m.Label, &m.App, &m.Icon, &m.One, &m.Many, &m.Unit, &m.What, &m.URL); err != nil {
+			return nil, err
+		}
+		out[name] = m
+	}
+	return out, rows.Err()
+}

@@ -57,6 +57,8 @@ type Server struct {
 	resolved map[string]resolvedURL
 	svc      serviceMemo // whose key each service came with through Core (never the key)
 	modesMu  sync.Mutex  // one connection-mode report at a time
+
+	discovery discoveryCache // who offers their day, per person (discovered.go)
 }
 
 type resolvedURL struct {
@@ -485,7 +487,9 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "DAY",
 		Publishes: []string{"day.entry_written", "day.moment_created", "day.story_created"},
 		// Read the person's own data in the other Pocket apps (see siblings.go).
-		Uses: append(pocketUses(), core.InferenceUse()),
+		// …and, with one rule, every app that can say what happened on a day
+		// (discovered.go): a new app becomes a source without a change here.
+		Uses: append(append(pocketUses(), core.UseEvery(core.ScopeDay, everyDayReason)), core.InferenceUse()),
 		// Reach the person's third-party services through Core (see services.go).
 		Services: serviceUses(),
 		// Pocket Move: the journal out and in (links.go); Register adds move:export / move:import.

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	core "github.com/abjelosevic88/pocket-homelab-core/sdk"
@@ -34,6 +35,30 @@ func (s *Server) personModes(email string, st store.Settings) []core.ConnMode {
 		ct, _ := connectable(n)
 		out = append(out, core.ConnMode{User: email, Target: ct.target, Mode: connMode(n, st.Sources[n], coreOK)})
 	}
+	// The sources apps brought themselves have no Direct mode: they come
+	// through Core or the person switched them off here. Only the ones the
+	// person set a switch for are reported (Core knows the rest: its own link).
+	if coreOK {
+		for _, n := range discoveredSwitches(st) {
+			mode := modeCore
+			if !st.Discovered[n] {
+				mode = modeOff
+			}
+			out = append(out, core.ConnMode{User: email, Target: n, Mode: mode})
+		}
+	}
+	return out
+}
+
+// discoveredSwitches are the discovered sources a person set a switch for, by name.
+func discoveredSwitches(st store.Settings) []string {
+	out := []string{}
+	for n := range st.Discovered {
+		if discoverable(n) {
+			out = append(out, n)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 

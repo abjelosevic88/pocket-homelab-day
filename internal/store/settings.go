@@ -18,7 +18,7 @@ var SourceNames = []string{"dawarich", "immich", "maloja", "jellystat", "firefly
 
 func defaultSettings() Settings {
 	st := Settings{Title: DefaultTitle, DateFormat: "auto", TimeFormat: "auto", WeekStart: "mon", HomeCurrency: "EUR", DistanceUnit: "km", Prompt: DefaultPrompt, BackfillDays: 90,
-		NotifyFormat: "apprise", NotifyEvening: true, AIQuestion: true, AIWeeklyStory: true, AISendText: true, EveningHour: 21, NotifyMorning: true, MorningHour: 9, Sources: map[string]Source{}}
+		NotifyFormat: "apprise", NotifyEvening: true, AIQuestion: true, AIWeeklyStory: true, AISendText: true, EveningHour: 21, NotifyMorning: true, MorningHour: 9, Sources: map[string]Source{}, Discovered: map[string]bool{}}
 	for _, n := range SourceNames {
 		st.Sources[n] = Source{Enabled: true}
 	}
@@ -84,6 +84,10 @@ func applySetting(st *Settings, k, v string) {
 		}
 		src, ok := st.Sources[parts[0]]
 		if !ok {
+			// not one of Day's own sources: the switch of a source an app brought itself
+			if parts[1] == "enabled" && st.Discovered != nil {
+				st.Discovered[parts[0]] = v != "0"
+			}
 			return
 		}
 		switch parts[1] {
@@ -227,6 +231,11 @@ func settingValues(st Settings) map[string]string {
 		kv["src_"+name+"_enabled"] = b[src.Enabled]
 		kv["src_"+name+"_mode"] = src.Mode
 		kv["src_"+name+"_provider"] = src.Provider
+	}
+	for name, on := range st.Discovered {
+		if _, own := st.Sources[name]; !own {
+			kv["src_"+name+"_enabled"] = b[on]
+		}
 	}
 	return kv
 }

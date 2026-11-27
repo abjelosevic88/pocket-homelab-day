@@ -300,3 +300,46 @@ func TestDocumentsMigrationKeepsPaperlessDays(t *testing.T) {
 		t.Errorf("pins: %+v", pins)
 	}
 }
+
+// A source an app brought itself has a switch per person (stored like the
+// other sources' but apart from them) and what the app said about it, kept
+// per person next to the facts.
+func TestDiscoveredSwitchAndMetaArePerUser(t *testing.T) {
+	st := testStore(t)
+	ctx := context.Background()
+	a, b := &User{Email: "a@x", Role: "admin"}, &User{Email: "b@x", Role: "member"}
+	_ = st.CreateUser(ctx, a)
+	_ = st.CreateUser(ctx, b)
+
+	s, _ := st.GetSettings(ctx, a.ID)
+	if !s.DiscoveredOn("wardrobe") || len(s.Discovered) != 0 {
+		t.Fatalf("a source nobody switched must be on: %v", s.Discovered)
+	}
+	s.Discovered["wardrobe"] = false
+	if err := st.SaveSettings(ctx, a.ID, s); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.GetSettings(ctx, a.ID)
+	if got.DiscoveredOn("wardrobe") || len(got.Discovered) != 1 {
+		t.Errorf("switch not kept: %v", got.Discovered)
+	}
+	if _, own := got.Sources["wardrobe"]; own || len(got.Sources) != len(SourceNames) {
+		t.Errorf("Day's own sources changed: %d", len(got.Sources))
+	}
+	if other, _ := st.GetSettings(ctx, b.ID); !other.DiscoveredOn("wardrobe") {
+		t.Error("one person's switch reached another")
+	}
+
+	m := SourceMeta{Label: "Wardrobe", App: "Pocket Wardrobe", Icon: "https://w.example/i.svg", One: "outfit", Many: "outfits", Unit: "count", What: "What you wore", URL: "https://w.example"}
+	if err := st.PutSourceMeta(ctx, a.ID, "wardrobe", m); err != nil {
+		t.Fatal(err)
+	}
+	m.Label = "Clothes" // the app renamed it: the latest word counts
+	_ = st.PutSourceMeta(ctx, a.ID, "wardrobe", m)
+	if kept, err := st.SourceMetas(ctx, a.ID); err != nil || len(kept) != 1 || kept["wardrobe"] != m {
+		t.Errorf("kept: %+v %v", kept, err)
+	}
+	if kept, _ := st.SourceMetas(ctx, b.ID); len(kept) != 0 {
+		t.Errorf("another person's: %+v", kept)
+	}
+}

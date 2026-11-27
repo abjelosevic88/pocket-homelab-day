@@ -51,6 +51,10 @@ type exportDoc struct {
 	Moments  []store.Moment `json:"moments"`
 	Pins     []store.Pin    `json:"pins"`
 	Facts    []store.Fact   `json:"facts,omitempty"`
+	// SourceMeta goes with the facts: what the apps said about the sources
+	// they brought themselves (label, name, icon), so those days read the same
+	// where the export is brought in.
+	SourceMeta map[string]store.SourceMeta `json:"source_meta,omitempty"`
 }
 
 func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +66,9 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 	doc.Pins, _ = s.store.ListPins(ctx, u.ID, "0000-01-01", "9999-12-31")
 	if !queryBool(r, "nofacts") {
 		doc.Facts, _ = s.store.FactsRange(ctx, u.ID, "0000-01-01", "9999-12-31")
+		if kept, _ := s.store.SourceMetas(ctx, u.ID); len(kept) > 0 {
+			doc.SourceMeta = kept
+		}
 	}
 	w.Header().Set("Content-Disposition", `attachment; filename="pocket-day-export.json"`)
 	writeJSON(w, http.StatusOK, doc)
@@ -217,6 +224,27 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 		ff := f
 		if err := s.store.PutFact(ctx, u.ID, &ff); err == nil {
 			added("facts")
+		}
+	}
+	// what the apps said about the sources they brought: only for the ones
+	// this account knows nothing about yet (its own stay as they are)
+	if len(doc.SourceMeta) > 0 {
+		kept, _ := s.store.SourceMetas(ctx, u.ID)
+		for name, m := range doc.SourceMeta {
+			if _, have := kept[name]; have || !discoveredNameRe.MatchString(name) || builtinSource()[name] {
+				continue
+			}
+			m.Label, m.App, m.One, m.Many, m.What = clip(m.Label, 80), clip(m.App, 80), clip(m.One, 40), clip(m.Many, 40), clip(m.What, 300)
+			if m.Unit != "min" && m.Unit != "amount" && m.Unit != "qty" {
+				m.Unit = "count"
+			}
+			if !strings.HasPrefix(m.Icon, "https://") && !strings.HasPrefix(m.Icon, "http://") {
+				m.Icon = ""
+			}
+			if !strings.HasPrefix(m.URL, "https://") && !strings.HasPrefix(m.URL, "http://") {
+				m.URL = ""
+			}
+			_ = s.store.PutSourceMeta(ctx, u.ID, name, m)
 		}
 	}
 	writeJSON(w, http.StatusOK, counts)

@@ -70,6 +70,8 @@ a.status-pill:hover { background: var(--surface-3); color: var(--text); }
 /* a source's icon: a stroke glyph on its own tint */
 .src-ico { display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 8px; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); }
 [data-theme="dark"] .src-ico { background: color-mix(in srgb, var(--c) 22%, transparent); color: color-mix(in srgb, var(--c) 60%, #fff); }
+/* the icon of an app that brought its own source, in the box the glyphs sit in */
+.src-app { display: block; object-fit: contain; border-radius: 22%; }
 
 /* ---------- searchable select (forms) — Pocket Calendar's look ---------- */
 .sel { position: relative; width: 100%; min-width: 0; }

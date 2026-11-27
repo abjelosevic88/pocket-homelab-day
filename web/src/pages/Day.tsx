@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { addDays, fmtDate, todayISO, weekday } from '../lib/format'
-import { ACTIVITY, MOODS, MOOD_ICON, SOURCE_LABEL, fmtHeadlineShort, type Activity, fmtAmount, fmtKm, fmtMinutes, tagList, type Checkin, type DayPage, type Entry, type Money, type Music, type Photos, type Pin, type SourceName, type Watched, type Where } from '../lib/types'
+import { MOODS, MOOD_ICON, activityMeta, broughtSources, sourceLabel, withBrought, fmtHeadlineShort, type Activity, fmtAmount, fmtKm, fmtMinutes, tagList, type Checkin, type DayPage, type Entry, type Money, type Music, type Photos, type Pin, type SourceName, type Watched, type Where } from '../lib/types'
 import { Card, Confirm, Loading, Segmented, modalOpen, useAsync, useToast } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
 import { announceChange } from '../components/Layout'
@@ -79,8 +79,10 @@ export default function Day() {
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const unit = settings?.distance_unit || 'km'
   const have = new Set([...data.sources, ...Object.keys(data.facts)])
-  const cards = ORDER.filter(s => have.has(s) && factHasContent(s, data.facts[s]))
-  const quiet = ORDER.filter(s => data.sources.includes(s) && !cards.includes(s))
+  // Day's own sources in their order, then the ones apps brought themselves
+  const order = withBrought(ORDER)
+  const cards = order.filter(s => have.has(s) && factHasContent(s, data.facts[s]))
+  const quiet = order.filter(s => data.sources.includes(s) && !cards.includes(s))
   const trip = data.facts.travel?.payload as { trips?: { name: string; day_no: number; days: number }[] } | undefined
   return (
     <>
@@ -126,7 +128,7 @@ export default function Day() {
           <div className="day-side">
             {data.sources.length === 0 && cards.length === 0 && <Card title={<><Icon name="layers" size={16} />Nothing connected yet</>}><p className="muted" style={{ margin: 0 }}>Connect Dawarich, Immich, Maloja, Jellystat, Pocket Money and the other Pocket apps under <Link to="/settings/sources">Settings → Sources</Link>, and every day fills itself in.</p></Card>}
             {cards.map(s => <div key={s} id={`src-${s}`}><FactCard source={s} fact={data.facts[s]} link={data.links[s]} unit={unit} pins={data.pins} onPin={onPin} onUnpin={onUnpin} date={date} /></div>)}
-            {quiet.length > 0 && <p className="quiet-sources">Nothing from {quiet.map(q => SOURCE_LABEL[q].toLowerCase()).join(', ')}{data.facts[quiet[0]]?.error ? '' : ' on this day'}.</p>}
+            {quiet.length > 0 && <p className="quiet-sources">Nothing from {quiet.map(q => sourceLabel(q).toLowerCase()).join(', ')}{data.facts[quiet[0]]?.error ? '' : ' on this day'}.</p>}
           </div>
         </div>
       )}
@@ -228,16 +230,17 @@ function Glance({ facts, unit }: { facts: DayPage['facts']; unit: 'km' | 'mi' })
   const wt = p<Watched>('jellystat'); if (wt?.minutes) pills.push({ src: 'jellystat', value: fmtMinutes(wt.minutes), label: 'watched' })
   const mo = p<Money>('firefly'); if (mo?.count) pills.push({ src: 'firefly', value: fmtAmount(mo.totals[mo.main_currency] || 0, mo.main_currency), label: `${mo.count} payment${mo.count === 1 ? '' : 's'}` })
   const h = p<Checkin>('habits'); if (h?.total) pills.push({ src: 'habits', value: `${h.done}/${h.total}`, label: 'habits' })
-  for (const src of ['podcasts', 'pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'split', 'invoicing', 'puzzlecraft', 'capsule']) {
+  for (const src of [...['podcasts', 'pinepods', 'audiobookshelf', 'forgejo', 'nextcloud', 'tasks', 'jellyseerr', 'documents', 'split', 'invoicing', 'puzzlecraft', 'capsule'], ...broughtSources()]) {
     const f = facts[src]
     if (!f || !f.headline) continue
     const a = f.payload as Activity | null
-    const m = ACTIVITY[src]
+    const m = activityMeta(src)
+    if (!m) continue
     const value = m.unit === 'count' ? String(Math.round(f.headline)) : fmtHeadlineShort(src, f.headline, a?.currency)
-    const label = m.unit === 'count' ? (f.headline === 1 ? m.one : m.many) : m.unit === 'qty' ? (f.headline === 1 ? m.qtyOne! : m.qtyMany!) : SOURCE_LABEL[src].toLowerCase()
+    const label = m.unit === 'count' ? (f.headline === 1 ? m.one : m.many) : m.unit === 'qty' && m.qtyOne ? (f.headline === 1 ? m.qtyOne : m.qtyMany || m.qtyOne) : sourceLabel(src).toLowerCase()
     pills.push({ src, value, label: src === 'nextcloud' ? `${label} done` : label })
   }
   if (pills.length === 0) return null
   const jump = (src: string) => document.getElementById(`src-${src}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  return <div className="glance">{pills.map(x => <button type="button" key={x.src} className="glance-pill" onClick={() => jump(x.src)} title={SOURCE_LABEL[x.src]}><SourceIcon source={x.src} size={30} /><span><b>{x.value}</b><span className="gl">{x.label}</span></span></button>)}</div>
+  return <div className="glance">{pills.map(x => <button type="button" key={x.src} className="glance-pill" onClick={() => jump(x.src)} title={sourceLabel(x.src)}><SourceIcon source={x.src} size={30} /><span><b>{x.value}</b><span className="gl">{x.label}</span></span></button>)}</div>
 }

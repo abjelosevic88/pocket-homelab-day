@@ -5,7 +5,7 @@ import { fmtDate, todayISO } from '../lib/format'
 import { Card } from './ui'
 import { Icon, SourceIcon } from './icons'
 import {
-  SOURCE_APP, SOURCE_LABEL, WEATHER_ICON, cap, fmtAmount, fmtKm, fmtMinutes,
+  SOURCE_APP, WEATHER_ICON, activityMeta, cap, fmtAmount, fmtKm, fmtMinutes, isBuiltin, sourceApp, sourceLabel,
   type Activity, type Car, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type VoiceMemo, type WalletDay, type FitnessDay, type FitnessWorkout, type NutritionDay, type BlogDay, type BlogPost, type ChatDay, type ChatPlan, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type BookingDay, type BookingItem, type TrailsDay, type TrailsOuting, type Checkin, type TrackerRow, ACTIVITY, isActivity, fmtHeadline, type Cooked, type Fact, type Money, type Music, type Photos, type Pin, type Reading, type Trips, type Watched, type WeatherDay, type Where, type HealthDay, type StillDay, type HoroscopeDay,
 } from '../lib/types'
 
@@ -16,12 +16,12 @@ interface Props { source: string; fact?: Fact; link?: string; unit: 'km' | 'mi';
 
 /** One source's card on the day page. */
 export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date }: Props) {
-  const title = <><SourceIcon source={source} size={22} />{SOURCE_LABEL[source] || cap(source)}</>
+  const title = <><SourceIcon source={source} size={22} />{sourceLabel(source)}</>
   // the location, requests and watched sources name where the day came from (Pocket Movement or Dawarich, Pocket Requests or Jellyseerr, Pocket Watch or Jellystat)
   const app = source === 'dawarich' && (fact?.payload as Where | null)?.provider === 'movement' ? 'Pocket Movement'
     : source === 'jellyseerr' && (fact?.payload as Activity | null)?.provider === 'requests' ? 'Pocket Requests'
     : source === 'jellystat' && (fact?.payload as Watched | null)?.provider === 'watch' ? 'Pocket Watch'
-    : SOURCE_APP[source] || source
+    : sourceApp(source)
   const actions = <>
     {fact?.error && <span className="badge warn" title={fact.error}>stale</span>}
     {link && <a className="btn ghost icon-only sm" href={link} target="_blank" rel="noreferrer" title={`Open ${app}`} aria-label={`Open ${app}`}><Icon name="external" size={14} /></a>}
@@ -652,7 +652,11 @@ export function FactCard({ source, fact, link, unit, pins, onPin, onUnpin, date 
     default:
       if (isActivity(source)) {
         const a = fact.payload as Activity
-        if (!a.count) { body = empty(`Nothing in ${app} this day.`); break }
+        if (!a.count) {
+          // an app may say something about a day without listing things (the sources apps brought themselves)
+          body = !isBuiltin(source) && fact.summary ? <><div className="fact-head">{fact.summary}</div><ActivityMetrics a={a} /></> : empty(`Nothing in ${app} this day.`)
+          break
+        }
         body = <ActivityBody source={source} a={a} link={link} PinBtn={PinBtn} />
         break
       }
@@ -711,7 +715,7 @@ export function factHasContent(source: string, fact?: Fact): boolean {
   if (!fact) return false
   const v = fact.payload as Record<string, unknown> | null
   if (!v) return !!fact.error
-  if (isActivity(source)) return Number((v as { count?: number }).count || 0) > 0
+  if (isActivity(source)) return Number((v as { count?: number }).count || 0) > 0 || (!isBuiltin(source) && !!fact.summary)
   const n = (k: string) => Number((v as Record<string, unknown>)[k] || 0)
   const len = (k: string) => ((v as Record<string, unknown[]>)[k] || []).length
   switch (source) {
@@ -828,9 +832,15 @@ function HabitsBody({ c }: { c: Checkin }) {
   </>
 }
 
+/** The day's numbers an app sent along with its items ("Words 412"). */
+function ActivityMetrics({ a }: { a: Activity }) {
+  if (!a.metrics?.length) return null
+  return <div className="chips">{a.metrics.map((x, i) => <span key={i} className="chip">{x.label} <span className="muted">{x.value}</span></span>)}</div>
+}
+
 /** Any activity source: a headline, the top groups, the items with their time. */
 function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity; link?: string; PinBtn: (props: PinBtnProps) => React.ReactNode }) {
-  const m = ACTIVITY[source]
+  const m = activityMeta(source)!
   const cur = a.currency || 'EUR'
   const headline = m.unit === 'min' ? fmtHeadline(source, a.minutes) : m.unit === 'qty' ? fmtHeadline(source, a.qty || 0) : m.unit === 'amount' ? fmtHeadline(source, a.amount || 0, cur) : fmtHeadline(source, a.count)
   const second = m.unit === 'count' ? '' : `${a.count} ${a.count === 1 ? m.one : m.many}`
@@ -841,6 +851,7 @@ function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity
   return <>
     <div className="fact-head"><b>{headline}</b>{second && <span className="muted"> · {second}</span>}{a.done > 0 && m.doneLabel && <span className="muted"> · {a.done} {m.doneLabel}</span>}</div>
     {a.top?.length > 1 && <div className="chips">{a.top.slice(0, 5).map(t => <span key={t.name} className="chip">{t.name} <span className="muted">{t.count}</span></span>)}</div>}
+    <ActivityMetrics a={a} />
     <div className="inline-list mt-sm">{items.map((it, i) => {
       const url = it.url ? (it.url.startsWith('/') ? (base ? base + it.url : '') : it.url) : ''
       return <div key={(it.ref || it.title) + i} className="li act-li">
@@ -862,7 +873,7 @@ function ActivityBody({ source, a, link, PinBtn }: { source: string; a: Activity
             </>
           })()}
         </span>
-        {(it.minutes || 0) >= 1 ? <span className="muted small nowrap">{fmtMinutes(Math.round(it.minutes || 0))}</span> : it.amount ? <span className="money">{fmtAmount(it.amount, it.currency || cur)}</span> : (it.qty || 0) > 0 ? <span className="muted small nowrap">{it.qty} {it.qty === 1 ? m.qtyOne : m.qtyMany}</span> : null}
+        {(it.minutes || 0) >= 1 ? <span className="muted small nowrap">{fmtMinutes(Math.round(it.minutes || 0))}</span> : it.amount ? <span className="money">{fmtAmount(it.amount, it.currency || cur)}</span> : (it.qty || 0) > 0 ? <span className="muted small nowrap">{it.qty}{m.qtyOne ? ` ${it.qty === 1 ? m.qtyOne : m.qtyMany || m.qtyOne}` : ''}</span> : null}
         <PinBtn ref_={`${source}:${it.ref || it.title}`} title={it.title} subtitle={it.sub} image={it.image} />
       </div>
     })}</div>

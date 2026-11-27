@@ -72,6 +72,11 @@ func (s *Server) fetchers(ctx context.Context, u *store.User, st store.Settings)
 			}
 		}
 	}
+	for _, d := range s.discovered(ctx, u) {
+		if states[d.name].Active {
+			out[d.name] = s.capabilityFetcher(u, d)
+		}
+	}
 	return out
 }
 
@@ -170,6 +175,10 @@ func (s *Server) pullDayOnly(ctx context.Context, userID int64, date string, for
 				// person has no account of their own in the service): skipped, not failed
 				s.log.Debug("fact source not connected", "date", date, "source", name, "err", err)
 				return
+			}
+			if b, ok := f.(*broughtFetcher); ok {
+				// what the app said about the source it brought, kept with each fact written
+				_ = s.store.PutSourceMeta(ctx, userID, name, b.meta)
 			}
 			if err != nil {
 				errs[name] = err
@@ -427,6 +436,11 @@ func (s *Server) handleFactsStatus(w http.ResponseWriter, r *http.Request) {
 			configured = append(configured, n)
 		}
 	}
+	for _, d := range s.discovered(ctx, u) {
+		if states[d.name].Active {
+			configured = append(configured, d.name)
+		}
+	}
 	dates, _ := s.store.FactDates(ctx, u.ID)
 	first, last := "", ""
 	if len(dates) > 0 {
@@ -538,6 +552,14 @@ func (s *Server) dropSwitchedOff(ctx context.Context, u *store.User, date string
 	for _, name := range store.SourceNames {
 		if _, on := fs[name]; !on {
 			_ = s.store.DeleteFactSource(ctx, u.ID, date, name)
+		}
+	}
+	// A discovered source goes the same way only while Core still lists it (it
+	// is off here or its link is): one Core no longer lists, or cannot list
+	// right now, keeps its day.
+	for _, d := range s.discovered(ctx, u) {
+		if _, on := fs[d.name]; !on {
+			_ = s.store.DeleteFactSource(ctx, u.ID, date, d.name)
 		}
 	}
 }

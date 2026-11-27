@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { weekday } from '../lib/format'
-import { MOODS, MOOD_ICON, tagList, type Entry } from '../lib/types'
+import { MOODS, MOOD_ICON, broughtSources, sourceLabel, tagList, type Entry } from '../lib/types'
 import { Card, Empty, Loading, PageHeader, Segmented, useAsync, useDebounce } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
 
@@ -44,7 +44,8 @@ export default function Journal() {
 }
 
 function EntryRow({ e, sums }: { e: Entry; sums?: Record<string, string> }) {
-  const order = ['travel', 'dawarich', 'immich', 'maloja', 'jellystat', 'bookshelf', 'kitchen', 'firefly', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'booking', 'horoscope', 'weather']
+  // Day's own sources, then the ones apps brought themselves; the sky and the weather close the line
+  const order = [...['travel', 'dawarich', 'immich', 'maloja', 'jellystat', 'bookshelf', 'kitchen', 'firefly', 'habits', 'health', 'still', 'home', 'renewals', 'wealth', 'pets', 'parcels', 'sign', 'places', 'voice', 'wallet', 'fitness', 'nutrition', 'blog', 'chat', 'forms', 'crm', 'league', 'tables', 'rentals', 'trails', 'booking'], ...broughtSources(), 'horoscope', 'weather']
   return (
     <Link to={`/day/${e.date}`} className="jrow" style={{ color: 'inherit' }}>
       <div className="jdate"><div className="d">{e.date.slice(8)}</div><div className="m">{monthShort(e.date)} {e.date.slice(0, 4) !== String(new Date().getFullYear()) ? e.date.slice(0, 4) : ''}</div><div className="muted small">{weekday(e.date)}</div></div>
@@ -56,7 +57,7 @@ function EntryRow({ e, sums }: { e: Entry; sums?: Record<string, string> }) {
           {(e.moments || 0) > 0 && <span className="row" style={{ gap: 3 }}><Icon name="clock" size={12} />{e.moments} moment{e.moments === 1 ? '' : 's'}</span>}
           {e.words ? <span>{e.words} words</span> : null}
         </div>
-        {sums && <div className="jsums">{order.filter(s => sums[s]).map(s => <span key={s} title={s}><SourceIcon source={s} size={13} bare />{sums[s]}</span>)}</div>}
+        {sums && <div className="jsums">{order.filter(s => sums[s]).map(s => <span key={s} title={sourceLabel(s)}><SourceIcon source={s} size={13} bare />{sums[s]}</span>)}</div>}
       </div>
     </Link>
   )

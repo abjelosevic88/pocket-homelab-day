@@ -101,10 +101,13 @@ A self-hosted server already records your life in pieces: Dawarich has the route
 | **Pocket Documents** | documents added, with correspondent and type, each linking to the document | Pocket Core link, or URL + token |
 | **Pocket Invoicing / Split / Inventory** | invoices and payments, shared expenses, stock changes | Pocket Core link, or URL + token |
 | **Weather** | the day's weather at home, or where your location source says you were — from **Pocket Weather** while its link is on (your home place there, your weather diary with your own note on the day, and today's warnings: “Warning: Strong wind; Rain, 3–8 °C, 3 mm”), else straight from Open-Meteo, which also fills in when Pocket Weather is not connected or has no place for you yet | Pocket Core link (`weather:read`), or a home location (Open-Meteo, no key) |
+| **Any other Pocket app** | whatever the app says happened on your day: its own line, its things with their times, each linking back to the app | Pocket Core, and an app that offers its day (nothing to set up in Day) |
 
 All optional. A day only shows the sources you connected. With **Pocket Core** on the box: registers itself, publishes `day.entry_written`, `day.moment_created` and `day.story_created`, accepts paired-phone tokens, and shows “Sign in with Pocket Core” on the login page with no OIDC configuration at all.
 
 Pocket Move can copy your journal out and bring a journal in.
+
+**A new Pocket app becomes a source on its own.** The sources in the table are written out in Day, one by one. An app does not need that any more: it says in its own manifest that it can tell what happened on a day (the `day` capability of Pocket Core) and answers `GET /api/v1/pocket/day/{date}` in the one shape every app uses. Day asks Pocket Core who offers it for you (one rule in its manifest, `pocket:day` in every app, with one switch on Core's Links page) and reads each of them, as you, with a fresh token per fetch. **Nothing is added in Day**: the app's label, name, icon and its words for its things ("outfit", "outfits") come from the app, and its day shows with the card, the timeline lines and the journal line every activity source gets. Such a source is listed under Settings → Sources after Day's own; it comes through Pocket Core only (no URL or key to paste) and each person can switch it off for themselves. What the app said about itself is kept with your days, so an old day still reads well when the app is gone. An app that already has a source of its own in the table keeps that one, whatever it offers. Without Pocket Core, or with a Pocket Core from before capabilities, nothing changes.
 
 **The Pocket apps through Pocket Core.** Each Pocket app source (Habits, Bookshelf, Travel, Kitchen, Garage, Invoicing, Split, Inventory, Documents, Money) has a connection per person under Settings → Sources: **Pocket Core** (Day reads as you through a Core app link — a fresh five-minute token per fetch, one read-only scope per app, nothing to paste, and every person on the box gets their own), **Direct** (your own URL + API token) or **Off**. Until you choose, a saved token means Direct and otherwise Pocket Core. Switch a link off in Pocket Core (for yourself under Settings → Apps acting for me, or for the box under Links) and the next pull skips that source: the day is not marked failed, Settings says why. The scopes Day asks for: `habits:read`, `books:read`, `trips:read`, `cooklog:read`, `vehicles:read`, `invoices:read`, `groups:read`, `activity:read`, `documents:read`, `transactions:read`. Pocket Documents replaced Paperless-ngx: the days already filled from Paperless keep their documents and show under Pocket Documents; documents brought over from Paperless (or restored from an export) do not count as added on the day of the import.
 
@@ -175,7 +178,7 @@ make          # build web/dist and the binary
 make docker   # local image
 ```
 
-Go 1.26 + chi + modernc SQLite (pure Go, no CGO); React 19 + Vite + TypeScript, no UI framework. Source fetchers live in `internal/sources/`, one file each.
+Go 1.26 + chi + modernc SQLite (pure Go, no CGO); React 19 + Vite + TypeScript, no UI framework. Source fetchers live in `internal/sources/`, one file each; `capability.go` is the one that reads any app offering its day, and `internal/server/discovered.go` finds those apps.
 
 ## Sibling projects
 

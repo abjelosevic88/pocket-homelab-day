@@ -5,8 +5,9 @@ export interface Currency { code: string; name: string; decimals: number }
 export type ConnMode = 'core' | 'direct' | 'off'
 // pocket: a Pocket app source, reached through a Pocket Core app link (core), its own URL + token (direct) or not at all (off);
 // service: a third-party service (Immich, Maloja…) with the same modes, through a Pocket Core service connection;
-// via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core.
-export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; audiobooks?: BooksState; requests?: RequestsState; watch?: WatchState; weather?: WeatherState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' | 'audiobooks' | 'audiobookshelf' | 'requests' | 'jellyseerr' | 'watch' | 'jellystat' }
+// via says whether that works ('' = not connected) and detail why not; key_source whose key a service comes with through Core;
+// discovered: a source an app brought itself (see SourceMeta): through Pocket Core only, with one switch (enabled) and nothing to paste.
+export interface Source { url: string; key: string; public_url: string; extra: string; enabled: boolean; configured: boolean; needs_key: boolean; pocket: boolean; service: boolean; discovered?: boolean; app?: string; mode?: ConnMode; via: '' | 'core' | 'direct'; detail?: string; key_source?: '' | 'personal' | 'box'; location?: LocationState; music?: MusicState; audiobooks?: BooksState; requests?: RequestsState; watch?: WatchState; weather?: WeatherState; provider?: '' | 'movement' | 'dawarich' | 'music' | 'maloja' | 'audiobooks' | 'audiobookshelf' | 'requests' | 'jellyseerr' | 'watch' | 'jellystat' }
 /** Where the location source's days come from: Pocket Movement (through Pocket Core only) or Dawarich. */
 export interface LocationState { choice: '' | 'movement' | 'dawarich'; provider: 'movement' | 'dawarich'; movement_via: '' | 'core'; movement_detail?: string; dawarich_via: '' | 'core' | 'direct' }
 /** Where the music source's days come from: Pocket Music (through Pocket Core only) or Maloja. */
@@ -25,7 +26,8 @@ export interface Settings {
   title: string; date_format: string; time_format: string; week_start: 'mon' | 'sun'; home_currency: string; distance_unit: 'km' | 'mi'
   home_lat: number; home_lon: number; home_place: string; prompt: string; backfill_days: number
   notify_url: string; notify_format: string; notify_configured: boolean; notify_evening: boolean; evening_hour: number; notify_morning: boolean; morning_hour: number
-  sources: Record<SourceName, Source>; source_names: SourceName[]; core_configured: boolean; core_connected?: boolean; setup_complete: boolean; base_url: string; timezone: string
+  /** Day's own sources, then the ones apps brought themselves (source_names has the order, source_meta what those apps said). */
+  sources: Record<SourceName, Source> & Record<string, Source>; source_names: string[]; source_meta?: Record<string, SourceMeta>; core_configured: boolean; core_connected?: boolean; setup_complete: boolean; base_url: string; timezone: string
   ai_key: string; ai_model: string; ai_base_url: string; ai_transcribe_model: string; ai_language: string
   ai_question: boolean; ai_weekly_story: boolean; ai_send_text: boolean; ai_configured: boolean; ai_default_model: string; ai_default_transcribe: string
 }
@@ -41,7 +43,7 @@ export interface Fact<T = unknown> { date: string; source: string; payload: T; h
 
 export interface DayPage {
   date: string; weekday: number; today: boolean; future: boolean; entry: Entry | null; moments: Moment[]; pins: Pin[]
-  facts: Record<string, Fact>; sources: SourceName[]; memories: Entry[]; prev_entry: string; next_entry: string; streak: number; prompt: string; links: Record<string, string>
+  facts: Record<string, Fact>; sources: string[]; source_meta?: Record<string, SourceMeta>; memories: Entry[]; prev_entry: string; next_entry: string; streak: number; prompt: string; links: Record<string, string>
 }
 export interface CalendarDay { date: string; entry: boolean; mood: number; highlight: string; pinned: boolean; moments: number; headlines: Record<string, number>; weather?: string; t_max?: number | null; cover?: string; summary?: string; moon?: string; moon_sign?: string; sky?: string }
 export interface HomeData { today: string; stats: { total: number; this_month: number; this_year: number; mood_month: number; words: number; first_date: string; pinned: number; moments: number }; streak: number; longest_streak: number; recent: Entry[]; memories: Entry[] }
@@ -174,7 +176,7 @@ export interface MonthRecap { month: string; entries: number; moments: number; m
 export interface YearRecap {
   year: number; months: MonthRecap[]; entries: number; moments: number; words: number; mood: number; moods: number[]; photos: number; videos: number; km: number; modes: Record<string, number>
   listens: number; artists: Count[]; tracks: Count[]; watch_min: number; shows: Count[]; movies: number; spend: Record<string, number>; categories: Count[]; category_spend: { name: string; amount: number; count: number }[]; spend_currency: string; activity: Record<string, { count: number; minutes: number; done: number; amount: number; currency: string; qty: number; days: number; top: Count[]; titles: Count[]; months: number[] }>; books: Book[]; cooked: number; dishes: Count[]
-  places: Count[]; visits: Count[]; trips: Trip[]; conditions: Count[]; tags: { tag: string; count: number }[]; pinned: Entry[]; best: Entry[]; longest_streak: number; days_with_facts: number; busiest_day: string; farthest_day: string; weekday_mood: number[]
+  places: Count[]; visits: Count[]; trips: Trip[]; conditions: Count[]; tags: { tag: string; count: number }[]; pinned: Entry[]; best: Entry[]; longest_streak: number; days_with_facts: number; busiest_day: string; farthest_day: string; weekday_mood: number[]; source_meta?: Record<string, SourceMeta>
 }
 
 export const MOODS = ['', 'rough', 'meh', 'okay', 'good', 'great']
@@ -204,7 +206,7 @@ export const tagList = (t: string) => t ? t.split(',').filter(Boolean) : []
 export interface ActivityItem { time?: string; end?: string; title: string; sub?: string; group?: string; minutes?: number; done?: boolean; ref?: string; position?: number; length?: number; amount?: number; currency?: string; qty?: number; url?: string; image?: string; note?: string; events?: ActivityEvent[] }
 /** One happening inside an item that combines several (Pocket Projects: one issue's day). */
 export interface ActivityEvent { time?: string; kind?: string; text: string; url?: string }
-export interface Activity { count: number; minutes: number; done: number; amount?: number; currency?: string; qty?: number; top: Count[]; items: ActivityItem[]; provider?: string }
+export interface Activity { count: number; minutes: number; done: number; amount?: number; currency?: string; qty?: number; top: Count[]; items: ActivityItem[]; provider?: string; /** the day's numbers an app sent along (sources apps brought) */ metrics?: { label: string; value: string }[] }
 export interface ActivityMeta { one: string; many: string; unit: 'min' | 'count' | 'amount' | 'qty'; qtyOne?: string; qtyMany?: string; group: string; doneLabel?: string }
 export const ACTIVITY: Record<string, ActivityMeta> = {
   podcasts: { one: 'episode', many: 'episodes', unit: 'min', group: 'Shows', doneLabel: 'finished' },
@@ -229,22 +231,79 @@ export const ACTIVITY: Record<string, ActivityMeta> = {
   birthdays: { one: 'birthday', many: 'birthdays', unit: 'count', group: 'People' },
   projects: { one: 'issue', many: 'issues', unit: 'count', group: 'Projects', doneLabel: 'done' },
 }
-export const isActivity = (s: string) => s in ACTIVITY
+
+// ---- sources apps bring themselves ----
+// SourceName and the tables above are Day's own sources. An app that offers
+// "what happened on a day" through Pocket Core becomes a source on its own:
+// its name is the app's slug, and the server sends what the app said about it
+// (source_meta) with the settings, the day, the journal, the month and the
+// year. setSourceMeta keeps the latest; every lookup by a source's name goes
+// through sourceInfo (or the small helpers after it), which knows both kinds.
+
+/** What an app said about the source it brought. */
+export interface SourceMeta { label: string; app: string; icon?: string; one: string; many: string; unit: 'min' | 'count' | 'amount' | 'qty' | string; what?: string; url?: string }
+const BROUGHT: Record<string, SourceMeta> = {}
+/** Remember what the server said about the sources apps brought (api.ts calls it for every answer that has it). */
+export function setSourceMeta(meta?: Record<string, SourceMeta> | null) {
+  if (!meta || typeof meta !== 'object') return
+  for (const [name, m] of Object.entries(meta)) if (m && !isBuiltin(name)) BROUGHT[name] = m
+}
+/** Whether a source is one of Day's own. */
+export const isBuiltin = (s: string): s is SourceName => Object.prototype.hasOwnProperty.call(SOURCE_LABEL, s)
+/** The sources apps brought, in the server's order (by name): they come after Day's own everywhere. */
+export const broughtSources = (): string[] => Object.keys(BROUGHT).sort()
+/** Day's own order followed by the sources apps brought. */
+export const withBrought = (order: readonly string[]): string[] => [...order, ...broughtSources().filter(s => !order.includes(s))]
+
+export interface SourceInfo {
+  name: string
+  /** Heads the card: "Photos", "Wardrobe". */
+  label: string
+  /** The app behind it: "Immich", "Pocket Wardrobe". */
+  app: string
+  /** The app's own icon, for a source an app brought (an address; may fail to load). */
+  iconUrl?: string
+  /** Set for the sources that use the Activity payload. */
+  activity?: ActivityMeta
+  /** What comes back, in the app's words (sources apps brought). */
+  what?: string
+  /** An app brought it: not one of Day's own. */
+  brought: boolean
+}
+const UNITS = ['min', 'count', 'amount', 'qty']
+/** Everything known about a source by name; never undefined, whatever the name. */
+export function sourceInfo(name: string): SourceInfo {
+  if (isBuiltin(name)) return { name, label: SOURCE_LABEL[name], app: SOURCE_APP[name] || SOURCE_LABEL[name], activity: ACTIVITY[name], brought: false }
+  const m = Object.prototype.hasOwnProperty.call(BROUGHT, name) ? BROUGHT[name] : undefined
+  // a name nobody knows (a layer of the calendar, a source long gone): a plain label and nothing else
+  if (!m) return { name, label: cap(name), app: cap(name), brought: false }
+  const label = m.label || cap(name)
+  const unit = (UNITS.includes(m.unit) ? m.unit : 'count') as ActivityMeta['unit']
+  // an app names its things (one, many) but not what a "qty" counts: that number stands alone
+  return { name, label, app: m.app || label, iconUrl: m.icon || undefined, what: m.what || undefined, brought: true, activity: { one: m.one || 'item', many: m.many || 'items', unit, group: 'Kinds' } }
+}
+export const sourceLabel = (s: string) => sourceInfo(s).label
+export const sourceApp = (s: string) => sourceInfo(s).app
+/** How an activity source names and counts its things; undefined for the sources with a payload of their own. */
+export const activityMeta = (s: string): ActivityMeta | undefined => sourceInfo(s).activity
+export const isActivity = (s: string) => !!activityMeta(s)
+/** Every activity source: Day's own, then the ones apps brought. */
+export const activitySources = (): string[] => withBrought(Object.keys(ACTIVITY))
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`
 /** A source's headline number as text: "1 h 20 min", "33 commits", "€ 8,400", "5 tasks". */
 export function fmtHeadline(src: string, v: number, cur = 'EUR'): string {
-  const m = ACTIVITY[src]
+  const m = activityMeta(src)
   if (!m) return String(Math.round(v))
   switch (m.unit) {
     case 'min': return fmtMinutes(Math.round(v)) || '0 min'
-    case 'qty': return plural(Math.round(v), m.qtyOne || 'item', m.qtyMany || 'items')
+    case 'qty': return m.qtyOne ? plural(Math.round(v), m.qtyOne, m.qtyMany || m.qtyOne) : (Math.round(v * 10) / 10).toLocaleString()
     case 'amount': return fmtAmount(v, cur)
     default: return plural(Math.round(v), m.one, m.many)
   }
 }
 /** The short form for calendar cells and bars: "1h20", "33", "€8.4K". */
 export function fmtHeadlineShort(src: string, v: number, cur = 'EUR'): string {
-  const m = ACTIVITY[src]
+  const m = activityMeta(src)
   if (!m) return String(Math.round(v))
   if (m.unit === 'min') return v >= 60 ? `${Math.floor(v / 60)}h${String(Math.round(v % 60)).padStart(2, '0')}` : `${Math.round(v)}m`
   if (m.unit === 'amount') { try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, notation: v >= 10000 ? 'compact' : 'standard', maximumFractionDigits: 0 }).format(v) } catch { return String(Math.round(v)) } }

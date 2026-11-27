@@ -18,8 +18,10 @@ import (
 
 var moodWords = []string{"", "rough", "meh", "okay", "good", "great"}
 
-// factLines renders a day's facts as "Label: …" lines in a fixed order.
-func factLines(facts map[string]store.Fact, detail bool) []string {
+// factLines renders a day's facts as "Label: …" lines in a fixed order. more
+// are the person's activity sources beyond Day's own (the ones apps brought
+// themselves, discovered.go); nil when there are none.
+func factLines(facts map[string]store.Fact, detail bool, more sources.More) []string {
 	var out []string
 	add := func(label, text string) {
 		if strings.TrimSpace(text) != "" {
@@ -549,12 +551,19 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		add("Habits", strings.Join(s, "; "))
 	}
-	for _, name := range activityOrder() {
+	for _, name := range activityOrder(more) {
 		var a sources.Activity
-		if !get(name, &a) || a.Count == 0 {
+		if !get(name, &a) {
 			continue
 		}
-		m := sources.Activities[name]
+		m, _ := more.Meta(name)
+		if a.Count == 0 {
+			// an app may say something about a day without listing things
+			if _, own := sources.Activities[name]; !own && facts[name].Error == "" {
+				add(m.Label, facts[name].Summary)
+			}
+			continue
+		}
 		line := sources.Plural(a.Count, m.One, m.Many)
 		if a.Minutes >= 1 {
 			line += ", " + sources.HoursMinutes(int(a.Minutes+0.5))
@@ -589,6 +598,9 @@ func factLines(facts map[string]store.Fact, detail bool) []string {
 		}
 		if len(it) > 0 {
 			line += ": " + strings.Join(it, "; ")
+		}
+		for _, x := range a.Metrics {
+			line += "; " + x.Label + " " + x.Value
 		}
 		add(m.Label, line)
 	}
@@ -658,7 +670,7 @@ func (s *Server) dayBrief(ctx context.Context, u *store.User, date string, sendT
 		fmt.Fprintf(&b, "Kept: %s\n", strings.Join(l, "; "))
 	}
 	facts, _ := s.store.FactsForDay(ctx, u.ID, date)
-	for _, l := range factLines(facts, detail) {
+	for _, l := range factLines(facts, detail, s.keptActivities(ctx, u.ID)) {
 		b.WriteString(l + "\n")
 	}
 	return b.String()
@@ -697,13 +709,14 @@ func (s *Server) languageRule(ctx context.Context, u *store.User, st store.Setti
 	return "Write in the same language (and script) the person uses in their own entries — for example: “" + strings.Join(sample, "” / “") + "”."
 }
 
-// activityOrder is the activity sources in a stable order.
-func activityOrder() []string {
+// activityOrder is the activity sources in a stable order: Day's own, then
+// the ones apps brought themselves (more, by name).
+func activityOrder(more sources.More) []string {
 	var out []string
 	for _, n := range store.SourceNames {
 		if sources.IsActivity(n) {
 			out = append(out, n)
 		}
 	}
-	return out
+	return append(out, more.Names()...)
 }

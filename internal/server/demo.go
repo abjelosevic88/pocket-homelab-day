@@ -10,6 +10,9 @@ import (
 	"github.com/abjelosevic88/pocket-homelab-day/internal/store"
 )
 
+// demoBrought is the demo's one source that an app brought itself.
+const demoBrought = "wardrobe"
+
 // seedDemo writes a month of journal with synthetic facts so the UI has
 // something to show without any sibling app connected. Only runs on an empty
 // journal.
@@ -123,11 +126,22 @@ func (s *Server) seedDemo(ctx context.Context) error {
 			}
 			put(src, a, head, sum)
 		}
+		// One source the way an app brings it itself (discovered.go): Day has no
+		// entry for it anywhere, only what the app said about it (kept below).
+		// Its own dice, so the rest of the demo stays as it was.
+		if wr := rand.New(rand.NewSource(int64(1000 + i))); wr.Intn(3) > 0 {
+			outfits := []struct{ title, sub string }{{"Blue linen shirt, chinos", "Work"}, {"Grey hoodie, jeans", "At home"}, {"Rain jacket, boots", "Walk"}, {"Navy suit", "Dinner out"}}
+			o := outfits[wr.Intn(len(outfits))]
+			a := sources.Activity{Items: []sources.ActivityItem{{Time: "07:40", Title: o.title, Sub: o.sub, Group: "worn", Ref: fmt.Sprint(i)}}}
+			a.Finish()
+			put(demoBrought, a, float64(a.Count), sources.ActivitySummary(a, "outfit", "outfits"))
+		}
 		if rng.Intn(3) == 0 {
 			ck := sources.Cooked{Cooks: []sources.Cook{{Title: []string{"Shakshuka", "Pasta al limone", "Chicken curry", "Pancakes"}[rng.Intn(4)], Servings: 2, Rating: 4}}}
 			put("kitchen", ck, 1, "cooked "+ck.Cooks[0].Title)
 		}
 	}
+	_ = s.store.PutSourceMeta(ctx, u.ID, demoBrought, store.SourceMeta{Label: "Wardrobe", App: "Pocket Wardrobe", One: "outfit", Many: "outfits", Unit: "count", What: "What you wore that day"})
 	s.log.Info("demo data seeded", "user", u.Email)
 	return nil
 }

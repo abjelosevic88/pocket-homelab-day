@@ -19,6 +19,15 @@ type Activity struct {
 	// Provider names the app behind a source that can come from two
 	// (requests: "requests" = Pocket Requests; "" = the source's own app).
 	Provider string `json:"provider,omitempty"`
+	// Metrics are the day's numbers an app sent along with its items
+	// ("Words 412"); only the sources apps bring themselves have them (capability.go).
+	Metrics []ActivityMetric `json:"metrics,omitempty"`
+}
+
+// ActivityMetric is one labelled number of the day.
+type ActivityMetric struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 // ActivityItem is one thing that happened.
@@ -136,3 +145,46 @@ var Activities = map[string]ActivityMeta{
 
 // IsActivity reports whether a source uses the Activity payload.
 func IsActivity(name string) bool { _, ok := Activities[name]; return ok }
+
+// More are the activity sources that are not in Activities: the ones apps
+// brought themselves (capability.go), which differ from person to person. A
+// nil More is fine: only the built-in ones are known then.
+type More map[string]ActivityMeta
+
+// Meta finds an activity source, built-in or brought by an app.
+func (m More) Meta(name string) (ActivityMeta, bool) {
+	if a, ok := Activities[name]; ok {
+		return a, true
+	}
+	a, ok := m[name]
+	return a, ok
+}
+
+// Is reports whether a source uses the Activity payload.
+func (m More) Is(name string) bool { _, ok := m.Meta(name); return ok }
+
+// Names lists the sources in m that are not built-in, in a stable order
+// (by name: what the web UI shows them in too).
+func (m More) Names() []string {
+	out := make([]string, 0, len(m))
+	for n := range m {
+		if !IsActivity(n) {
+			out = append(out, n)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// ActivityHeadline is the day's number of an activity, by what the source measures.
+func ActivityHeadline(a Activity, unit string) float64 {
+	switch unit {
+	case "min":
+		return a.Minutes
+	case "amount":
+		return a.Amount
+	case "qty":
+		return a.Qty
+	}
+	return float64(a.Count)
+}

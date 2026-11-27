@@ -32,6 +32,9 @@ type dayPage struct {
 	Streak    int                   `json:"streak"`
 	Prompt    string                `json:"prompt"`
 	Links     map[string]string     `json:"links"` // source → public URL for "open in …"
+	// SourceMeta describes the sources apps brought themselves (discovered.go):
+	// the web UI has no table entry for them.
+	SourceMeta map[string]store.SourceMeta `json:"source_meta"`
 }
 
 func (s *Server) buildDay(r *http.Request, date string) (*dayPage, error) {
@@ -63,6 +66,18 @@ func (s *Server) buildDay(r *http.Request, date string) (*dayPage, error) {
 		}
 		page.Sources = append(page.Sources, n)
 		if l := s.sourceLink(ctx, u, n, st.Sources[n], states[n]); l != "" {
+			page.Links[n] = l
+		}
+	}
+	// after Day's own sources, the ones apps brought: listed while they are
+	// pulled, and opened at the app's own address
+	page.SourceMeta = s.sourceMetas(ctx, u)
+	for _, n := range discoveredNames(page.SourceMeta) {
+		_, hasFact := page.Facts[n]
+		if states[n].Active {
+			page.Sources = append(page.Sources, n)
+		}
+		if l := page.SourceMeta[n].URL; l != "" && (states[n].Active || hasFact) {
 			page.Links[n] = l
 		}
 	}
@@ -272,7 +287,7 @@ func (s *Server) handleListEntries(w http.ResponseWriter, r *http.Request) {
 			sums[fc.Date][fc.Source] = fc.Summary
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "total": total, "summaries": sums, "limit": f.Limit, "offset": f.Offset})
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "total": total, "summaries": sums, "limit": f.Limit, "offset": f.Offset, "source_meta": s.sourceMetas(r.Context(), u)})
 }
 
 func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
@@ -402,8 +417,10 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	days := []calendarDay{}
+	metas := s.sourceMetas(ctx, u)
+	brought := discoveredNames(metas)
 	for d := from; d <= to; d = store.AddDays(d, 1) {
-		cd := calendarDay{Date: d, Moments: moments[d], Headlines: heads[d], Weather: weather[d], TMax: tmax[d], Cover: covers[d], Summary: summaryLine(sums[d], 3)}
+		cd := calendarDay{Date: d, Moments: moments[d], Headlines: heads[d], Weather: weather[d], TMax: tmax[d], Cover: covers[d], Summary: summaryLine(sums[d], 3, brought)}
 		if cd.Headlines == nil {
 			cd.Headlines = map[string]float64{}
 		}
@@ -421,7 +438,7 @@ func (s *Server) handleCalendar(w http.ResponseWriter, r *http.Request) {
 		}
 		days = append(days, cd)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"from": from, "to": to, "days": days})
+	writeJSON(w, http.StatusOK, map[string]any{"from": from, "to": to, "days": days, "source_meta": metas})
 }
 
 // ---- moments ----

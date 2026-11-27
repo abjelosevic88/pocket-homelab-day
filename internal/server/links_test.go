@@ -66,6 +66,8 @@ var fakeLinkRoutes = map[string][]*regexp.Regexp{
 	"activity:read":    {regexp.MustCompile(`^/api/v1/activity$`)},
 	"documents:read": {regexp.MustCompile(`^/api/v1/(documents|dashboard|statistics|tags|correspondents|document_types|storage_paths|custom_fields|taxonomy|saved_views|changes)$`),
 		regexp.MustCompile(`^/api/v1/documents/\d+(/download|/preview|/thumb|/text|/notes|/history|/similar|/suggestions|/pages/\d+(\.jpg)?)?$`), regexp.MustCompile(`^/api/v1/documents/next_asn$`)},
+	// the day capability: its one route, in any app that offers it (discovered_test.go)
+	core.ScopeDay:       {regexp.MustCompile(`^/api/v1/pocket/day/\d{4}-\d\d-\d\d$`)},
 	"transactions:read": {regexp.MustCompile(`^/api/v1/transactions`), regexp.MustCompile(`^/firefly/api/v1/(about|about/user|accounts|categories|tags|tags/[^/]+|tags/[^/]+/transactions|transactions|transactions/\d+|currencies)$`)},
 }
 
@@ -99,6 +101,10 @@ type linkWorld struct {
 
 	modes  []map[string]string // the last PUT /api/v1/links/modes
 	nModes int                 // how many reports came in
+
+	// apps that offer their day (the pocket:day capability, see discovered_test.go)
+	dayApps  map[string]*dayApp // slug → what Core says about it and what it answers
+	dayAsked int                // how often Core was asked who offers a day
 }
 
 const day0 = "2026-09-01"
@@ -168,6 +174,10 @@ func (w *linkWorld) core(rw http.ResponseWriter, r *http.Request) {
 			state := w.serviceState(user, serviceSources[n].typ)
 			out = append(out, map[string]any{"app": "service:" + serviceSources[n].typ, "scope": "account", "state": state, "on": state == "on"})
 		}
+		if r.URL.Query().Get("scope") == core.ScopeDay {
+			w.dayAsked++
+		}
+		out = append(out, w.dayRows(user)...)
 		_ = json.NewEncoder(rw).Encode(out)
 	case "/api/v1/services/credential":
 		if r.Header.Get("Authorization") != "Bearer pca_day" || r.Method != http.MethodPost {
@@ -385,6 +395,20 @@ func (w *linkWorld) target(slug string) http.Handler {
 		p := r.URL.Path
 		write := func(s string) { _, _ = rw.Write([]byte(s)) }
 		switch {
+		case strings.HasPrefix(p, core.DayPath):
+			w.mu.Lock()
+			a := w.dayApps[slug]
+			w.mu.Unlock()
+			if a == nil {
+				rw.WriteHeader(http.StatusNotFound)
+				return
+			}
+			if a.status != 0 {
+				rw.WriteHeader(a.status)
+				write(`{"error":"the app could not answer"}`)
+				return
+			}
+			write(a.body)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "health":
 			write(`{"date":"` + d + `","metrics":{"steps":{"value":9123,"unit":"count","name":"Steps"},"sleep_asleep":{"value":408,"unit":"min","name":"Time asleep"}},"workouts":[{"id":1,"kind":"running","name":"Running","start_at":"` + d + `T07:00:00Z","duration_s":2100,"distance_m":5200,"energy_kcal":310,"avg_hr":151}],"sleep":[{"start_at":"` + d + `T23:10:00Z","end_at":"` + d + `T06:40:00Z","asleep_s":24480,"in_bed_s":27000,"deep_s":3960,"rem_s":5040}],"goals_met":["steps"],"summary":"9123 steps · slept 6h 48m"}`)
 		case strings.HasPrefix(p, "/api/v1/day/") && slug == "still":
@@ -643,7 +667,8 @@ func TestManifestUsesEveryPocketSource(t *testing.T) {
 		got = append(got, u.App+"="+strings.Join(u.Scopes, ","))
 	}
 	sort.Strings(got)
-	want := "ai=inference:write audiobooks=listening:read blog=blog:read booking=booking:read bookshelf=books:read cameras=cameras:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
+	// "*" is the one rule for every app that offers its day (discovered.go)
+	want := "*=pocket:day ai=inference:write audiobooks=listening:read blog=blog:read booking=booking:read bookshelf=books:read cameras=cameras:read capsule=capsule:read chat=chat:read contacts=contacts:read crm=crm:read documents=documents:read fitness=fitness:read forms=forms:read gamebuilder=gamebuilder:read garage=vehicles:read habits=habits:read health=health:read home=home:read horoscope=horoscope:read inventory=activity:read invoicing=invoices:read karaoke=karaoke:read kitchen=cooklog:read league=league:read math=math:read money=transactions:read movement=movement:read music=listening:read nutrition=nutrition:read parcels=parcels:read pets=pets:read places=places:read podcasts=history:read printfarm=printfarm:read projects=projects:read puzzlecraft=puzzlecraft:read renewals=renewals:read rentals=rentals:read requests=requests:read sign=signing:read sky=sky:read split=groups:read still=mindfulness:read tables=tables:read tasks=tasks:read trails=trails:read travel=trips:read voice=voice:read,voice:transcribe wallet=wallet:read watch=watching:read wealth=wealth:read weather=weather:read"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("uses\n got %s\nwant %s\n(%s)", strings.Join(got, " "), want, e.reg)
 	}
@@ -699,61 +724,61 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	if f := facts["fitness"]; f.Headline != 1 || f.Summary != "Pull day (72 min, 15 sets, 2 records)" {
 		t.Errorf("fitness fact (Pocket Health's run left to the health source): %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Pull day (72 min, 15 sets, 2 records): Deadlift (Barbell) 3 sets of 115 kg × 5 (a record)") || strings.Contains(l, "Morning run") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Pull day (72 min, 15 sets, 2 records): Deadlift (Barbell) 3 sets of 115 kg × 5 (a record)") || strings.Contains(l, "Morning run") {
 		t.Errorf("the AI's training line:\n%s", l)
 	}
 	if f := facts["nutrition"]; f.Headline != 1850 || f.Summary != "1,850 kcal of 2,300 (protein 112 g, carbs 190 g, fat 64 g)" {
 		t.Errorf("nutrition fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Food: 1,850 kcal of 2,300 (protein 112 g, carbs 190 g, fat 64 g), water 1.5 l of 2 l | Breakfast: oats, banana, coffee (520 kcal) | Dinner: ćevapi (1,330 kcal)") || strings.Contains(l, "Ate late") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Food: 1,850 kcal of 2,300 (protein 112 g, carbs 190 g, fat 64 g), water 1.5 l of 2 l | Breakfast: oats, banana, coffee (520 kcal) | Dinner: ćevapi (1,330 kcal)") || strings.Contains(l, "Ate late") {
 		t.Errorf("the AI's food line:\n%s", l)
 	}
 	if f := facts["blog"]; f.Headline != 1 || f.Summary != "Published “Spring in Sarajevo” (1,240 words); Wrote “Notes on rain” (a draft); 312 readers, 4 comments on the blog" {
 		t.Errorf("blog fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Blog: Published “Spring in Sarajevo” (1,240 words); Wrote “Notes on rain” (a draft); 312 readers, 4 comments on the blog | “Spring in Sarajevo”: The river was loud.") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Blog: Published “Spring in Sarajevo” (1,240 words); Wrote “Notes on rain” (a draft); 312 readers, 4 comments on the blog | “Spring in Sarajevo”: The river was loud.") {
 		t.Errorf("the AI's blog line:\n%s", l)
 	}
 	if f := facts["chat"]; f.Headline != 12 || f.Summary != "Chatted in Family (8 messages), Weekend hikers (4); 2 photos; plans: 20:00 that day (Family); 1 thing shared" {
 		t.Errorf("chat fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Chat: Chatted in Family (8 messages), Weekend hikers (4); 2 photos; plans: 20:00 that day (Family); 1 thing shared | shared: “Grandma's stuffed peppers” (kitchen) in Family") || strings.Contains(l, "Pirpa") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Chat: Chatted in Family (8 messages), Weekend hikers (4); 2 photos; plans: 20:00 that day (Family); 1 thing shared | shared: “Grandma's stuffed peppers” (kitchen) in Family") || strings.Contains(l, "Pirpa") {
 		t.Errorf("the AI's chat line (never the words of a message):\n%s", l)
 	}
 	if f := facts["forms"]; f.Headline != 2 || f.Summary != "2 answers: Ana Kovač to “Client brief”, Marko to “RSVP”; opened “Summer party RSVP”" {
 		t.Errorf("forms fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Forms: 2 answers: Ana Kovač to “Client brief”, Marko to “RSVP”; opened “Summer party RSVP” | Ana Kovač on “Client brief”: A new website for the bakery | Marko on “RSVP”: Yes, two of us") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Forms: 2 answers: Ana Kovač to “Client brief”, Marko to “RSVP”; opened “Summer party RSVP” | Ana Kovač on “Client brief”: A new website for the bakery | Marko on “RSVP”: Yes, two of us") {
 		t.Errorf("the AI's forms line:\n%s", l)
 	}
 	if f := facts["crm"]; f.Headline != 2 || f.Summary != "Won: Online shop for cakes (Pekara Marić); call — Booking site; 3 next steps were due" {
 		t.Errorf("crm fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Deals: Won: Online shop for cakes (Pekara Marić); call — Booking site; 3 next steps were due | Booking site: Talked through the pages | due on Booking site: Send the proposal | due on Logo: Call back") || strings.Contains(l, "gallery") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Deals: Won: Online shop for cakes (Pekara Marić); call — Booking site; 3 next steps were due | Booking site: Talked through the pages | due on Booking site: Send the proposal | due on Logo: Call back") || strings.Contains(l, "gallery") {
 		t.Errorf("the AI's deals line (never the notes):\n%s", l)
 	}
 	if f := facts["league"]; f.Headline != 1 || f.Summary != "Won in Tuesday Tennis: Aleksandar beat Marko Petrović 6–4 6–3" {
 		t.Errorf("league fact (the game you have not answered stays in the card): %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Sport: Won in Tuesday Tennis: Aleksandar beat Marko Petrović 6–4 6–3 | Tuesday Tennis at 20:00: you're in, 4 in | Friday 5-a-side at 19:00: not answered, 8 in") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Sport: Won in Tuesday Tennis: Aleksandar beat Marko Petrović 6–4 6–3 | Tuesday Tennis at 20:00: you're in, 4 in | Friday 5-a-side at 19:00: not answered, 8 in") {
 		t.Errorf("the AI's sport line:\n%s", l)
 	}
 	if f := facts["tables"]; f.Headline != 2 || f.Summary != "Ana Marić at 14:30 (Clients: Visit); Logo for the bakery (Projects: Due)" {
 		t.Errorf("tables fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Tables: Ana Marić at 14:30 (Clients: Visit) in Bakery | Logo for the bakery (Projects: Due) in Work") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Tables: Ana Marić at 14:30 (Clients: Visit) in Bakery | Logo for the bakery (Projects: Due) in Work") {
 		t.Errorf("the AI's tables line:\n%s", l)
 	}
 	if f := facts["rentals"]; f.Headline != 2 || f.Summary != "Rent in: €650.00 (Flat 2 — Ana Marić); Repair reported: Leaking tap (Flat 1, Obala 12)" {
 		t.Errorf("rentals fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Rentals: Rent in: €650.00 (Flat 2 — Ana Marić) | Repair reported: Leaking tap (Flat 1, Obala 12)") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Rentals: Rent in: €650.00 (Flat 2 — Ana Marić) | Repair reported: Leaking tap (Flat 1, Obala 12)") {
 		t.Errorf("the AI's rentals line:\n%s", l)
 	}
 	if f := facts["trails"]; f.Headline != 1 || f.Summary != "Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana); Run by the river at 18:00 (planned)" {
 		t.Errorf("trails fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Outdoors: Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana) | Run by the river at 18:00 (planned)") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Outdoors: Hike: Trebević from Sarajevo (12.4 km · 980 m up · 4 h 30 min · with Ana) | Run by the river at 18:00 (planned)") {
 		t.Errorf("the AI's outdoors line:\n%s", l)
 	}
 	if f := facts["cameras"]; f.Headline != 2 || f.Summary != "1 delivery · 1 ring at the door · 2 alerts" {
@@ -762,7 +787,7 @@ func TestPocketSourcesThroughCore(t *testing.T) {
 	if f := facts["booking"]; f.Headline != 2 || f.Summary != "2 bookings: 10:00 Intro call with Ana Marić, 14:30 Consultation with Marko (waits for you); booked that day: Lejla for Intro call on 5 Jan" {
 		t.Errorf("booking fact: %+v", f)
 	}
-	if l := strings.Join(factLines(facts, true), "\n"); !strings.Contains(l, "Bookings: 2 bookings: 10:00 Intro call with Ana Marić, 14:30 Consultation with Marko (waits for you); booked that day: Lejla for Intro call on 5 Jan | Intro call with Ana Marić by video | Consultation with Marko at Obala 12") || strings.Contains(l, "example.com") {
+	if l := strings.Join(factLines(facts, true, nil), "\n"); !strings.Contains(l, "Bookings: 2 bookings: 10:00 Intro call with Ana Marić, 14:30 Consultation with Marko (waits for you); booked that day: Lejla for Intro call on 5 Jan | Intro call with Ana Marić by video | Consultation with Marko at Obala 12") || strings.Contains(l, "example.com") {
 		t.Errorf("the AI's bookings line (never the guests' emails):\n%s", l)
 	}
 	if f := facts["voice"]; f.Headline != 1 || f.Summary != "Voice memo at 08:12: Dentist, dry cleaning and photos for Amra (0:21) → 2 tasks" {
@@ -1017,4 +1042,54 @@ func TestPocketSourceEnvSeededOnce(t *testing.T) {
 	if h := e.settings(e.ownerTok).Sources["habits"]; h.Mode != "core" || h.Via != "core" {
 		t.Errorf("after disconnect: %+v", h)
 	}
+}
+
+// dayApp is an app that offers its day, in the fake Core and as a fake app.
+type dayApp struct {
+	name   string         // "Pocket Wardrobe"
+	feed   map[string]any // the manifest's "day": label, one, many, unit, what
+	body   string         // what GET /api/v1/pocket/day/{date} answers
+	status int            // …or the status it fails with
+	old    bool           // a Core from before capabilities: the row has no "target"
+}
+
+// addDayApp makes an app offer its day: Core lists it, and a fake app answers
+// for it (the existing fake when the slug already has one).
+func (w *linkWorld) addDayApp(slug string, a *dayApp) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.dayApps == nil {
+		w.dayApps = map[string]*dayApp{}
+	}
+	w.dayApps[slug] = a
+	if w.targets[slug] == nil {
+		srv := httptest.NewServer(w.target(slug))
+		w.t.Cleanup(srv.Close)
+		w.targets[slug] = srv
+	}
+}
+
+// dayRows are Core's status rows for the apps that offer their day (w.mu held).
+func (w *linkWorld) dayRows(user string) []map[string]any {
+	slugs := make([]string, 0, len(w.dayApps))
+	for slug := range w.dayApps {
+		slugs = append(slugs, slug)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(slugs))) // Core promises no order
+	out := []map[string]any{}
+	for _, slug := range slugs {
+		a := w.dayApps[slug]
+		state := "on"
+		if user != "owner@x" {
+			state = "not_in_audience"
+		} else if s, ok := w.off[slug+" "+core.ScopeDay]; ok {
+			state = s
+		}
+		row := map[string]any{"app": slug, "scope": core.ScopeDay, "state": state, "on": state == "on"}
+		if !a.old {
+			row["target"] = map[string]any{"name": a.name, "icon": "https://" + slug + ".example/favicon.svg", "url": "http://" + slug + ":8080", "public_url": "https://" + slug + ".example", "category": "Everyday", "day": a.feed}
+		}
+		out = append(out, row)
+	}
+	return out
 }

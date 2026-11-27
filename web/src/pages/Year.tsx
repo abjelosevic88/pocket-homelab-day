@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { fmtDate, todayISO } from '../lib/format'
-import { ACTIVITY, MOODS, MOOD_COLOR, MOOD_ICON, SOURCE_LABEL, WEATHER_ICON, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
+import { MOODS, MOOD_COLOR, MOOD_ICON, WEATHER_ICON, activityMeta, sourceLabel, withBrought, cap, fmtHeadline, fmtHeadlineShort, fmtKm, fmtMinutes, isActivity, type CalendarDay, type Pattern, type YearRecap } from '../lib/types'
 
+// Day's own activity sources in this order, then the ones apps brought themselves (by name).
+const byActOrder = (a: [string, unknown], b: [string, unknown]) => { const order = withBrought(ACT_ORDER); return order.indexOf(a[0]) - order.indexOf(b[0]) }
 const ACT_ORDER = ['podcasts', 'pinepods', 'audiobookshelf', 'projects', 'forgejo', 'nextcloud', 'tasks', 'birthdays', 'jellyseerr', 'documents', 'invoicing', 'puzzlecraft', 'capsule', 'math', 'karaoke', 'printfarm', 'cameras', 'gamebuilder', 'sky', 'split', 'inventory']
 import { Card, Empty, Loading, useAsync } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
@@ -79,10 +81,10 @@ export default function Year() {
           {d.listens > 0 && <div className="tile"><SourceIcon source="maloja" size={36} /><div><b>{compact(d.listens)}</b><small>songs played</small></div></div>}
           {d.watch_min > 0 && <div className="tile"><SourceIcon source="jellystat" size={36} /><div><b>{Math.round(d.watch_min / 60)} h</b><small>{d.shows.length} shows · {d.movies} films</small></div></div>}
           {spendMain > 0 && <div className="tile" title={[money(spendMain, cur, false), ...others.map(([c, v]) => money(v, c, false))].join(' + ')}><SourceIcon source="firefly" size={36} /><div><b>{money(spendMain, cur)}</b><small>spent{others.length ? ` (+ ${others.map(([c, v]) => money(v, c)).join(', ')})` : ''}</small></div></div>}
-          {Object.entries(d.activity || {}).filter(([src]) => isActivity(src)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
-            const m = ACTIVITY[src]
+          {Object.entries(d.activity || {}).filter(([src]) => isActivity(src)).sort(byActOrder).map(([src, ay]) => {
+            const m = activityMeta(src)!
             const big = m.unit === 'min' ? `${Math.round(ay.minutes / 60)} h` : m.unit === 'qty' ? compact(ay.qty) : m.unit === 'amount' ? money(ay.amount, ay.currency || cur) : compact(ay.count)
-            const small = m.unit === 'min' ? `${SOURCE_LABEL[src].toLowerCase()} · ${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}` : m.unit === 'qty' ? `${m.qtyMany} · ${ay.days} days` : m.unit === 'amount' ? `${SOURCE_LABEL[src].toLowerCase()}` : `${ay.count === 1 ? m.one : m.many}${src === 'nextcloud' ? ' done' : ''}`
+            const small = m.unit === 'min' ? `${sourceLabel(src).toLowerCase()} · ${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}` : m.unit === 'qty' ? `${m.qtyMany || sourceLabel(src).toLowerCase()} · ${ay.days} days` : m.unit === 'amount' ? `${sourceLabel(src).toLowerCase()}` : `${ay.count === 1 ? m.one : m.many}${src === 'nextcloud' ? ' done' : ''}`
             return <div key={src} className="tile"><SourceIcon source={src} size={36} /><div><b>{big}</b><small>{small}</small></div></div>
           })}
           {d.books.length > 0 && <div className="tile"><SourceIcon source="bookshelf" size={36} /><div><b>{d.books.length}</b><small>books finished</small></div></div>}
@@ -124,11 +126,11 @@ export default function Year() {
           {d.trips.length > 0 && <Card title={<><SourceIcon source="travel" size={22} />Trips</>}><div className="inline-list">{d.trips.map(t => <Link key={t.id} className="li" to={`/day/${t.start_date}`} style={{ color: 'inherit' }}><span className="swatch" style={{ background: t.color || 'var(--accent)' }} /><span className="grow"><b>{t.name}</b>{t.destination && <span className="muted"> · {t.destination}</span>}</span><span className="muted small nowrap">{fmtDate(t.start_date, false)} – {fmtDate(t.end_date, false)}</span></Link>)}</div></Card>}
           {d.conditions.length > 0 && <Card title={<><SourceIcon source="weather" size={22} />Weather</>}><WeatherBar items={d.conditions} /></Card>}
           {d.dishes.length > 0 && <Card title={<><SourceIcon source="kitchen" size={22} />Cooked most</>}><Ranked items={d.dishes} unitLabel="×" /></Card>}
-          {Object.entries(d.activity || {}).filter(([src, ay]) => isActivity(src) && (ay.top?.length || ay.titles?.length)).sort((a, b) => ACT_ORDER.indexOf(a[0]) - ACT_ORDER.indexOf(b[0])).map(([src, ay]) => {
-            const m = ACTIVITY[src]
+          {Object.entries(d.activity || {}).filter(([src, ay]) => isActivity(src) && (ay.top?.length || ay.titles?.length)).sort(byActOrder).map(([src, ay]) => {
+            const m = activityMeta(src)!
             const repeated = ['podcasts', 'pinepods', 'audiobookshelf', 'nextcloud'].includes(src) ? (ay.titles || []).filter(t => t.count > 1) : []
-            return <Card key={src} title={<><SourceIcon source={src} size={22} />{SOURCE_LABEL[src]}</>}>
-              <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', m.unit === 'qty' ? `${compact(ay.qty)} ${m.qtyMany}` : m.unit === 'amount' ? money(ay.amount, ay.currency || cur, false) : '', m.unit === 'qty' ? '' : `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
+            return <Card key={src} title={<><SourceIcon source={src} size={22} />{sourceLabel(src)}</>}>
+              <p className="muted small" style={{ margin: '0 0 10px' }}>{[m.unit === 'min' ? fmtMinutes(Math.round(ay.minutes)) : '', m.unit === 'qty' ? `${compact(ay.qty)}${m.qtyMany ? ' ' + m.qtyMany : ''}` : m.unit === 'amount' ? money(ay.amount, ay.currency || cur, false) : '', m.unit === 'qty' ? '' : `${compact(ay.count)} ${ay.count === 1 ? m.one : m.many}`, `${ay.days} days`, ay.done && m.doneLabel ? `${ay.done} ${m.doneLabel}` : ''].filter(Boolean).join(' · ')}</p>
               {ay.top?.length > 0 && <Ranked items={ay.top.slice(0, 6)} />}
               {repeated.length > 0 && <><div className="sub-head">Most often</div><Ranked items={repeated.slice(0, 4)} unitLabel="×" /></>}
             </Card>

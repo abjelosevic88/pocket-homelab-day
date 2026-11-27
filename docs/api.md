@@ -12,12 +12,12 @@ Everything belongs to the caller and nobody else sees it, admins included: entri
 | GET/PUT | `/auth/me` | profile, password change |
 | GET/POST/DELETE | `/tokens`, `/tokens/{id}` | personal access tokens |
 | GET/POST/PUT/DELETE | `/users`, `/users/{id}` | admin |
-| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`, plus for the Pocket app and third-party service sources `mode` (`core` \| `direct` \| `off`; send it to choose) and, read-only, `pocket` / `service`, `app`, `via` (`core` \| `direct` \| `""` = not connected), `detail` (why not), `key_source` (a service through Pocket Core: `personal` \| `box`); `core_configured`. Secrets come back masked; a masked value means "keep" |
+| GET/PUT | `/settings` · GET `/settings/system` | the caller's own settings plus the box-wide `title` (changing it is admin-only, 403 otherwise); `sources.{name}.{url,key,public_url,extra,enabled}`, plus for the Pocket app and third-party service sources `mode` (`core` \| `direct` \| `off`; send it to choose) and, read-only, `pocket` / `service`, `app`, `via` (`core` \| `direct` \| `""` = not connected), `detail` (why not), `key_source` (a service through Pocket Core: `personal` \| `box`); `core_configured`. Secrets come back masked; a masked value means "keep". `source_names` is the order: Day's own sources, then the ones apps brought themselves (`discovered: true`; they come through Pocket Core only, so the one thing to send is `enabled`), and `source_meta` says what those apps called them: `{name: {label, app, icon, one, many, unit, what, url}}` |
 
 ## Days
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/today` · `/days/{date}` | `{entry, moments, pins, facts: {source: {payload, headline, summary, error}}, sources, memories, prev_entry, next_entry, streak, prompt, links}` — pulls the day first if nothing is cached yet |
+| GET | `/today` · `/days/{date}` | `{entry, moments, pins, facts: {source: {payload, headline, summary, error}}, sources, source_meta, memories, prev_entry, next_entry, streak, prompt, links}` — pulls the day first if nothing is cached yet. `source_meta` describes the sources apps brought themselves (see `/settings`); their payload is the activity shape (`{count, minutes, done, amount, currency, qty, top, items, metrics}`). `/entries`, `/calendar` and `/years/{year}` carry `source_meta` too |
 | PUT | `/days/{date}` | `{highlight?, text?, mood? (0–5), tags?, pinned?}` — only sent fields change; an entry with nothing left is deleted |
 | DELETE | `/days/{date}` | remove the entry (moments and pins stay) |
 | POST | `/days/{date}/refresh` | pull every source again for that day → `{errors, facts}` |
@@ -48,7 +48,7 @@ Everything belongs to the caller and nobody else sees it, admins included: entri
 |---|---|---|
 | POST | `/facts/backfill` | the caller's own facts from their own sources, `{from?, to?, force?, sources?}` — runs in the background; `sources: ["habits"]` re-pulls only those |
 | GET | `/facts/status` | backfill progress, configured sources, days with facts |
-| POST | `/integrations/test` | `{which, url?, key?, extra?}` (empty values fall back to the caller's own saved ones); `which: notify` sends a test push. A Pocket app source is tested the way it is pulled: a typed token directly, otherwise its saved mode (Pocket Core: a fresh link token) |
+| POST | `/integrations/test` | `{which, url?, key?, extra?}` (empty values fall back to the caller's own saved ones); `which: notify` sends a test push. A Pocket app source is tested the way it is pulled: a typed token directly, otherwise its saved mode (Pocket Core: a fresh link token). `which: "app:<name>"` checks a source an app brought itself: how its link stands in Pocket Core, without calling the app |
 | GET | `/geo/search?q=` | Open-Meteo geocoding for the home location |
 | POST | `/notify/test` · `/notify/run` `{which: evening\|morning}` | |
 

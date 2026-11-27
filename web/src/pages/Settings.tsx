@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import type { APIToken, BackfillStatus, BooksState, ConnMode, LocationState, MusicState, RequestsState, WatchState, WeatherState, Settings as SettingsT, Source, SourceName, UsageRow, User } from '../lib/types'
-import { SOURCE_APP, SOURCE_LABEL } from '../lib/types'
+import { SOURCE_APP, SOURCE_LABEL, isBuiltin, sourceInfo } from '../lib/types'
 import { DATE_FORMATS, TIME_FORMATS, fmtBytes, fmtDateTime, type DateFormat, type TimeFormat } from '../lib/format'
 import { Avatar, Confirm, Field, Loading, Modal, Segmented, SettingRow, Switch, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
 import { Icon, SourceIcon } from '../components/icons'
@@ -109,7 +109,7 @@ const TestResult = ({ text }: { text?: string }) => text ? <span className={`sma
 
 // withoutModes drops the per-source modes so saving the form never pins a
 // default (a mode is only stored when chosen in a Connection).
-const withoutModes = (srcs: Record<SourceName, Source>) => Object.fromEntries(Object.entries(srcs).map(([k, v]) => [k, { ...v, mode: undefined }])) as Record<SourceName, Source>
+const withoutModes = (srcs: Record<string, Source>) => Object.fromEntries(Object.entries(srcs).map(([k, v]) => [k, { ...v, mode: undefined }])) as Record<string, Source>
 
 function useSettingsForm() {
   const { settings, setSettings, user } = useApp()
@@ -243,8 +243,8 @@ function Sources() {
     try { const r = await api.post<{ ok: boolean; message?: string; error?: string }>(`${V1}/integrations/test`, { which, url: src.url, key: src.key, extra: src.extra }); setTest(t => ({ ...t, [which]: r.ok ? `✓ ${r.message}` : `✕ ${r.error}` })) } catch (e) { setTest(t => ({ ...t, [which]: `✕ ${(e as Error).message}` })) }
   }
   const stat = (which: string) => <TestResult text={test[which]} />
-  const upd = (name: SourceName, patch: Partial<Source>) => setF({ ...f, sources: { ...f.sources, [name]: { ...f.sources[name], ...patch } } })
-  const saveSource = (name: SourceName, patch: Partial<Source>) => save({ sources: { ...withoutModes(f.sources), [name]: { ...f.sources[name], mode: undefined, ...patch } } })
+  const upd = (name: string, patch: Partial<Source>) => setF({ ...f, sources: { ...f.sources, [name]: { ...f.sources[name], ...patch } } as SettingsT['sources'] })
+  const saveSource = (name: string, patch: Partial<Source>) => save({ sources: { ...withoutModes(f.sources), [name]: { ...f.sources[name], mode: undefined, ...patch } } as SettingsT['sources'] })
   const backfill = async (force: boolean) => {
     try { const r = await api.post<{ ok: boolean; error?: string }>(`${V1}/facts/backfill`, { force }); toast(r.ok ? 'Backfill started' : r.error || 'failed', r.ok ? 'ok' : 'err'); reload() } catch (e) { toast((e as Error).message, 'err') }
   }
@@ -265,6 +265,16 @@ function Sources() {
       </Section>
       {f.source_names.map(name => {
         const src = f.sources[name]
+        if (!src) return null
+        if (!isBuiltin(name)) {
+          // a source an app brought itself: Day has no help text, URL or key for it, only the app's own words and a switch
+          const info = sourceInfo(name)
+          const what = info.what ? `${info.what.replace(/[.\s]+$/, '')}. ${info.app} was` : `What ${info.app} says happened on your day. It was`
+          return <Section key={name} source={name} title={<>{info.app} <span className="muted">— {info.label.toLowerCase()}</span></>} sub={`${what} found through Pocket Core: there is nothing to set up here.`} actions={connBadge(src.enabled ? 'core' : 'off', src.via)}>
+            <BroughtConnection app={info.app} src={src} onSwitch={on => saveSource(name, { enabled: on })}
+              test={<><button type="button" className="btn sm" onClick={() => run(`app:${name}`, src)}>Test connection</button>{stat(`app:${name}`)}</>} />
+          </Section>
+        }
         const help = SOURCE_HELP[name]
         if (src.pocket) return <Section key={name} source={name} title={title(name)} sub={help.what} actions={connBadge(src.mode || 'off', src.via)}>
           <Connection app={src.app || SOURCE_APP[name]} mode={src.mode || 'off'} via={src.via} detail={src.detail || ''} core={core} hasToken={!!src.key || !!src.url}
@@ -364,6 +374,28 @@ function Connection({ app, mode, via, detail, core, onMode, onDisconnect, hasTok
       </>}
       {mode === 'core' && <div className="row wrap">{test}</div>}
       {mode !== 'off' && extra}
+    </div>
+  )
+}
+
+// BroughtConnection is the connection of a source an app brought itself: it
+// comes through Pocket Core only, as you, so there is no Direct mode and
+// nothing to paste. You can switch it off for yourself here.
+function BroughtConnection({ app, src, onSwitch, test }: { app: string; src: Source; onSwitch: (on: boolean) => void; test: React.ReactNode }) {
+  const ok = src.via !== ''
+  const line = !src.enabled ? `Off: Day does not read ${app}.`
+    : ok ? 'Connected through Pocket Core, as you. Nothing to fill in; switch it off for yourself here or in Pocket Core → Settings → Apps acting for me.'
+    : `Not connected: ${src.detail || 'the link is off in Pocket Core'}.`
+  return (
+    <div className="conn-block">
+      <div className="conn-mode">
+        <Segmented size="sm" value={src.enabled ? 'core' : 'off'} onChange={m => onSwitch(m === 'core')} options={[
+          { value: 'core', label: 'Pocket Core', title: 'Through Pocket Core: per person, nothing to paste' },
+          { value: 'off', label: 'Off' },
+        ]} />
+      </div>
+      <div className={`conn-status ${!src.enabled ? '' : ok ? 'ok' : 'bad'}`}><span className="dot" />{line}</div>
+      {src.enabled && <div className="row wrap">{test}</div>}
     </div>
   )
 }

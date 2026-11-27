@@ -126,7 +126,7 @@ func (s *Store) Backup(ctx context.Context, dst string) error {
 var Tables = []string{"entries", "moments", "pins", "facts", "ai_stories", "ai_asks", "users", "api_tokens"}
 
 // ContentTables carry a user_id on every row (the per-person data).
-var ContentTables = []string{"entries", "moments", "pins", "facts", "ai_stories", "ai_asks", "ai_usage", "user_settings"}
+var ContentTables = []string{"entries", "moments", "pins", "facts", "source_meta", "ai_stories", "ai_asks", "ai_usage", "user_settings"}
 
 // Counts returns row counts per table.
 func (s *Store) Counts(ctx context.Context) map[string]int {

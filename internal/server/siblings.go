@@ -286,7 +286,8 @@ func (s *Server) directDetail(ctx context.Context, name string, src store.Source
 }
 
 // sourceStates evaluates every source for a person, with at most one call
-// to Pocket Core (only when a source is in Pocket Core mode).
+// to Pocket Core (only when a source is in Pocket Core mode), plus one a
+// minute for the sources apps bring themselves.
 func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Settings) map[string]sourceState {
 	out := make(map[string]sourceState, len(store.SourceNames))
 	coreOK := s.core.Configured()
@@ -363,6 +364,11 @@ func (s *Server) sourceStates(ctx context.Context, u *store.User, st store.Setti
 			applyDictation(&ss, coreOK && u != nil, getLinks)
 		}
 		out[n] = ss
+	}
+	// the sources apps brought themselves: on while their link is, unless the
+	// person switched them off here (discovered.go)
+	for _, d := range s.discovered(ctx, u) {
+		out[d.name] = discoveredState(d, st)
 	}
 	return out
 }

@@ -1,4 +1,6 @@
 // Minimal fetch wrapper for the JSON API.
+import { setSourceMeta } from './types'
+
 export class ApiError extends Error {
   status: number
   data: Record<string, unknown>
@@ -30,7 +32,11 @@ async function request<T>(method: string, url: string, body?: unknown, raw = fal
   }
   if (raw) return (await res.text()) as unknown as T
   if (res.status === 204) return undefined as T
-  return res.json()
+  const data = await res.json()
+  // Answers that list sources say what the apps that brought their own are
+  // called (source_meta): kept in one place, before anything renders them.
+  if (data && typeof data === 'object' && 'source_meta' in data) setSourceMeta(data.source_meta)
+  return data
 }
 
 export const api = {

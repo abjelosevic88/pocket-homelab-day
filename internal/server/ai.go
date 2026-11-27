@@ -572,8 +572,9 @@ func (s *Server) moodPatterns(ctx context.Context, u *store.User, from, to strin
 		}},
 		{"on a trip", "travel", func(f store.Fact) bool { return f.Headline > 0 }},
 	}
-	for _, name := range activityOrder() {
-		m := sources.Activities[name]
+	more := s.keptActivities(ctx, u.ID)
+	for _, name := range activityOrder(more) {
+		m, _ := more.Meta(name)
 		tests = append(tests, test{m.Verb, name, func(f store.Fact) bool { return f.Headline > 0 }})
 	}
 	var out []Pattern

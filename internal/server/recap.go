@@ -91,6 +91,8 @@ type yearRecap struct {
 	BusiestDay  string                   `json:"busiest_day"`
 	FarthestDay string                   `json:"farthest_day"`
 	WeekdayMood [8]float64               `json:"weekday_mood"`
+	// SourceMeta describes the sources apps brought themselves (discovered.go).
+	SourceMeta map[string]store.SourceMeta `json:"source_meta,omitempty"`
 }
 
 func (s *Server) handleYears(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +148,7 @@ func (s *Server) handleYear(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "year")
 		return
 	}
+	rec.SourceMeta = s.sourceMetas(r.Context(), userFrom(r.Context()))
 	writeJSON(w, http.StatusOK, rec)
 }
 
@@ -223,13 +226,14 @@ func (s *Server) buildYear(ctx context.Context, u *store.User, year int) (*yearR
 	weatherN := make([]int, 12)
 	bestKm, bestPhotos := 0.0, 0
 	seenTrip := map[int64]bool{}
+	more := s.keptActivities(ctx, u.ID) // the activity sources apps brought themselves
 	for _, f := range facts {
 		if f.Error != "" && len(f.Payload) <= 4 {
 			continue
 		}
 		mi := monthIndex(f.Date)
 		daysWithFacts[f.Date] = true
-		if sources.IsActivity(f.Source) {
+		if more.Is(f.Source) {
 			var a sources.Activity
 			if json.Unmarshal(f.Payload, &a) == nil && a.Count > 0 {
 				ay := rec.Activity[f.Source]

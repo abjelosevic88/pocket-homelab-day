@@ -15,10 +15,14 @@ import (
 
 func timeNow() time.Time { return time.Now() }
 
-// summaryLine joins the one-line summaries of a day's facts, most telling first.
-func summaryLine(facts map[string]store.Fact, max int) string {
+// summaryLine joins the one-line summaries of a day's facts, most telling
+// first. brought are the person's sources that apps brought themselves
+// (discovered.go), by name: what the person did there comes before the sky
+// and the weather, which have something to say every day.
+func summaryLine(facts map[string]store.Fact, max int, brought []string) string {
 	var parts []string
-	for _, n := range []string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "still", "garage", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "booking", "horoscope", "weather"} {
+	order := append([]string{"travel", "dawarich", "immich", "maloja", "jellystat", "bookshelf", "kitchen", "firefly", "habits", "health", "still", "garage", "home", "renewals", "wealth", "pets", "parcels", "sign", "places", "voice", "wallet", "fitness", "nutrition", "blog", "chat", "forms", "crm", "league", "tables", "rentals", "trails", "booking"}, brought...)
+	for _, n := range append(order, "horoscope", "weather") {
 		f, ok := facts[n]
 		if !ok || f.Error != "" || f.Summary == "" {
 			continue
@@ -108,7 +112,7 @@ func (s *Server) sendEvening(ctx context.Context, u *store.User, force bool) (in
 		}
 	}
 	facts, _ := s.store.FactsForDay(ctx, u.ID, today)
-	body := summaryLine(facts, 4)
+	body := summaryLine(facts, 4, s.keptActivities(ctx, u.ID).Names())
 	if body == "" {
 		body = "Nothing pulled in yet."
 	}
@@ -143,7 +147,7 @@ func (s *Server) sendMorning(ctx context.Context, u *store.User, force bool) (in
 	yesterday := store.AddDays(today, -1)
 	facts, _ := s.store.FactsForDay(ctx, u.ID, yesterday)
 	var lines []string
-	if sum := summaryLine(facts, 5); sum != "" {
+	if sum := summaryLine(facts, 5, s.keptActivities(ctx, u.ID).Names()); sum != "" {
 		lines = append(lines, "Yesterday: "+sum)
 	}
 	mem, _ := s.store.Memories(ctx, u.ID, today)
@@ -257,7 +261,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"streak": cur, "longest_streak": longest, "entries_month": stats.ThisMonth, "entries_year": stats.ThisYear, "entries_total": stats.Total,
 		"mood_month": round1(stats.MoodMonth), "memories": len(mem),
 		"photos_today": int(head("immich")), "km_today": head("dawarich"), "listens_today": int(head("maloja")), "watch_min_today": int(head("jellystat")), "spend_today": head("firefly"),
-		"habits_today_pct": head("habits"), "today_summary": summaryLine(facts, 3),
+		"habits_today_pct": head("habits"), "today_summary": summaryLine(facts, 3, s.keptActivities(ctx, u.ID).Names()),
 	})
 }
 

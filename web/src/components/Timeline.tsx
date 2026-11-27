@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { locationTime, timelineOrder } from '../lib/locationTime'
-import { ACTIVITY, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type BookingDay, type TrailsDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
+import { activityMeta, activitySources, KIND_ICON, fmtAmount, fmtKm, fmtMinutes, type Activity, type Cooked, type Fact, type HealthDay, type StillDay, type HomeDay, type RenewalsDay, type WealthDay, type PetsDay, type ParcelsDay, type SignDay, type PlacesDay, type VoiceDay, type WalletDay, type FitnessDay, type NutritionDay, type BlogDay, type ChatDay, type FormsDay, type CRMDay, type LeagueDay, type TablesDay, type RentalsDay, type BookingDay, type TrailsDay, type HoroscopeDay, type Moment, type Money, type Music, type Photo, type Photos, type Reading, type Watched, type Where } from '../lib/types'
 import { fmtDate } from '../lib/format'
 import { Card, Segmented, useToast } from './ui'
 import { Icon, SourceIcon } from './icons'
@@ -101,11 +101,12 @@ function buildItems(facts: Record<string, Fact>, moments: Moment[], unit: 'km' |
   const reading = p<Reading>('bookshelf')
   for (const [i, r] of (reading?.sessions || []).entries()) timed.push({ time: r.time, end: r.end !== r.time ? r.end : undefined, key: `r${i}`, icon: src('bookshelf'), kind: 'read', title: `Read ${r.title}`, sub: `${r.pages ? `${r.pages} pages` : `${r.percent || 1}% of the book`} in ${r.estimated ? '~' : ''}${fmtMinutes(r.minutes)}` })
   for (const s of money?.items || []) (s.time ? timed : untimed).push({ time: s.time, key: `t${s.id}`, icon: src('firefly'), kind: 'money', title: s.description, sub: fmtAmount(s.amount, s.currency) })
-  for (const source of Object.keys(ACTIVITY)) {
+  for (const source of activitySources()) { // Day's own activity sources, then the ones apps brought
     const a = p<Activity>(source)
+    const doneLabel = activityMeta(source)?.doneLabel
     for (const [i, it] of (a?.items || []).entries()) {
       const extra = (it.minutes || 0) >= 1 ? fmtMinutes(Math.round(it.minutes || 0)) : it.amount ? fmtAmount(it.amount, it.currency || a?.currency || 'EUR') : ''
-      const item: Item = { time: it.time || '', end: it.end && it.end !== it.time ? it.end : undefined, key: `${source}${i}`, icon: src(source), kind: 'act', title: it.title + (it.done && ACTIVITY[source].doneLabel ? ` · ${ACTIVITY[source].doneLabel}` : ''), sub: [it.sub, it.note, extra].filter(Boolean).join(' · ') || undefined }
+      const item: Item = { time: it.time || '', end: it.end && it.end !== it.time ? it.end : undefined, key: `${source}${i}`, icon: src(source), kind: 'act', title: it.title + (it.done && doneLabel ? ` · ${doneLabel}` : ''), sub: [it.sub, it.note, extra].filter(Boolean).join(' · ') || undefined }
       ;(item.time ? timed : untimed).push(item)
     }
   }
