@@ -113,9 +113,11 @@ func (c *discoveryCache) forget(email string) {
 // handWritten are the Core slugs of the apps Day already reads with a source
 // of its own: the Pocket app sources (contacts and money among them) and the
 // six apps that feed a source (movement, music, audiobooks, requests, watch,
-// weather). They are not discovered a second time.
+// weather). They are not discovered a second time. Pocket Photos is one of
+// them too: it shows the Immich library the "immich" source already reads, so
+// its day would put the same photos on the page twice.
 var handWritten = sync.OnceValue(func() map[string]bool {
-	out := map[string]bool{"day": true} // never itself
+	out := map[string]bool{"day": true, "photos": true} // never itself
 	for _, ps := range pocketSources {
 		out[ps.slug] = true
 	}
